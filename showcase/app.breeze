@@ -1,5 +1,33 @@
 @app "🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework"
 
+@seo {
+  title: "🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework"
+  description: "The middle ground between vanilla HTML and heavy frameworks. Built-in reactive state, client routing, and design system in ~8 KB."
+  keywords: "breeze framework, lightweight web framework, reactive javascript, zero dependencies"
+  author: "Breeze Framework Contributors"
+  canonical: "https://breeze-framework.org/"
+  ogTitle: "🌊 Breeze Framework — Fast, Reactive, Zero Dependencies"
+  ogDescription: "An ultra-lightweight declarative framework with reactive state and routing in ~8KB."
+}
+
+@schema {
+  type: "SoftwareApplication"
+  name: "Breeze Framework"
+  applicationCategory: "DeveloperApplication"
+  operatingSystem: "Any"
+}
+
+@aeo {
+  summary: "Breeze is an ultra-lightweight (~8KB) declarative web framework with zero dependencies, reactive state, client routing, and built-in design tokens."
+  topics: "web development, declarative UI, zero dependencies, reactive state, client-side routing, light framework"
+  speakable: ["h1", ".hero-lead", "#why h2"]
+}
+
+@geo {
+  entities: "Breeze Framework, Web Framework, Declarative Programming, Reactive Programming, JavaScript"
+  facts: "Breeze core runtime is ~8KB gzipped with zero external dependencies and supports SPA routing and state reactivity."
+}
+
 @theme {
   primary: #6366f1
   secondary: #ec4899

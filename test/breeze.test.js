@@ -130,8 +130,125 @@ describe('Breeze Framework Core', () => {
     assert.ok(appNode);
     assert.ok(appNode.text.includes('Breeze'));
 
+    const seoNode = ast.find(n => n.type === 'seo');
+    assert.ok(seoNode);
+    assert.equal(seoNode.props.author, 'Breeze Framework Contributors');
+
+    const schemaNode = ast.find(n => n.type === 'schema');
+    assert.ok(schemaNode);
+    assert.equal(schemaNode.props.type, 'SoftwareApplication');
+
+    const aeoNode = ast.find(n => n.type === 'aeo');
+    assert.ok(aeoNode);
+    assert.ok(aeoNode.props.summary.includes('Breeze'));
+
+    const geoNode = ast.find(n => n.type === 'geo');
+    assert.ok(geoNode);
+    assert.ok(geoNode.props.entities.includes('Breeze Framework'));
+
     const navNode = ast.find(n => n.type === 'nav');
     assert.ok(navNode);
     assert.ok(navNode.children.length > 3);
+  });
+
+  it('should parse @seo, @schema, @aeo, and @geo directives into AST nodes', () => {
+    const source = [
+      '@app "My App"',
+      '@seo {',
+      '  title: "SEO Title"',
+      '  description: "Meta description text"',
+      '  canonical: "https://example.com/app"',
+      '}',
+      '@schema {',
+      '  type: "WebSite"',
+      '  name: "Example Site"',
+      '}',
+      '@aeo {',
+      '  summary: "Brief AI summary"',
+      '  topics: "web, tech"',
+      '  speakable: ["h1", "p"]',
+      '}',
+      '@geo {',
+      '  entities: "Entity One, Entity Two"',
+      '  facts: "Fact one about the app"',
+      '}'
+    ].join('\n');
+
+    const ast = Breeze.parse(source);
+    assert.ok(Array.isArray(ast));
+
+    const seo = ast.find(n => n.type === 'seo');
+    assert.ok(seo);
+    assert.equal(seo.props.title, 'SEO Title');
+    assert.equal(seo.props.description, 'Meta description text');
+    assert.equal(seo.props.canonical, 'https://example.com/app');
+
+    const schema = ast.find(n => n.type === 'schema');
+    assert.ok(schema);
+    assert.equal(schema.props.type, 'WebSite');
+    assert.equal(schema.props.name, 'Example Site');
+
+    const aeo = ast.find(n => n.type === 'aeo');
+    assert.ok(aeo);
+    assert.equal(aeo.props.summary, 'Brief AI summary');
+    assert.deepEqual(aeo.props.speakable, ['h1', 'p']);
+
+    const geo = ast.find(n => n.type === 'geo');
+    assert.ok(geo);
+    assert.equal(geo.props.entities, 'Entity One, Entity Two');
+    assert.equal(geo.props.facts, 'Fact one about the app');
+  });
+
+  it('should support chainable programmatic SEO, Schema, AEO, and GEO API methods', () => {
+    assert.equal(typeof Breeze.seo, 'function');
+    assert.equal(typeof Breeze.schema, 'function');
+    assert.equal(typeof Breeze.aeo, 'function');
+    assert.equal(typeof Breeze.geo, 'function');
+
+    // In Node (non-browser), methods gracefully no-op and return Breeze for chaining
+    assert.equal(Breeze.seo({ title: 'Test' }), Breeze);
+    assert.equal(Breeze.schema({ type: 'SoftwareApplication' }), Breeze);
+    assert.equal(Breeze.aeo({ summary: 'Summary' }), Breeze);
+    assert.equal(Breeze.geo({ entities: 'Test' }), Breeze);
+  });
+
+  it('should correctly pre-render static head tags, JSON-LD, sitemap, and robots via CLI', () => {
+    const { extractSeoAndHead } = require('../breeze-cli.js');
+    const source = [
+      '@app "CLI App"',
+      '@seo {',
+      '  title: "CLI SEO Title"',
+      '  description: "CLI Meta description"',
+      '  canonical: "https://mysite.com/"',
+      '  image: "https://mysite.com/cover.png"',
+      '}',
+      '@schema {',
+      '  type: "SoftwareApplication"',
+      '  name: "CLI App"',
+      '}',
+      '@aeo {',
+      '  summary: "AEO summary statement"',
+      '  topics: "AEO, search"',
+      '}',
+      '@geo {',
+      '  entities: "Entity A, Entity B"',
+      '  facts: "Fact statement for GEO"',
+      '}'
+    ].join('\n');
+
+    const result = extractSeoAndHead(source);
+    assert.equal(result.title, 'CLI SEO Title');
+    assert.equal(result.canonicalUrl, 'https://mysite.com/');
+
+    const metaStr = result.metaTags.join('\n');
+    assert.ok(metaStr.includes('name="description" content="CLI Meta description"'));
+    assert.ok(metaStr.includes('rel="canonical" href="https://mysite.com/"'));
+    assert.ok(metaStr.includes('property="og:image" content="https://mysite.com/cover.png"'));
+    assert.ok(metaStr.includes('name="ai:summary" content="AEO summary statement"'));
+    assert.ok(metaStr.includes('name="geo:entities" content="Entity A, Entity B"'));
+
+    assert.ok(result.jsonLd);
+    assert.equal(result.jsonLd['@type'], 'SoftwareApplication');
+    assert.equal(result.jsonLd.name, 'CLI App');
   });
 });
