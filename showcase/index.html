@@ -39,6 +39,7 @@
           <a href="#capabilities">Capabilities</a>
           <a href="#architecture">How It Works</a>
           <a href="#examples">Code Spec</a>
+          <a href="#optimization">GEO · AEO · SEO</a>
           <a href="#cli">CLI Workflow</a>
           <a href="#size">Size Metrics</a>
           <a href="#comparison">Comparison</a>
@@ -442,9 +443,149 @@
     </section>
 
 
+    <!-- ── 6. Native GEO, AEO & SEO Optimization ────────────────────────── -->
+    <section class="section" id="optimization">
+      <div class="section-tag">Section 06 · AI & Discovery</div>
+      <h2>Native GEO, AEO & SEO Engine</h2>
+      <p class="section-intro">
+        Modern web applications aren't just indexed by traditional search crawlers—they are ingested, cited, and summarized by LLMs and conversational answer engines. Breeze is the first micro-framework with native, first-class directives for search, answer engines, and generative AI optimization.
+      </p>
+
+      <div class="dilemma-grid" style="margin-bottom: 2rem;">
+        <!-- Traditional SEO Card -->
+        <div class="dilemma-card" style="border-left: 4px solid var(--c-tomato);">
+          <div class="dilemma-title">
+            <h3>Traditional SEO</h3>
+            <span class="spec-stamp tomato">Web Crawlers</span>
+          </div>
+          <p>Automated meta tags, OpenGraph previews, Twitter cards, and canonical links. Pre-rendered statically into <code>dist/index.html</code> during <code>breeze build</code> alongside automated <code>sitemap.xml</code>.</p>
+          <ul class="dilemma-list" style="margin-top: 1rem;">
+            <li><span class="badge-green">✔</span> Zero-JS crawler indexing (Googlebot, Bingbot)</li>
+            <li><span class="badge-green">✔</span> Automated <code>sitemap.xml</code> with canonical paths</li>
+            <li><span class="badge-green">✔</span> Standard OpenGraph & Twitter card previews</li>
+          </ul>
+        </div>
+
+        <!-- Answer Engine Optimization (AEO) Card -->
+        <div class="dilemma-card" style="border-left: 4px solid var(--c-slime);">
+          <div class="dilemma-title">
+            <h3>Answer Engine Opt. (AEO)</h3>
+            <span class="spec-stamp slime">Answer Engines</span>
+          </div>
+          <p>Structured summary vectors (<code>ai:summary</code>) and target entity key points (<code>ai:key_points</code>) coupled with Schema.org <code>SpeakableSpecification</code> selectors for voice & answer engines.</p>
+          <ul class="dilemma-list" style="margin-top: 1rem;">
+            <li><span class="badge-green">✔</span> Direct answers for Perplexity, Copilot, Siri</li>
+            <li><span class="badge-green">✔</span> Automated JSON-LD structured data via <code>@schema</code></li>
+            <li><span class="badge-green">✔</span> Speakable DOM selectors for voice agents</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="dilemma-card solution" style="margin-bottom: 2rem;">
+        <div class="dilemma-title">
+          <h3>Generative Engine Optimization (GEO) & LLM Ingestion</h3>
+          <span class="spec-stamp">AI Knowledge Graphs</span>
+        </div>
+        <p>
+          Generative Engine Optimization structures content so LLMs (ChatGPT, Claude, Gemini, DeepSeek) reliably cite your web application in RAG context windows without hallucinations. Breeze pairs <code>@geo</code> entity declarations with standard <code>llms.txt</code> and <code>llms-full.txt</code> machine-readable specifications.
+        </p>
+      </div>
+
+      <!-- Live Code Spec for Optimization -->
+      <div class="code-showcase-grid">
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">@seo & @schema Directives</span>
+            <span class="spec-stamp">Static & Social</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-directive">@seo</span> {
+  title: <span class="syn-string">"Breeze Framework"</span>
+  description: <span class="syn-string">"Ultra-lightweight web framework in ~8KB."</span>
+  canonical: <span class="syn-string">"https://breeze-framework.org/"</span>
+  image: <span class="syn-string">"/assets/og-cover.png"</span>
+}
+
+<span class="syn-directive">@schema</span> {
+  type: <span class="syn-string">"SoftwareApplication"</span>
+  name: <span class="syn-string">"Breeze Framework"</span>
+  applicationCategory: <span class="syn-string">"DeveloperApplication"</span>
+  operatingSystem: <span class="syn-string">"Any"</span>
+}</code></pre>
+          <div class="snippet-footer">Generates HTML meta tags, OpenGraph cards, Twitter cards, and JSON-LD script tags.</div>
+        </div>
+
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">@aeo & @geo Directives</span>
+            <span class="spec-stamp slime">Voice & AI Agents</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-directive">@aeo</span> {
+  summary: <span class="syn-string">"Breeze is an 8KB zero-dependency reactive framework."</span>
+  topics: <span class="syn-string">"web framework, reactive state, client routing"</span>
+  speakable: [<span class="syn-string">"h1"</span>, <span class="syn-string">".hero-lead"</span>, <span class="syn-string">"#faq .faq-answer"</span>]
+}
+
+<span class="syn-directive">@geo</span> {
+  entities: <span class="syn-string">"Breeze Framework, Web Architecture, Reactive UI"</span>
+  facts: <span class="syn-string">"8.21 KB runtime, 0 dependencies, built-in router and state."</span>
+}</code></pre>
+          <div class="snippet-footer">Injects <code>ai:summary</code>, <code>geo:entities</code>, and Schema.org Speakable specifications.</div>
+        </div>
+      </div>
+
+      <!-- Automated Crawlers / Bots Table or Terminal Showcase -->
+      <div class="cli-container" style="margin-top: 2rem;">
+        <div class="terminal-box">
+          <div class="terminal-bar">
+            <div class="terminal-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span style="font-size: 0.76rem; color: #94A3B8;">dist/robots.txt · automated AI search crawler routing</span>
+          </div>
+          <div class="terminal-content">
+            <div class="terminal-out" style="color: #E2E8F0;">
+              # Breeze Automated Discovery Architecture<br>
+              User-agent: *<br>
+              Allow: /<br><br>
+              # AI Search Engines & Conversational Agents<br>
+              User-agent: GPTBot<br>
+              Allow: /<br>
+              User-agent: ClaudeBot<br>
+              Allow: /<br>
+              User-agent: PerplexityBot<br>
+              Allow: /<br>
+              User-agent: Google-Extended<br>
+              Allow: /<br><br>
+              Sitemap: https://breeze-framework.org/sitemap.xml
+            </div>
+          </div>
+        </div>
+
+        <div class="cli-command-card">
+          <h4>Discovery Pipeline Highlights</h4>
+
+          <div class="cli-command-item">
+            <code>Zero-JS Crawler Pre-Rendering</code>
+            <p>During <code>breeze build</code>, <code>extractSeoAndHead()</code> embeds all meta tags directly into static HTML <code>&lt;head&gt;</code>, ensuring immediate indexing even without JavaScript execution.</p>
+          </div>
+
+          <div class="cli-command-item">
+            <code>Automated sitemap.xml & robots.txt</code>
+            <p>Build step automatically generates production-ready sitemaps and permissive AI crawler configurations referencing <code>llms.txt</code>.</p>
+          </div>
+
+          <div class="cli-command-item">
+            <code>Programmatic Runtime API</code>
+            <p>Modify discovery metadata dynamically using <code>Breeze.seo()</code>, <code>Breeze.aeo()</code>, <code>Breeze.geo()</code>, and <code>Breeze.schema()</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
     <!-- ── 7. Actual CLI Workflow (No Playground) ────────────────────────── -->
     <section class="section" id="cli">
-      <div class="section-tag">Section 06 · Developer Workflow</div>
+      <div class="section-tag">Section 07 · Developer Workflow</div>
       <h2>CLI Tooling & Local Workflow</h2>
       <p class="section-intro">
         A complete zero-dependency command line interface that handles development, live reload, and production compilation.
@@ -515,7 +656,7 @@
 
     <!-- ── 8. Real-Time Size / Lightweight Section ──────────────────────── -->
     <section class="section" id="size">
-      <div class="section-tag">Section 07 · Verified Footprint</div>
+      <div class="section-tag">Section 08 · Verified Footprint</div>
       <h2>Engineered for Minimal Weight</h2>
       <p class="section-intro">
         Measured directly from the repository source code. No simulated benchmarks, no fabricated metrics.
@@ -582,7 +723,7 @@
 
     <!-- ── 9. Objective Comparison Table ────────────────────────────────── -->
     <section class="section" id="comparison">
-      <div class="section-tag">Section 08 · Objective Analysis</div>
+      <div class="section-tag">Section 09 · Objective Analysis</div>
       <h2>Framework Comparison</h2>
       <p class="section-intro">
         A fair, factual comparison across key technical dimensions.
@@ -665,7 +806,7 @@
 
     <!-- ── 10. Who Is Breeze For? ───────────────────────────────────────── -->
     <section class="section" id="audience">
-      <div class="section-tag">Section 09 · Target Applications</div>
+      <div class="section-tag">Section 10 · Target Applications</div>
       <h2>Who Is Breeze For?</h2>
       <p class="section-intro">
         Breeze is not trying to replace React for a complex bank portal. It is built for the thousands of projects that need reactivity without industrial-grade baggage.
@@ -713,7 +854,7 @@
 
     <!-- ── 11. Technical FAQ ─────────────────────────────────────────────── -->
     <section class="section" id="faq">
-      <div class="section-tag">Section 10 · Clarifications</div>
+      <div class="section-tag">Section 11 · Clarifications</div>
       <h2>Frequently Asked Questions</h2>
       <p class="section-intro">
         Straightforward answers regarding architecture, capabilities, and production readiness.
@@ -774,6 +915,13 @@
           <summary class="faq-question">Is Breeze suitable for production environments?</summary>
           <div class="faq-answer">
             Yes. Breeze compiles with <code>breeze build --spa --minify</code> into a production-ready, self-contained HTML bundle that can be deployed on Vercel, Netlify, Cloudflare Pages, GitHub Pages, or any static hosting service with zero configuration.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">How does Breeze support GEO, AEO, and SEO natively?</summary>
+          <div class="faq-answer">
+            Breeze includes native top-level directives: <code>@seo</code> for automated OpenGraph, Twitter cards, meta descriptions, and canonical tags; <code>@schema</code> for JSON-LD structured data; <code>@aeo</code> for AI answer engine summaries and voice speakable selectors; and <code>@geo</code> for entity and fact citation mapping. During <code>breeze build</code>, these directives are pre-rendered into static HTML, and production <code>sitemap.xml</code> and <code>robots.txt</code> files (configured for Googlebot, GPTBot, ClaudeBot, and PerplexityBot) are automatically generated with zero plugins required.
           </div>
         </details>
 

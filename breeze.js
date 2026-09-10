@@ -50,24 +50,31 @@
         // Indentation level = number of leading spaces
         const indent = rawLine.search(/\S/);
 
-        // ── Special block: @theme { key: value ... } ───────────────────
-        if (trimmed.startsWith('@theme')) {
-          const themeNode = { type: 'theme', props: {} };
+        // ── Special block directives: @theme, @seo, @schema, @aeo, @geo { key: value ... }
+        const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
+        if (blockMatch) {
+          const blockType = blockMatch[1];
+          const blockNode = { type: blockType, props: {} };
           i++;
           while (i < lines.length) {
             const tl = lines[i].trim();
             if (tl === '}') { i++; break; }
-            if (tl && !tl.startsWith('//')) {
+            if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
               const ci = tl.indexOf(':');
               if (ci !== -1) {
                 const k = tl.substring(0, ci).trim();
-                const v = tl.substring(ci + 1).trim().replace(/^["']|["']$/g, '');
-                themeNode.props[k] = v;
+                let v = tl.substring(ci + 1).trim();
+                try {
+                  v = JSON.parse(v);
+                } catch (_) {
+                  v = v.replace(/^["']|["']$/g, '');
+                }
+                blockNode.props[k] = v;
               }
             }
             i++;
           }
-          root.push(themeNode);
+          root.push(blockNode);
           continue;
         }
 
@@ -382,6 +389,10 @@
       if (!node) return null;
       switch (node.type) {
         case 'theme':   this.applyTheme(node.props);                   return null;
+        case 'seo':     this.applySEO(node.props);                     return null;
+        case 'schema':  this.applySchema(node.props);                  return null;
+        case 'aeo':     this.applyAEO(node.props);                     return null;
+        case 'geo':     this.applyGEO(node.props);                     return null;
         case 'app':     document.title = node.text || 'Breeze App';    return null;
         case 'state':   State.set(node.key, node.value);               return null;
         case 'style':   this.injectStyle(node.text);                   return null;
@@ -424,6 +435,113 @@
       const s = document.createElement('style');
       s.textContent = css;
       document.head.appendChild(s);
+    },
+
+    // ── Native SEO, AEO, and GEO ──────────────────────────────────────
+
+    applySEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      if (props.title) document.title = props.title;
+
+      const setMeta = (attrName, attrVal, content) => {
+        if (!content) return;
+        let el = document.querySelector(`meta[${attrName}="${attrVal}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute(attrName, attrVal);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', content);
+      };
+
+      setMeta('name', 'description', props.description);
+      setMeta('name', 'keywords', props.keywords);
+      setMeta('name', 'author', props.author);
+      setMeta('name', 'robots', props.robots || 'index, follow');
+
+      if (props.canonical) {
+        let canon = document.querySelector('link[rel="canonical"]');
+        if (!canon) {
+          canon = document.createElement('link');
+          canon.setAttribute('rel', 'canonical');
+          document.head.appendChild(canon);
+        }
+        canon.setAttribute('href', props.canonical);
+      }
+
+      // OpenGraph
+      setMeta('property', 'og:title', props.ogTitle || props.title);
+      setMeta('property', 'og:description', props.ogDescription || props.description);
+      setMeta('property', 'og:image', props.image || props.ogImage);
+      setMeta('property', 'og:url', props.canonical || props.ogUrl);
+      setMeta('property', 'og:type', props.type || 'website');
+
+      // Twitter Cards
+      setMeta('name', 'twitter:card', props.twitterCard || 'summary_large_image');
+      setMeta('name', 'twitter:title', props.twitterTitle || props.title);
+      setMeta('name', 'twitter:description', props.twitterDescription || props.description);
+      setMeta('name', 'twitter:image', props.image || props.twitterImage);
+    },
+
+    applySchema(props) {
+      if (!props || typeof document === 'undefined') return;
+      let script = document.querySelector('script[data-breeze-schema]');
+      if (!script) {
+        script = document.createElement('script');
+        script.type = 'application/ld+json';
+        script.setAttribute('data-breeze-schema', '');
+        document.head.appendChild(script);
+      }
+      const schemaData = Object.assign({
+        '@context': 'https://schema.org',
+        '@type': props.type || 'WebSite'
+      }, props);
+      script.textContent = JSON.stringify(schemaData, null, 2);
+    },
+
+    applyAEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      const setMeta = (name, val) => {
+        if (!val) return;
+        let el = document.querySelector(`meta[name="${name}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute('name', name);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', val);
+      };
+      setMeta('ai:summary', props.summary);
+      setMeta('ai:key_points', props.topics || props.keyPoints);
+
+      if (props.speakable) {
+        const selectors = Array.isArray(props.speakable)
+          ? props.speakable
+          : String(props.speakable).split(',').map(s => s.trim());
+        this.applySchema({
+          type: 'WebPage',
+          speakable: {
+            '@type': 'SpeakableSpecification',
+            cssSelector: selectors
+          }
+        });
+      }
+    },
+
+    applyGEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      const setMeta = (name, val) => {
+        if (!val) return;
+        let el = document.querySelector(`meta[name="${name}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute('name', name);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', val);
+      };
+      setMeta('geo:entities', props.entities);
+      setMeta('geo:facts', props.facts);
     },
 
     // ── Layout elements ───────────────────────────────────────────────
@@ -1015,6 +1133,12 @@
     setState(key, value) { State.set(key, value); return this; },
     push(key, item)      { State.push(key, item); return this; },
     remove(key, index)   { State.remove(key, index); return this; },
+
+    // ── SEO, AEO, and GEO API ─────────────────────────────────────────
+    seo(config)          { Renderer.applySEO(config); return this; },
+    schema(data)         { Renderer.applySchema(data); return this; },
+    aeo(config)          { Renderer.applyAEO(config); return this; },
+    geo(config)          { Renderer.applyGEO(config); return this; },
 
     // ── Routing ─────────────────────────────────────────────────────
 

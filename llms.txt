@@ -14,6 +14,10 @@ Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. 
 - **NO CLOSING TAGS**: Never generate `</div>`, `</section>`, `</p>`, or `</button>`.
 - **Directives**:
   - `@app "App Title"` — Sets HTML document title
+  - `@seo { title: ..., description: ..., canonical: ... }` — Native SEO (meta tags, OpenGraph, Twitter cards, canonical)
+  - `@schema { type: ..., ... }` — Structured data JSON-LD generation
+  - `@aeo { summary: ..., topics: ..., speakable: [...] }` — Answer Engine Optimization (voice/answer engines, speakable selectors)
+  - `@geo { entities: ..., facts: ... }` — Generative Engine Optimization (AI citation entities & knowledge graph facts)
   - `@theme { primary: #EF4444 ... }` — Injects CSS variables onto `:root`
   - `@state key = value` — Creates reactive store variable
   - `@nav [sticky]` — Sticky navigation bar with child `link` elements

@@ -42,6 +42,48 @@ for (const { src, dest } of files) {
   }
 }
 
+// Generate sitemap.xml and robots.txt in dist/
+try {
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://breeze-framework.org/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>\n`;
+  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
+  console.log('  ✔ Generated sitemap.xml -> dist/');
+
+  const robotsTxt = `# Robots.txt — Breeze Framework Showcase
+User-agent: *
+Allow: /
+
+# Answer Engine & Generative AI Search Crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://breeze-framework.org/sitemap.xml
+`;
+  fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
+  console.log('  ✔ Generated robots.txt -> dist/');
+} catch (err) {
+  console.warn('  ⚠ Sitemap/robots warning:', err.message);
+}
+
 // Auto-compress index.html into .gz and .br
 try {
   const indexHtmlPath = path.join(distDir, 'index.html');

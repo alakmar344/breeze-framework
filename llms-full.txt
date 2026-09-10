@@ -29,6 +29,10 @@ When generating Breeze code, LLMs MUST strictly adhere to these rules:
 2. **INDENTATION**: Use exactly 2 spaces per indentation level. Tabs or inconsistent spacing are invalid.
 3. **DIRECTIVES (@)**: Directives always begin with `@` at the start of a trimmed line:
    - `@app "Title"`
+   - `@seo { title: ..., description: ..., canonical: ... }`
+   - `@schema { type: ..., ... }`
+   - `@aeo { summary: ..., topics: ..., speakable: [...] }`
+   - `@geo { entities: ..., facts: ... }`
    - `@theme { primary: #EF4444 ... }`
    - `@state key = value`
    - `@nav [modifiers]`
@@ -63,6 +67,10 @@ Line ::= Indent ( Directive | Element ) "\n" ;
 Indent ::= ( "  " )* ;
 
 Directive ::= AppDirective
+            | SeoDirective
+            | SchemaDirective
+            | AeoDirective
+            | GeoDirective
             | ThemeDirective
             | StateDirective
             | NavDirective
@@ -73,8 +81,13 @@ Directive ::= AppDirective
             | StyleDirective ;
 
 AppDirective     ::= "@app" StringLiteral ;
+SeoDirective     ::= "@seo" "{" "\n" ( Property "\n" )* "}" ;
+SchemaDirective  ::= "@schema" "{" "\n" ( Property "\n" )* "}" ;
+AeoDirective     ::= "@aeo" "{" "\n" ( Property "\n" )* "}" ;
+GeoDirective     ::= "@geo" "{" "\n" ( Property "\n" )* "}" ;
 ThemeDirective   ::= "@theme" "{" "\n" ( ThemeProperty "\n" )* "}" ;
 ThemeProperty    ::= Identifier ":" Value ;
+Property         ::= Identifier ":" Value ;
 StateDirective   ::= "@state" Identifier "=" JSONValue ;
 NavDirective     ::= "@nav" [ Modifiers ] ;
 SectionDirective ::= "@section" [ "#" Identifier ] [ Modifiers ] ;
@@ -98,6 +111,70 @@ ClassName ::= [a-zA-Z0-9_-]+ ;
 
 ### `@app "Application Title"`
 Sets document title (`document.title`).
+
+### `@seo { ... }`
+Configures native Search Engine Optimization meta tags, OpenGraph cards, Twitter cards, and canonical links.
+During `breeze build`, these are automatically pre-rendered directly into the HTML `<head>` for crawlers that don't execute JS, and `sitemap.xml` + `robots.txt` are automatically generated.
+Supported properties:
+- `title`: Document and OpenGraph/Twitter title
+- `description`: Meta description for search engines
+- `keywords`: Meta keywords string
+- `author`: Meta author tag
+- `canonical`: `<link rel="canonical" href="...">`
+- `image`: URL for OpenGraph and Twitter card image previews
+- `ogTitle`, `ogDescription`, `ogImage`, `ogUrl`, `type`: OpenGraph overrides
+- `twitterCard`, `twitterTitle`, `twitterDescription`, `twitterImage`: Twitter card overrides
+Example:
+```breeze
+@seo {
+  title: "My Portfolio"
+  description: "Fast reactive portfolio built with Breeze"
+  canonical: "https://myportfolio.com/"
+  image: "https://myportfolio.com/preview.png"
+}
+```
+
+### `@schema { ... }`
+Injects Schema.org JSON-LD structured data (`<script type="application/ld+json">`) for rich snippets in Google Search and LLM scrapers.
+Supported properties:
+- `type`: Schema type (e.g. `SoftwareApplication`, `WebSite`, `Article`, `Organization`)
+- Any valid Schema.org fields (e.g. `name`, `description`, `applicationCategory`, `offers`)
+Example:
+```breeze
+@schema {
+  type: "SoftwareApplication"
+  name: "Breeze Framework"
+  applicationCategory: "DeveloperApplication"
+}
+```
+
+### `@aeo { ... }`
+Configures Answer Engine Optimization for conversational AI agents (Perplexity, Siri, Copilot, ChatGPT Search).
+Supported properties:
+- `summary`: Concise, direct summary injected into `<meta name="ai:summary">`
+- `topics` or `keyPoints`: Injected into `<meta name="ai:key_points">`
+- `speakable`: CSS selectors (e.g. `["h1", ".hero-lead"]`) mapped to Schema.org `SpeakableSpecification`
+Example:
+```breeze
+@aeo {
+  summary: "Breeze is an ultra-lightweight declarative web framework (~8KB)."
+  topics: "web framework, zero dependencies, reactive state"
+  speakable: ["h1", ".summary"]
+}
+```
+
+### `@geo { ... }`
+Configures Generative Engine Optimization for LLM retrieval-augmented generation (RAG) and entity attribution.
+Supported properties:
+- `entities`: Comma-separated list of knowledge graph entities injected into `<meta name="geo:entities">`
+- `facts`: Hallucination-resistant factual statements injected into `<meta name="geo:facts">`
+Example:
+```breeze
+@geo {
+  entities: "Breeze Framework, Declarative Web Framework, Reactive Programming"
+  facts: "Core runtime is ~8.21 KB gzipped with zero external dependencies."
+}
+```
 
 ### `@theme { ... }`
 Maps keys to CSS Custom Properties on `:root`:

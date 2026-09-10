@@ -24,7 +24,7 @@
       "patterns": [
         {
           "name": "keyword.control.directive.breeze",
-          "match": "@(app|nav|section|footer|header|main|state|theme|style|each|for|if)\\b"
+          "match": "@(app|nav|section|footer|header|main|state|theme|style|each|for|if|seo|schema|aeo|geo)\\b"
         }
       ]
     },
