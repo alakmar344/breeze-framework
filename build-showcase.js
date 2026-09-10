@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const rootDir = __dirname;
 const distDir = path.join(rootDir, 'dist');
@@ -26,7 +27,9 @@ const files = [
   { src: path.join(showcaseDir, 'showcase.js'), dest: path.join(distDir, 'showcase.js') },
   { src: path.join(showcaseDir, 'app.breeze'), dest: path.join(distDir, 'app.breeze') },
   { src: path.join(rootDir, 'breeze.js'), dest: path.join(distDir, 'breeze.js') },
-  { src: path.join(rootDir, 'breeze.css'), dest: path.join(distDir, 'breeze.css') }
+  { src: path.join(rootDir, 'breeze.css'), dest: path.join(distDir, 'breeze.css') },
+  { src: path.join(rootDir, 'llms.txt'), dest: path.join(distDir, 'llms.txt') },
+  { src: path.join(rootDir, 'llms-full.txt'), dest: path.join(distDir, 'llms-full.txt') }
 ];
 
 for (const { src, dest } of files) {
@@ -37,6 +40,24 @@ for (const { src, dest } of files) {
   } else {
     console.warn(`  ⚠ Source not found: ${src}`);
   }
+}
+
+// Auto-compress index.html into .gz and .br
+try {
+  const indexHtmlPath = path.join(distDir, 'index.html');
+  if (fs.existsSync(indexHtmlPath)) {
+    const raw = fs.readFileSync(indexHtmlPath);
+    const gz = zlib.gzipSync(raw, { level: 9 });
+    const br = zlib.brotliCompressSync(raw, {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 }
+    });
+    fs.writeFileSync(indexHtmlPath + '.gz', gz);
+    fs.writeFileSync(indexHtmlPath + '.br', br);
+    console.log(`  ✔ Auto-compressed index.html.gz (${(gz.length / 1024).toFixed(1)} KB)`);
+    console.log(`  ✔ Auto-compressed index.html.br (${(br.length / 1024).toFixed(1)} KB)`);
+  }
+} catch (err) {
+  console.warn('  ⚠ Pre-compression warning:', err.message);
 }
 
 console.log('\n  ✨ Production build complete! Ready for Vercel deployment.\n');

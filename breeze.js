@@ -173,6 +173,34 @@
         return { type: 'style', text: Parser.extractQuoted(content), indent };
       }
 
+      // @each item in listKey  or  @for item in listKey
+      if (content.startsWith('@each') || content.startsWith('@for')) {
+        const m = content.match(/@(each|for)\s+(\w+)\s+in\s+(\w+)/);
+        if (m) {
+          return {
+            type: 'each',
+            itemVar: m[2],
+            listKey: m[3],
+            children: [],
+            indent
+          };
+        }
+      }
+
+      // @if conditionKey  or  @if !conditionKey
+      if (content.startsWith('@if')) {
+        const m = content.match(/@if\s+(!?)([\w.]+)/);
+        if (m) {
+          return {
+            type: 'if',
+            negate: m[1] === '!',
+            conditionKey: m[2],
+            children: [],
+            indent
+          };
+        }
+      }
+
       // Generic directive fallback — treat as custom tag
       const sp = content.indexOf(' ');
       const directive = sp !== -1 ? content.substring(1, sp) : content.substring(1);
@@ -313,6 +341,19 @@
       this._computed[key] = { deps, fn };
       // Compute initial value immediately
       this._store[key] = fn(...deps.map(d => this._store[d]));
+    },
+
+    push(key, item) {
+      const arr = Array.isArray(this._store[key]) ? [...this._store[key]] : [];
+      arr.push(item);
+      this.set(key, arr);
+    },
+
+    remove(key, index) {
+      if (!Array.isArray(this._store[key])) return;
+      const arr = [...this._store[key]];
+      arr.splice(index, 1);
+      this.set(key, arr);
     }
   };
 
@@ -352,6 +393,8 @@
         case 'link':    return this.renderLink(node);
         case 'card':    return this.renderCard(node);
         case 'button':  return this.renderButton(node);
+        case 'each':    return this.renderEach(node);
+        case 'if':      return this.renderIf(node);
         default:
           if (/^[a-z][\w-]*$/.test(node.type)) return this.renderElement(node);
           return null;
@@ -527,6 +570,90 @@
       return el;
     },
 
+    // ── Loop & Conditional elements ───────────────────────────────────
+
+    renderEach(node) {
+      const container = document.createElement('div');
+      container.className = 'bz-each';
+
+      const renderItems = () => {
+        container.innerHTML = '';
+        const items = State.get(node.listKey) || [];
+        if (Array.isArray(items)) {
+          items.forEach((item, index) => {
+            (node.children || []).forEach(child => {
+              const itemNode = this.interpolateItemNode(child, node.itemVar, item, index);
+              const el = this.renderNode(itemNode);
+              if (el) container.appendChild(el);
+            });
+          });
+        }
+      };
+
+      renderItems();
+      State.watch(node.listKey, () => renderItems());
+      return container;
+    },
+
+    interpolateItemNode(node, itemVar, item, index) {
+      if (!node) return null;
+      const clone = Object.assign({}, node);
+      if (typeof clone.text === 'string') {
+        const itemStr = typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item);
+        clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\}`, 'g'), itemStr);
+        clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\.index\\}`, 'g'), String(index));
+        if (typeof item === 'object' && item !== null) {
+          Object.keys(item).forEach(prop => {
+            clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\.${prop}\\}`, 'g'), String(item[prop]));
+          });
+        }
+      }
+      if (Array.isArray(clone.modifiers)) {
+        clone.modifiers = clone.modifiers.map(mod => {
+          let m = mod;
+          m = m.replace(new RegExp(`\\{${itemVar}\\.index\\}`, 'g'), String(index));
+          if (typeof item !== 'object' || item === null) {
+            m = m.replace(new RegExp(`\\{${itemVar}\\}`, 'g'), String(item));
+          } else {
+            Object.keys(item).forEach(prop => {
+              m = m.replace(new RegExp(`\\{${itemVar}\\.${prop}\\}`, 'g'), String(item[prop]));
+            });
+          }
+          return m;
+        });
+      }
+      if (Array.isArray(clone.children)) {
+        clone.children = clone.children.map(c => this.interpolateItemNode(c, itemVar, item, index));
+      }
+      return clone;
+    },
+
+    renderIf(node) {
+      const container = document.createElement('div');
+      container.className = 'bz-if';
+
+      const update = () => {
+        container.innerHTML = '';
+        const val = State.get(node.conditionKey);
+        let truthy = Boolean(val);
+        if (node.negate) truthy = !truthy;
+
+        if (truthy) {
+          (node.children || []).forEach(child => {
+            const el = this.renderNode(child);
+            if (el) container.appendChild(el);
+          });
+          container.style.display = '';
+        } else {
+          container.style.display = 'none';
+        }
+      };
+
+      update();
+      State.watch(node.conditionKey, () => update());
+      return container;
+    },
+
     // ── Reactive text binding ─────────────────────────────────────────
 
     /**
@@ -669,6 +796,20 @@
 
       const emitM = action.match(/^emit\(([^,)]+)(?:,\s*(.+))?\)$/);
       if (emitM) { EventBus.emit(emitM[1].trim(), emitM[2]); return; }
+
+      const pushM = action.match(/^push\((\w+),\s*(.+)\)$/);
+      if (pushM) {
+        let v = pushM[2].trim();
+        try { v = JSON.parse(v); } catch (e) { v = v.replace(/^["']|["']$/g, ''); }
+        State.push(pushM[1], v);
+        return;
+      }
+
+      const remM = action.match(/^remove\((\w+),\s*(\d+)\)$/);
+      if (remM) {
+        State.remove(remM[1], parseInt(remM[2], 10));
+        return;
+      }
 
       // Plugin actions — let registered plugins handle unknown actions
       const pluginAction = Plugins.findAction(action);
@@ -872,6 +1013,8 @@
 
     getState(key)        { return State.get(key); },
     setState(key, value) { State.set(key, value); return this; },
+    push(key, item)      { State.push(key, item); return this; },
+    remove(key, index)   { State.remove(key, index); return this; },
 
     // ── Routing ─────────────────────────────────────────────────────
 

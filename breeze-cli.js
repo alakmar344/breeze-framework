@@ -17,6 +17,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const url  = require('url');
+const zlib = require('zlib');
 
 // ═══════════════════════════════════════════════════════════════════════
 // ANSI COLOR HELPERS
@@ -384,13 +385,33 @@ function cmdBuild(args) {
 
   // Report
   const sizeHtml = Buffer.byteLength(htmlContent, 'utf8');
-  ok(`Built ${bold('dist/index.html')}  ${dim(formatSize(sizeHtml))}`);
+  ok(`Built ${bold('dist/index.html')}      ${dim(formatSize(sizeHtml))}`);
 
   if (css) {
-    ok(`Inlined CSS  ${dim(formatSize(Buffer.byteLength(css, 'utf8')))}`);
+    ok(`Inlined CSS      ${dim(formatSize(Buffer.byteLength(css, 'utf8')))}`);
   }
   if (js) {
-    ok(`Inlined JS   ${dim(formatSize(Buffer.byteLength(js, 'utf8')))}`);
+    ok(`Inlined JS       ${dim(formatSize(Buffer.byteLength(js, 'utf8')))}`);
+  }
+
+  // ── Auto-Compression: Gzip & Brotli (Zero Dependencies) ─────────
+  try {
+    const htmlBuf = Buffer.from(htmlContent, 'utf8');
+    const gzBuf   = zlib.gzipSync(htmlBuf, { level: 9 });
+    const brBuf   = zlib.brotliCompressSync(htmlBuf, {
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 }
+    });
+
+    fs.writeFileSync(outFile + '.gz', gzBuf);
+    fs.writeFileSync(outFile + '.br', brBuf);
+
+    const gzSavings = (((sizeHtml - gzBuf.length) / sizeHtml) * 100).toFixed(1);
+    const brSavings = (((sizeHtml - brBuf.length) / sizeHtml) * 100).toFixed(1);
+
+    ok(`Auto-compressed  ${bold('gzip')}    ${dim(formatSize(gzBuf.length))}  ${col('green', `(-${gzSavings}%)`)}`);
+    ok(`Auto-compressed  ${bold('brotli')}  ${dim(formatSize(brBuf.length))}  ${col('green', `(-${brSavings}%)`)}`);
+  } catch (err) {
+    warn(`Auto-compression skipped: ${err.message}`);
   }
 
   console.log('');
@@ -514,11 +535,25 @@ function cmdServe(args) {
     }
 
     try {
-      const content = fs.readFileSync(filePath);
-      res.writeHead(200, {
+      // Content-Encoding auto-negotiation for pre-compressed assets
+      const acceptEncoding = req.headers['accept-encoding'] || '';
+      let servePath = filePath;
+      const headers = {
         'Content-Type':  getMime(filePath),
         'Cache-Control': 'public, max-age=3600',
-      });
+        'Vary':          'Accept-Encoding'
+      };
+
+      if (acceptEncoding.includes('br') && fs.existsSync(filePath + '.br')) {
+        servePath = filePath + '.br';
+        headers['Content-Encoding'] = 'br';
+      } else if (acceptEncoding.includes('gzip') && fs.existsSync(filePath + '.gz')) {
+        servePath = filePath + '.gz';
+        headers['Content-Encoding'] = 'gzip';
+      }
+
+      const content = fs.readFileSync(servePath);
+      res.writeHead(200, headers);
       res.end(content);
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
