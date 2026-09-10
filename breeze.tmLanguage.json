@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Breeze",
+  "scopeName": "source.breeze",
+  "fileTypes": ["breeze"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#directives" },
+    { "include": "#elements" },
+    { "include": "#strings" },
+    { "include": "#modifiers" },
+    { "include": "#bindings" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.breeze",
+          "match": "(//|##).*$"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "keyword.control.directive.breeze",
+          "match": "@(app|nav|section|footer|header|main|state|theme|style|each|for|if)\\b"
+        }
+      ]
+    },
+    "elements": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.breeze",
+          "match": "^\\s*([a-zA-Z][a-zA-Z0-9-]*)\\b"
+        },
+        {
+          "name": "entity.other.attribute-name.id.breeze",
+          "match": "#[a-zA-Z0-9_-]+"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.breeze",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            { "include": "#bindings" },
+            {
+              "name": "constant.character.escape.breeze",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "modifiers": {
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": { "0": { "name": "punctuation.definition.bracket.begin.breeze" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.bracket.end.breeze" } },
+      "patterns": [
+        {
+          "name": "keyword.operator.event.breeze",
+          "match": "@[a-zA-Z0-9:]+\\s*->"
+        },
+        {
+          "name": "support.function.action.breeze",
+          "match": "\\b(navigate|setState|increment|decrement|toggle|push|remove|emit)\\b"
+        },
+        {
+          "name": "variable.parameter.attribute.breeze",
+          "match": "[a-zA-Z0-9_-]+(?=\\=)"
+        },
+        {
+          "name": "support.class.utility.breeze",
+          "match": "\\b(primary|secondary|accent|success|warning|danger|outline|ghost|hero|center|sticky|dark|light|shadow|rounded|hover-lift|hover-glow|hover-scale|fade-in|slide-up|bounce|pulse|pad-sm|pad-md|pad-lg|pad-xl|grid-2|grid-3|grid-4|flex|column|wrap)\\b"
+        },
+        { "include": "#strings" }
+      ]
+    },
+    "bindings": {
+      "patterns": [
+        {
+          "name": "variable.other.binding.breeze",
+          "match": "\\{[a-zA-Z0-9_.]+\\}"
+        }
+      ]
+    }
+  }
+}

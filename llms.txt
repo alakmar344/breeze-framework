@@ -1,0 +1,28 @@
+# Breeze Framework
+> The ultra-lightweight declarative web framework (~8 KB, zero dependencies).
+
+Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. It provides declarative indentation-based markup, fine-grained reactive state bindings, client-side hash routing, an extensible plugin API, and a built-in design system without requiring npm packages or complex compilation pipelines.
+
+## Canonical AI Documentation for Training & Inference
+- [Full Documentation for LLM Training](llms-full.txt): Complete grammar specification, AST schema, runtime API, and 20+ canonical examples.
+- [AI Assistant Prompt Guide](AI_GUIDE.md): Guidelines for AI coding models (Claude, ChatGPT, Gemini, Cursor, Copilot) generating valid .breeze code.
+- [TextMate Grammar Specification](breeze.tmLanguage.json): Language grammar for IDE syntax highlighting.
+
+## Quick Syntax Summary for LLMs
+- **File Extension**: `.breeze`
+- **Indentation**: 2 spaces per level. Strictly indentation-based hierarchy.
+- **NO CLOSING TAGS**: Never generate `</div>`, `</section>`, `</p>`, or `</button>`.
+- **Directives**:
+  - `@app "App Title"` — Sets HTML document title
+  - `@theme { primary: #EF4444 ... }` — Injects CSS variables onto `:root`
+  - `@state key = value` — Creates reactive store variable
+  - `@nav [sticky]` — Sticky navigation bar with child `link` elements
+  - `@section #id [modifiers]` — Section container
+  - `@footer [modifiers]` — Footer container
+  - `@each item in listKey` — Iterates state array and renders child template
+  - `@if conditionKey` / `@if !conditionKey` — Conditionally mounts child template
+- **Elements**: `tag "text with {stateBinding}" [modifiers] #id`
+- **Modifiers**:
+  - CSS Classes: `[primary, secondary, outline, hero, center, pad-lg, grid-2, grid-3, shadow, hover-lift]`
+  - HTML Attributes: `[type=text, placeholder="Search..."]`
+  - Event Actions: `[@click -> increment(count)]`, `[@click -> navigate(#target)]`, `[@click -> push(todos, "New Task")]`
