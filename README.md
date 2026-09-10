@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
 [![Size](https://img.shields.io/badge/JS_size-~8KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
-[![demo page](https://breeze-framework-b5y1.vercel.app)](#)
+[![Demo](https://img.shields.io/badge/demo-live-22c55e?style=flat-square)](https://breeze-framework-b5y1.vercel.app)
 
 > Build beautiful, reactive web apps with a single declarative `.breeze` file — no build tools, no `node_modules`, no complexity.
 
