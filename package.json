@@ -8,14 +8,29 @@
   },
   "scripts": {
     "dev": "node breeze-cli.js dev",
-    "build": "node breeze-cli.js build",
-    "start": "node breeze-cli.js serve",
+    "build": "node build-showcase.js",
+    "build:cli": "node breeze-cli.js build",
+    "showcase:dev": "node breeze-cli.js dev showcase",
+    "showcase:build": "node build-showcase.js",
+    "start": "node breeze-cli.js serve dist",
     "test": "node --test"
   },
-  "keywords": ["framework", "web", "lightweight", "declarative", "frontend"],
+  "keywords": [
+    "framework",
+    "web",
+    "lightweight",
+    "declarative",
+    "frontend"
+  ],
   "author": "Breeze Framework Contributors",
   "license": "MIT",
-  "files": ["breeze.js", "breeze.css", "breeze-cli.js", "index.html"],
+  "files": [
+    "breeze.js",
+    "breeze.css",
+    "breeze-cli.js",
+    "index.html",
+    "showcase"
+  ],
   "engines": {
     "node": ">=18"
   }

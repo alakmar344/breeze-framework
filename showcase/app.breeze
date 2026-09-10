@@ -1,0 +1,164 @@
+@app "🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework"
+
+@theme {
+  primary: #6366f1
+  secondary: #ec4899
+  accent: #06b6d4
+  success: #10b981
+  warning: #f59e0b
+  danger: #ef4444
+  bg: #0b0f19
+  text: #f3f4f6
+  radius: 12px
+  font: "Plus Jakarta Sans, sans-serif"
+}
+
+// ── State Store ───────────────────────────────────────────────────────────
+@state count = 42
+@state totalUsers = 1250
+@state appStatus = "Active & Blazing Fast"
+
+// ── Navigation Bar ────────────────────────────────────────────────────────
+@nav [sticky]
+  link "🌊 Breeze"       -> #hero
+  link "Studio"          -> #studio
+  link "Why Breeze"      -> #why
+  link "Components"      -> #components
+  link "Reactivity"      -> #reactivity
+  link "Plugins"         -> #plugins
+  link "CLI Station"     -> #cli
+
+// ── Hero Section ──────────────────────────────────────────────────────────
+@section #hero [hero, center, pad-xl]
+  div [center, pad-md]
+    div [fade-in]
+      span "✨ Breeze Framework v1.0.0 — Zero Dependencies • ~8KB Runtime" [rounded, primary, pad-sm]
+    h1 "Build the Web with 🌊 Breeze" [fade-in, mt-md]
+    p "The ultra-lightweight declarative framework. Zero build tools. Zero node_modules. Pure reactive joy in a single file." [fade-in]
+    div [flex, gap-md, mt-lg]
+      button "⚡ Open Live Studio" [primary, @click -> navigate(#studio)]
+      button "🎉 Launch Confetti"  [secondary, @click -> confetti()]
+      button "🍞 Trigger Toast"    [accent, @click -> toast("Welcome to the Breeze Framework Showcase!")]
+    div [mt-lg]
+      div [rounded, shadow, pad-sm]
+        p "💻 Run anywhere: npx breeze-framework init my-app" [small]
+
+// ── Quick Metrics ─────────────────────────────────────────────────────────
+@section #metrics [pad-lg, center, dark]
+  div [grid-4, gap-lg]
+    card [shadow, hover-lift, fade-in]
+      h2 "~8 KB" [primary]
+      p "Minified Core Runtime"
+    card [shadow, hover-lift, fade-in]
+      h2 "0" [secondary]
+      p "External Dependencies"
+    card [shadow, hover-lift, fade-in]
+      h2 "< 10ms" [accent]
+      p "Instant Parse & Mount"
+    card [shadow, hover-lift, fade-in]
+      h2 "100%" [success]
+      p "Standard Web Platform"
+
+// ── Interactive Live Studio / Playground ──────────────────────────────────
+@section #studio [pad-xl, center]
+  h2 "Interactive Breeze Studio"
+  p "Edit declarative .breeze syntax live in your browser. Watch the AST parser, state store, and renderer run in real time."
+  div [center, mt-lg]
+    card [shadow, pad-md]
+      p "Use the interactive editor below to test components, reactivity, and custom actions live!"
+
+// ── Why Breeze / Benchmarks ───────────────────────────────────────────────
+@section #why [pad-xl, dark, center]
+  h2 "Why Developers Love Breeze"
+  p "Modern web development got heavy. Breeze makes web creation simple, elegant, and fun again."
+  div [grid-3, gap-lg, mt-lg]
+    card [shadow, hover-lift, fade-in]
+      h3 "⚡ Pure Zero-Dependency Architecture"
+      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one 8KB script and build full reactive applications."
+    card [shadow, hover-lift, fade-in]
+      h3 "📝 Indentation-Based Syntax"
+      p "Say goodbye to closing tags, JSX syntax quirks, and boilerplate. Breeze syntax is clean, readable, and lightning fast to write."
+    card [shadow, hover-lift, fade-in]
+      h3 "🛣️ Seamless SPA Routing & State"
+      p "Built-in hash routing with smooth scroll, active link tracking, and two-way reactive state binding with string interpolation."
+    card [shadow, hover-lift, fade-in]
+      h3 "🎨 50+ Built-in Design Tokens"
+      p "Complete CSS utility system with dark mode tokens, buttons, cards, flexible grid layouts, and smooth micro-animations."
+    card [shadow, hover-lift, fade-in]
+      h3 "🔌 Extensible Plugin API"
+      p "Register custom event actions and lifecycle hooks in under 5 lines of code. Extensible to any library or animation engine."
+    card [shadow, hover-lift, fade-in]
+      h3 "☁️ Vercel & Edge Deployable"
+      p "Compile to a single self-contained production HTML bundle with breeze build --spa and host anywhere instantly."
+
+// ── Component Gallery ─────────────────────────────────────────────────────
+@section #components [pad-xl, center]
+  h2 "Design System & Component Matrix"
+  p "Breeze comes equipped with versatile, production-ready utility classes and components."
+  div [grid-2, gap-lg, mt-lg]
+    card [shadow, hover-glow]
+      h3 "Buttons & Badges"
+      p "Multiple semantic variants ready out of the box:"
+      div [flex, gap-sm, mt-sm]
+        button "Primary"   [primary]
+        button "Secondary" [secondary]
+        button "Accent"    [accent]
+        button "Success"   [success]
+      div [flex, gap-sm, mt-sm]
+        button "Warning"   [warning]
+        button "Danger"    [danger]
+        button "Outline"   [outline]
+        button "Ghost"     [ghost]
+    card [shadow, hover-glow]
+      h3 "Cards & Effects"
+      p "Rich elevation and interactive hover behaviors:"
+      div [grid-2, gap-sm, mt-sm]
+        card [shadow, hover-lift]
+          p "hover-lift card" [center]
+        card [shadow, hover-scale]
+          p "hover-scale card" [center]
+
+// ── Reactivity Laboratory ─────────────────────────────────────────────────
+@section #reactivity [pad-xl, dark, center]
+  h2 "Reactive State Laboratory"
+  p "Breeze's internal reactive store automatically tracks dependencies and updates text bindings."
+  card [shadow, hover-glow, pad-lg, mt-lg]
+    h3 "Live Counter: {count}" [primary]
+    p "Status: {appStatus}"
+    div [flex, gap-md, center, mt-md]
+      button "+ Increment"    [primary, @click -> increment(count)]
+      button "- Decrement"    [secondary, @click -> decrement(count)]
+      button "Reset to Zero"  [outline, @click -> setState(count, 0)]
+      button "Congratulate 🎉" [accent, @click -> confetti()]
+
+// ── Extensible Plugins ────────────────────────────────────────────────────
+@section #plugins [pad-xl, center]
+  h2 "Plugin Architecture"
+  p "Add powerful capabilities through Breeze.plugin() without bloating your core bundle."
+  div [grid-2, gap-lg, mt-lg]
+    card [shadow, hover-lift]
+      h3 "🎊 Confetti Cannon Plugin"
+      p "A hardware-accelerated particle system plugin with 120 particles, natural gravity, and velocity physics."
+      button "Fire Confetti" [secondary, @click -> confetti()]
+    card [shadow, hover-lift]
+      h3 "🍞 Glass Toast Plugin"
+      p "A modern floating toast notification plugin with smooth entrance and exit animations."
+      button "Show Toast Message" [accent, @click -> toast("Custom Breeze Plugin Action Fired!")]
+
+// ── CLI Command Station ───────────────────────────────────────────────────
+@section #cli [pad-xl, dark, center]
+  h2 "Developer CLI Station"
+  p "Zero-friction workflow from scaffolding to single-file production compilation."
+  div [center, mt-lg]
+    card [shadow, pad-lg]
+      h3 "One Command Scaffolding"
+      p "Get started in 5 seconds without installing heavy dependencies:"
+      button "📋 Copy Scaffolding Command" [primary, @click -> toast("Copied: npx breeze-framework init my-app")]
+
+// ── Footer ────────────────────────────────────────────────────────────────
+@footer [dark]
+  p "🌊 Breeze Framework v1.0.0 — Crafted for Speed, Simplicity, and Elegance"
+  p "MIT License • Created by Breeze Framework Contributors"
+  div [flex, gap-md, center, mt-sm]
+    button "Star on GitHub ⭐️" [outline, @click -> toast("Opening GitHub repository!")]
+    button "Back to Top ⬆️"    [ghost, @click -> navigate(#hero)]
