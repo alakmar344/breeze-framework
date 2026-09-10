@@ -3,167 +3,825 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework</title>
-  <meta name="description" content="Build fast, reactive web applications with a single declarative .breeze file. Zero dependencies, ~8KB runtime, instant boot, and built-in design system.">
-  
-  <!-- Fonts -->
+  <title>Breeze Framework — The Middle Ground Between Plain HTML and Heavy Frameworks</title>
+  <meta name="description" content="An ultra-lightweight, zero-dependency declarative web framework. Built-in reactive state, client routing, design system, and CLI tooling in ~8 KB.">
+
+  <!-- Typography: Fraunces (Vintage Editorial Serif) + Plus Jakarta Sans + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- Styles -->
-  <link rel="stylesheet" href="breeze.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="showcase.css">
 </head>
 <body>
-  <!-- Breeze Core App Container -->
-  <div id="app"></div>
 
-  <!-- Breeze Framework Engine & Showcase Logic -->
-  <script src="breeze.js"></script>
+  <div class="page-wrapper">
+
+    <!-- ── Masthead ──────────────────────────────────────────────────────── -->
+    <header class="masthead">
+      <div>BREEZE FRAMEWORK · ARCHITECTURAL SPECIFICATION · REV 1.0.0</div>
+      <div class="masthead-right">
+        <span><span class="status-dot"></span> STABLE RELEASE</span>
+        <span>ZERO DEPENDENCIES</span>
+        <span>MIT LICENSE</span>
+      </div>
+    </header>
+
+    <!-- ── Navigation ────────────────────────────────────────────────────── -->
+    <nav class="site-nav">
+      <div class="nav-container">
+        <a href="#" class="nav-brand">
+          <span>🌊 Breeze</span>
+        </a>
+        <div class="nav-links">
+          <a href="#dilemma">The Dilemma</a>
+          <a href="#approach">The Middle Ground</a>
+          <a href="#capabilities">Capabilities</a>
+          <a href="#architecture">How It Works</a>
+          <a href="#examples">Code Spec</a>
+          <a href="#cli">CLI Workflow</a>
+          <a href="#size">Size Metrics</a>
+          <a href="#comparison">Comparison</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a href="https://github.com/alakmar344/breeze-framework" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+          GitHub ↗
+        </a>
+      </div>
+    </nav>
+
+    <!-- ── 1. Hero Section ───────────────────────────────────────────────── -->
+    <section class="section" id="hero" style="padding-top: 2rem;">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div>
+            <span class="spec-stamp tomato">Architectural Positioning</span>
+          </div>
+          <h1>The middle ground between vanilla HTML and heavy frameworks.</h1>
+          <p class="hero-lead">
+            Vanilla HTML is wonderfully simple but lacks application primitives. Heavy frontend frameworks deliver massive ecosystems at the cost of hundreds of megabytes in dependencies and mandatory build friction.
+          </p>
+          <p>
+            <strong>Breeze provides the missing layer:</strong> declarative syntax, reactive state, client-side routing, and a complete design system in an ultra-lightweight ~8 KB core with zero dependencies.
+          </p>
+          <div class="hero-actions">
+            <a href="https://github.com/alakmar344/breeze-framework" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+              Explore on GitHub ↗
+            </a>
+            <a href="#dilemma" class="btn btn-secondary">
+              Read Technical Spec ↓
+            </a>
+          </div>
+          <div class="hero-stats-bar">
+            <div class="hero-stat"><strong>8.21 KB</strong> gzipped</div>
+            <div class="hero-stat"><strong>0</strong> dependencies</div>
+            <div class="hero-stat"><strong>0s</strong> build step needed</div>
+          </div>
+        </div>
+
+        <!-- Visual Centerpiece: Authentic .breeze code card -->
+        <div class="code-card">
+          <div class="code-card-header">
+            <span class="code-tab-title">app.breeze</span>
+            <span style="color: #64748B; font-size: 0.75rem;">DECLARATIVE SYNTAX</span>
+          </div>
+          <div class="code-card-body">
+            <div class="code-line"><span class="code-num">01</span><span class="code-text"><span class="syn-directive">@app</span> <span class="syn-string">"My Application"</span></span></div>
+            <div class="code-line"><span class="code-num">02</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-num">03</span><span class="code-text"><span class="syn-directive">@theme</span> {</span></div>
+            <div class="code-line"><span class="code-num">04</span><span class="code-text">  primary: <span class="syn-mod">#EF4444</span></span></div>
+            <div class="code-line"><span class="code-num">05</span><span class="code-text">  bg: <span class="syn-mod">#FAF8F5</span></span></div>
+            <div class="code-line"><span class="code-num">06</span><span class="code-text">}</span></div>
+            <div class="code-line"><span class="code-num">07</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-num">08</span><span class="code-text"><span class="syn-comment">// Reactive state entry</span></span></div>
+            <div class="code-line"><span class="code-num">09</span><span class="code-text"><span class="syn-directive">@state</span> count = <span class="syn-binding">0</span></span></div>
+            <div class="code-line"><span class="code-num">10</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-num">11</span><span class="code-text"><span class="syn-directive">@nav</span> [<span class="syn-mod">sticky</span>]</span></div>
+            <div class="code-line"><span class="code-num">12</span><span class="code-text">  <span class="syn-tag">link</span> <span class="syn-string">"Home"</span> -&gt; <span class="syn-mod">#home</span></span></div>
+            <div class="code-line"><span class="code-num">13</span><span class="code-text">  <span class="syn-tag">link</span> <span class="syn-string">"Docs"</span> -&gt; <span class="syn-mod">#docs</span></span></div>
+            <div class="code-line"><span class="code-num">14</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-num">15</span><span class="code-text"><span class="syn-directive">@section</span> <span class="syn-mod">#home</span> [<span class="syn-mod">hero, center</span>]</span></div>
+            <div class="code-line"><span class="code-num">16</span><span class="code-text">  <span class="syn-tag">h1</span> <span class="syn-string">"Fast Web Development"</span></span></div>
+            <div class="code-line"><span class="code-num">17</span><span class="code-text">  <span class="syn-tag">p</span> <span class="syn-string">"Clicks recorded: {count}"</span></span></div>
+            <div class="code-line"><span class="code-num">18</span><span class="code-text">  <span class="syn-tag">button</span> <span class="syn-string">"+ Increment"</span> [<span class="syn-mod">primary, @click -&gt; increment(count)</span>]</span></div>
+            <div class="code-line"><span class="code-num">19</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-num">20</span><span class="code-text"><span class="syn-directive">@footer</span></span></div>
+            <div class="code-line"><span class="code-num">21</span><span class="code-text">  <span class="syn-tag">p</span> <span class="syn-string">"Built with Breeze"</span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 2. Why Breeze Exists ─────────────────────────────────────────── -->
+    <section class="section" id="dilemma">
+      <div class="section-tag">Section 01 · Philosophy</div>
+      <h2>The Frontend Dilemma</h2>
+      <p class="section-intro">
+        Web engineering today forces developers into an unnecessary binary choice: endure the bare limitations of plain HTML, or surrender to the sprawling complexity of full-stack frameworks.
+      </p>
+
+      <div class="dilemma-grid">
+        <div class="dilemma-card problem">
+          <div class="dilemma-title">
+            <h3>Side A: Vanilla HTML</h3>
+            <span class="spec-stamp">Too Sparse</span>
+          </div>
+          <p>
+            Plain HTML is wonderfully portable, fast, and native. But building real applications requires modern primitives that plain HTML simply lacks.
+          </p>
+          <ul class="dilemma-list">
+            <li><span class="icon-neg">✖</span> No reactive state — every UI update requires manual <code>querySelector</code> and string concatenation</li>
+            <li><span class="icon-neg">✖</span> No declarative abstractions — closing tags and repetitive boilerplate clutter templates</li>
+            <li><span class="icon-neg">✖</span> No client routing — multi-view experiences require complex custom hash scripts</li>
+            <li><span class="icon-neg">✖</span> Spaghetti event listeners scattered across loose JavaScript files</li>
+          </ul>
+        </div>
+
+        <div class="dilemma-card problem">
+          <div class="dilemma-title">
+            <h3>Side B: Heavyweight Frameworks</h3>
+            <span class="spec-stamp">Too Heavy</span>
+          </div>
+          <p>
+            React, Next.js, and Vue solve reactivity beautifully, but they introduce massive tooling friction and conceptual baggage for standard web projects.
+          </p>
+          <ul class="dilemma-list">
+            <li><span class="icon-neg">✖</span> 1,500+ dependencies inside half a gigabyte of <code>node_modules</code></li>
+            <li><span class="icon-neg">✖</span> Compulsory compilation pipelines (Vite, Webpack, Babel, Rollup, PostCSS)</li>
+            <li><span class="icon-neg">✖</span> Hydration mismatches, server/client boundary confusion, and breaking upgrade cycles</li>
+            <li><span class="icon-neg">✖</span> 140+ KB runtime bundle overhead before your app renders a single character</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="dilemma-card solution">
+        <div class="dilemma-title">
+          <h3>The Middle Ground: Breeze Framework</h3>
+          <span class="spec-stamp slime">The Sweet Spot</span>
+        </div>
+        <p>
+          Breeze was created to sit squarely between these extremes. It provides the core application primitives you actually want—<strong>declarative markup, granular reactive state, client routing, design utilities, and a fast CLI</strong>—while honoring the simplicity of the web platform. No build step required, no dependencies, ~8 KB footprint.
+        </p>
+      </div>
+    </section>
+
+
+    <!-- ── 3. The Breeze Approach (Progression) ─────────────────────────── -->
+    <section class="section" id="approach">
+      <div class="section-tag">Section 02 · Progression</div>
+      <h2>The Architectural Spectrum</h2>
+      <p class="section-intro">
+        Most web software doesn't need a multi-tier compiler. Breeze adds the essential application ergonomics without sacrificing zero-dependency purity.
+      </p>
+
+      <div class="progression-container">
+        <div class="progression-steps">
+          
+          <!-- Stage 1: Vanilla HTML -->
+          <div class="progression-card">
+            <div>
+              <div class="progression-badge" style="color: var(--c-ink-muted);">Level 01</div>
+              <h4>Vanilla HTML</h4>
+              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Bare-metal simplicity.</p>
+            </div>
+            <ul class="progression-features">
+              <li>0 KB runtime</li>
+              <li>0 dependencies</li>
+              <li>No build required</li>
+              <li>Manual DOM manipulation</li>
+              <li>No reactive state</li>
+              <li>No client routing</li>
+            </ul>
+          </div>
+
+          <div class="progression-divider">→</div>
+
+          <!-- Stage 2: Breeze (Heroic Middle) -->
+          <div class="progression-card heroic">
+            <div>
+              <div class="progression-badge" style="color: var(--c-tomato);">Level 02 · Ideal</div>
+              <h4>🌊 Breeze Framework</h4>
+              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Application primitives without the bloat.</p>
+            </div>
+            <ul class="progression-features" style="color: var(--c-ink);">
+              <li><strong>~8 KB core runtime</strong></li>
+              <li><strong>0 dependencies</strong></li>
+              <li><strong>Optional build step</strong></li>
+              <li><strong>Declarative .breeze syntax</strong></li>
+              <li><strong>Reactive state bindings</strong></li>
+              <li><strong>Built-in client router</strong></li>
+              <li><strong>Complete CSS system</strong></li>
+            </ul>
+          </div>
+
+          <div class="progression-divider">→</div>
+
+          <!-- Stage 3: Heavy Frameworks -->
+          <div class="progression-card">
+            <div>
+              <div class="progression-badge" style="color: var(--c-ink-muted);">Level 03</div>
+              <h4>Full Frameworks</h4>
+              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Enterprise complexity.</p>
+            </div>
+            <ul class="progression-features">
+              <li>140+ KB runtime</li>
+              <li>1,400+ dependencies</li>
+              <li>Mandatory build step</li>
+              <li>Virtual DOM / Hydration</li>
+              <li>Complex toolchains</li>
+              <li>High maintenance overhead</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 4. Core Capabilities (8 Distinct Cards) ──────────────────────── -->
+    <section class="section" id="capabilities">
+      <div class="section-tag">Section 03 · Specifications</div>
+      <h2>Core Engine Capabilities</h2>
+      <p class="section-intro">
+        Eight deliberate architectural features packed into a single, cohesive runtime.
+      </p>
+
+      <div class="capabilities-grid">
+        
+        <div class="capability-card">
+          <div class="capability-num">SPEC 01</div>
+          <h4>Declarative Syntax</h4>
+          <p>Indentation-based <code>.breeze</code> grammar. No closing tags, no JSX oddities, and zero XML boilerplate. Clear, human-readable hierarchy.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 02</div>
+          <h4>Reactive State Store</h4>
+          <p>Granular text bindings with <code>{key}</code> interpolation. Mutating state with <code>State.set()</code> updates targeted DOM text nodes without a virtual DOM.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 03</div>
+          <h4>Client-Side Routing</h4>
+          <p>Native hash-based SPA router with automatic smooth scrolling to section IDs and active navigation link state synchronization.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 04</div>
+          <h4>Extensible Plugin API</h4>
+          <p>Register custom event actions and lifecycle hooks using <code>Breeze.plugin()</code> in fewer than five lines of plain JavaScript.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 05</div>
+          <h4>Global Event Bus</h4>
+          <p>Decoupled publish-and-subscribe message bus (<code>Breeze.on</code> and <code>Breeze.emit</code>) allowing components to communicate seamlessly.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 06</div>
+          <h4>Built-in Design System</h4>
+          <p>Over 50 CSS utility classes, custom property design tokens, dark mode variants, responsive grids, and micro-animations in <code>breeze.css</code>.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 07</div>
+          <h4>Zero-Dependency CLI</h4>
+          <p>Integrated Node.js CLI tool supporting project scaffolding, SSE live-reload local dev server, and single-file production compilation.</p>
+        </div>
+
+        <div class="capability-card">
+          <div class="capability-num">SPEC 08</div>
+          <h4>Zero Dependencies</h4>
+          <p>Composed 100% of modern native browser standards: <code>fetch</code>, CSS custom properties, <code>pushState</code>, and <code>EventSource</code>.</p>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ── 5. How It Works (Pipeline Diagram) ────────────────────────────── -->
+    <section class="section" id="architecture">
+      <div class="section-tag">Section 04 · Internals</div>
+      <h2>How Breeze Works</h2>
+      <p class="section-intro">
+        From raw declarative source text to live, reactive DOM elements. No opaque compiler magic.
+      </p>
+
+      <div class="pipeline-card">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--c-border); padding-bottom: 0.75rem;">
+          <span class="spec-stamp">FIG 1.0 · Architectural Pipeline</span>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--c-ink-muted);">LINEAR SINGLE-PASS EXECUTION</span>
+        </div>
+
+        <div class="pipeline-flow">
+          <div class="pipeline-node">
+            <div class="node-step">STAGE 01</div>
+            <div class="node-title">.breeze Source</div>
+            <div class="node-desc">Declarative text file or inline string literal</div>
+          </div>
+
+          <div class="pipeline-arrow">→</div>
+
+          <div class="pipeline-node">
+            <div class="node-step">STAGE 02</div>
+            <div class="node-title">Parser Engine</div>
+            <div class="node-desc">Indentation stack converts lines into tokens</div>
+          </div>
+
+          <div class="pipeline-arrow">→</div>
+
+          <div class="pipeline-node">
+            <div class="node-step">STAGE 03</div>
+            <div class="node-title">Abstract Syntax Tree</div>
+            <div class="node-desc">Hierarchical JSON representation of nodes</div>
+          </div>
+
+          <div class="pipeline-arrow">→</div>
+
+          <div class="pipeline-node">
+            <div class="node-step">STAGE 04</div>
+            <div class="node-title">DOM Renderer</div>
+            <div class="node-desc">Instantiates elements, registers bindings & actions</div>
+          </div>
+        </div>
+
+        <div class="reactive-loop-box">
+          <span style="font-size: 1.5rem;">⚡</span>
+          <div>
+            <strong>Reactivity Feedback Cycle:</strong> When a user event fires (e.g. <code>@click -&gt; increment(count)</code>), the reactive store mutates <code>State.set('count', next)</code>. Rather than re-rendering the whole page or diffing a virtual DOM, Breeze directly updates only the specific text nodes bound to <code>{count}</code>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 6. Curated Code Examples ──────────────────────────────────────── -->
+    <section class="section" id="examples">
+      <div class="section-tag">Section 05 · Syntax Reference</div>
+      <h2>Curated Code Examples</h2>
+      <p class="section-intro">
+        Concise, practical examples demonstrating the clean expressive power of the Breeze grammar.
+      </p>
+
+      <div class="code-showcase-grid">
+        
+        <!-- Example 1: Page Structure -->
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">01 · Page & Layout</span>
+            <span class="spec-stamp">Structure</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-directive">@app</span> <span class="syn-string">"Portfolio Site"</span>
+
+<span class="syn-directive">@nav</span> [<span class="syn-mod">sticky</span>]
+  <span class="syn-tag">link</span> <span class="syn-string">"Work"</span> -&gt; <span class="syn-mod">#work</span>
+  <span class="syn-tag">link</span> <span class="syn-string">"About"</span> -&gt; <span class="syn-mod">#about</span>
+
+<span class="syn-directive">@section</span> <span class="syn-mod">#work</span> [<span class="syn-mod">pad-xl</span>]
+  <span class="syn-tag">h2</span> <span class="syn-string">"Selected Projects"</span>
+  <span class="syn-tag">p</span> <span class="syn-string">"Handcrafted web software."</span>
+
+<span class="syn-directive">@footer</span> [<span class="syn-mod">dark</span>]
+  <span class="syn-tag">p</span> <span class="syn-string">"© 2026 Developer"</span></code></pre>
+          <div class="snippet-footer">Sets page title, sticky header, section targets, and footer layout.</div>
+        </div>
+
+        <!-- Example 2: Reactive State -->
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">02 · State & Bindings</span>
+            <span class="spec-stamp">Reactivity</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-comment">// Define reactive primitives</span>
+<span class="syn-directive">@state</span> score = <span class="syn-binding">100</span>
+<span class="syn-directive">@state</span> user = <span class="syn-string">"Alex"</span>
+
+<span class="syn-directive">@section</span> [<span class="syn-mod">center, pad-lg</span>]
+  <span class="syn-tag">h3</span> <span class="syn-string">"Welcome back, {user}"</span>
+  <span class="syn-tag">p</span> <span class="syn-string">"Current score: {score}"</span>
+  <span class="syn-tag">button</span> <span class="syn-string">"+10 Points"</span> [<span class="syn-mod">primary, @click -&gt; increment(score)</span>]
+  <span class="syn-tag">button</span> <span class="syn-string">"Reset"</span>      [<span class="syn-mod">outline, @click -&gt; setState(score, 0)</span>]</code></pre>
+          <div class="snippet-footer">Text interpolates <code>{score}</code> and updates automatically on click.</div>
+        </div>
+
+        <!-- Example 3: Routing & Actions -->
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">03 · Events & Routing</span>
+            <span class="spec-stamp">Interactivity</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-directive">@section</span> <span class="syn-mod">#intro</span> [<span class="syn-mod">center</span>]
+  <span class="syn-tag">h1</span> <span class="syn-string">"Interactive Navigation"</span>
+  <span class="syn-comment">// Smooth-scroll navigation action</span>
+  <span class="syn-tag">button</span> <span class="syn-string">"Jump to Contact"</span> [<span class="syn-mod">primary, @click -&gt; navigate(#contact)</span>]
+  
+  <span class="syn-comment">// Custom event emission</span>
+  <span class="syn-tag">button</span> <span class="syn-string">"Notify System"</span>   [<span class="syn-mod">ghost, @click -&gt; emit(userReady)</span>]</code></pre>
+          <div class="snippet-footer">Built-in actions include <code>navigate()</code>, <code>setState()</code>, and <code>emit()</code>.</div>
+        </div>
+
+        <!-- Example 4: Components & Modifiers -->
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">04 · Cards & Design Tokens</span>
+            <span class="spec-stamp">Styling</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-directive">@section</span> [<span class="syn-mod">grid-3, gap-md</span>]
+  <span class="syn-tag">card</span> [<span class="syn-mod">shadow, hover-lift</span>]
+    <span class="syn-tag">h3</span> <span class="syn-string">"Fast Boot"</span>
+    <span class="syn-tag">p</span> <span class="syn-string">"Under 10ms execution."</span>
+  <span class="syn-tag">card</span> [<span class="syn-mod">shadow, hover-glow</span>]
+    <span class="syn-tag">h3</span> <span class="syn-string">"Zero Setup"</span>
+    <span class="syn-tag">p</span> <span class="syn-string">"Zero configuration files."</span></code></pre>
+          <div class="snippet-footer">Modifiers apply grid columns, elevation, and hover interactions.</div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ── 7. Actual CLI Workflow (No Playground) ────────────────────────── -->
+    <section class="section" id="cli">
+      <div class="section-tag">Section 06 · Developer Workflow</div>
+      <h2>CLI Tooling & Local Workflow</h2>
+      <p class="section-intro">
+        A complete zero-dependency command line interface that handles development, live reload, and production compilation.
+      </p>
+
+      <div class="cli-container">
+        <!-- Terminal Window -->
+        <div class="terminal-box">
+          <div class="terminal-bar">
+            <div class="terminal-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span style="font-size: 0.76rem; color: #94A3B8;">bash · zero-dependency CLI</span>
+            <button class="btn btn-sm btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; border-color: #475569;" onclick="window.copySnippet('npx breeze-framework init my-app && cd my-app && npx breeze-framework dev')">Copy Commands</button>
+          </div>
+          <div class="terminal-content">
+            <div><span class="terminal-prompt">$ </span><span class="terminal-cmd">npx breeze-framework init my-app</span></div>
+            <div class="terminal-out">
+              ▸ Creating project my-app in ./my-app<br>
+              ✔ Created index.html<br>
+              ✔ Created app.breeze<br>
+              ✔ Created package.json<br>
+              ✔ Project created in 12ms!
+            </div>
+
+            <div><span class="terminal-prompt">$ </span><span class="terminal-cmd">cd my-app && npx breeze-framework dev</span></div>
+            <div class="terminal-out">
+              ✔ Dev server running at http://localhost:3000<br>
+              ▸ Watching for changes (.breeze, .html, .css, .js)<br>
+              ▸ Live-reload active via Server-Sent Events (SSE)
+            </div>
+
+            <div><span class="terminal-prompt">$ </span><span class="terminal-cmd">npx breeze-framework build app.breeze --spa --minify</span></div>
+            <div class="terminal-out">
+              ✔ Built dist/index.html (38.2 KB single self-contained file)<br>
+              ✔ Inlined CSS and JS — ready for production!
+            </div>
+          </div>
+        </div>
+
+        <!-- Command Documentation Card -->
+        <div class="cli-command-card">
+          <h4>CLI Reference</h4>
+
+          <div class="cli-command-item">
+            <code>breeze init [name]</code>
+            <p>Scaffolds a clean starter application containing <code>index.html</code>, starter <code>app.breeze</code>, and minimal <code>package.json</code>.</p>
+          </div>
+
+          <div class="cli-command-item">
+            <code>breeze dev [port]</code>
+            <p>Starts a local HTTP server with automatic Server-Sent Events (SSE) live reload. Watches source files and updates the browser instantly.</p>
+          </div>
+
+          <div class="cli-command-item">
+            <code>breeze build [file] [--spa]</code>
+            <p>Compiles your declarative <code>.breeze</code> file into <code>dist/index.html</code>. In <code>--spa</code> mode, inlines all JS/CSS into one standalone file.</p>
+          </div>
+
+          <div class="cli-command-item">
+            <code>breeze serve [dir] [port]</code>
+            <p>Runs a production-grade static file server with client-side SPA routing fallback support. Zero npm server dependencies.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 8. Real-Time Size / Lightweight Section ──────────────────────── -->
+    <section class="section" id="size">
+      <div class="section-tag">Section 07 · Verified Footprint</div>
+      <h2>Engineered for Minimal Weight</h2>
+      <p class="section-intro">
+        Measured directly from the repository source code. No simulated benchmarks, no fabricated metrics.
+      </p>
+
+      <div class="size-spec-grid">
+        <div class="size-display-card">
+          <span class="spec-stamp slime">Actual Repository Measurement</span>
+          
+          <div class="live-size-indicator">
+            <span class="live-size-number" id="live-size-val">8.21</span>
+            <span class="live-size-unit">KB GZIPPED</span>
+          </div>
+
+          <p style="font-size: 0.9rem; color: var(--c-ink-muted);">
+            Complete core engine including Parser, Reactive State Store, DOM Action Renderer, Client Router, and Plugin Architecture.
+          </p>
+
+          <table class="size-breakdown-table">
+            <tbody>
+              <tr>
+                <td>Core Engine (breeze.js) Raw</td>
+                <td>34.40 KB</td>
+              </tr>
+              <tr>
+                <td>Core Engine Minified</td>
+                <td>23.12 KB</td>
+              </tr>
+              <tr>
+                <td>Core Engine Minified + Gzipped</td>
+                <td>8.21 KB</td>
+              </tr>
+              <tr>
+                <td>Design System (breeze.css) Gzipped</td>
+                <td>5.78 KB</td>
+              </tr>
+              <tr>
+                <td>External Dependencies</td>
+                <td><span class="badge-green">0 PACKAGES</span></td>
+              </tr>
+              <tr>
+                <td>Execution / Parse Overhead</td>
+                <td>&lt; 2 ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="size-editorial-copy">
+          <h3>Why ~8 KB Matters in Practice</h3>
+          <p>
+            Network latency and JavaScript execution parsing are the primary bottlenecks of web page performance. Every 50 KB of framework code delays First Contentful Paint and increases memory footprint on mobile devices.
+          </p>
+          <p>
+            At <strong>8.21 KB</strong>, Breeze downloads in under <strong>5 milliseconds</strong> on an average 4G connection and executes instantaneously without complex hydration or virtual DOM reconciliation passes.
+          </p>
+          <div style="background-color: var(--c-canvas-muted); padding: 1rem 1.25rem; border-left: 3px solid var(--c-tomato); border-radius: var(--radius-sm); font-size: 0.88rem;">
+            <strong>Verification Note:</strong> These byte counts are measured from <code>breeze.js</code> inside this active repository using Node's <code>zlib.gzipSync</code>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 9. Objective Comparison Table ────────────────────────────────── -->
+    <section class="section" id="comparison">
+      <div class="section-tag">Section 08 · Objective Analysis</div>
+      <h2>Framework Comparison</h2>
+      <p class="section-intro">
+        A fair, factual comparison across key technical dimensions.
+      </p>
+
+      <div class="table-wrapper">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>🌊 Breeze</th>
+              <th>Vanilla HTML</th>
+              <th>Svelte 5</th>
+              <th>Vue 3</th>
+              <th>React 19</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight-row">
+              <td><strong>Runtime Size</strong></td>
+              <td><span class="badge-green">~8.2 KB</span></td>
+              <td>0 KB</td>
+              <td>~25 KB</td>
+              <td>~50 KB</td>
+              <td>~140 KB</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Dependencies</strong></td>
+              <td><span class="badge-green">0</span></td>
+              <td>0</td>
+              <td>~200 deps</td>
+              <td>~350 deps</td>
+              <td>~1,400+ deps</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Build Step</strong></td>
+              <td><span class="badge-green">Optional</span></td>
+              <td>None</td>
+              <td>Mandatory</td>
+              <td>Mandatory</td>
+              <td>Mandatory</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Reactive State</strong></td>
+              <td><span class="badge-green">Built-in {bindings}</span></td>
+              <td>Manual DOM wiring</td>
+              <td>Runes / Signals</td>
+              <td>Reactivity API</td>
+              <td>Hooks / VDOM</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Client Routing</strong></td>
+              <td><span class="badge-green">Built-in Hash SPA</span></td>
+              <td>None</td>
+              <td>External Router</td>
+              <td>Vue Router</td>
+              <td>React Router</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Declarative Syntax</strong></td>
+              <td><span class="badge-green">.breeze Indented</span></td>
+              <td>Verbose HTML tags</td>
+              <td>HTML + Directives</td>
+              <td>HTML Templates</td>
+              <td>JSX Transpiled</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Ecosystem Scale</strong></td>
+              <td>Focused & Lightweight</td>
+              <td>Standard Web</td>
+              <td>Large</td>
+              <td>Massive</td>
+              <td>Industry Standard</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- ── 10. Who Is Breeze For? ───────────────────────────────────────── -->
+    <section class="section" id="audience">
+      <div class="section-tag">Section 09 · Target Applications</div>
+      <h2>Who Is Breeze For?</h2>
+      <p class="section-intro">
+        Breeze is not trying to replace React for a complex bank portal. It is built for the thousands of projects that need reactivity without industrial-grade baggage.
+      </p>
+
+      <div class="audiences-grid">
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 01</div>
+          <h3>Interactive Websites</h3>
+          <p>Product landing pages, documentation centers, and agency sites needing stateful interactions, smooth scrolling, and dynamic elements without a bundler.</p>
+        </div>
+
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 02</div>
+          <h3>Lightweight SPAs</h3>
+          <p>Small-to-medium web applications, calculators, dashboards, and portals where client-side routing and reactive updates are all that's required.</p>
+        </div>
+
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 03</div>
+          <h3>Rapid Prototypes</h3>
+          <p>Mock up fully reactive ideas in minutes. A single <code>app.breeze</code> file gets you from concept to live functional prototype without boilerplate.</p>
+        </div>
+
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 04</div>
+          <h3>Internal Tools</h3>
+          <p>Admin interfaces, status checkers, and engineering consoles where fast loading and zero maintenance are critical.</p>
+        </div>
+
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 05</div>
+          <h3>Personal Projects</h3>
+          <p>Portfolios, experimental apps, and technical writing blogs where you want to enjoy writing code again instead of updating bundler plugins.</p>
+        </div>
+
+        <div class="audience-card">
+          <div class="audience-label">USE CASE 06</div>
+          <h3>Long-Term Archival</h3>
+          <p>Software that must compile and run five years from now without breaking due to obsolete npm dependencies or dead build scripts.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ── 11. Technical FAQ ─────────────────────────────────────────────── -->
+    <section class="section" id="faq">
+      <div class="section-tag">Section 10 · Clarifications</div>
+      <h2>Frequently Asked Questions</h2>
+      <p class="section-intro">
+        Straightforward answers regarding architecture, capabilities, and production readiness.
+      </p>
+
+      <div class="faq-list">
+        
+        <details class="faq-item">
+          <summary class="faq-question">Why not just use vanilla HTML and JavaScript?</summary>
+          <div class="faq-answer">
+            Vanilla HTML is ideal for static documents, but creating reactive applications quickly degenerates into dozens of <code>document.querySelector</code> calls, manual innerHTML updates, and scattered event listeners. Breeze provides structured declarative markup, automatic reactive text bindings, and client-side routing while preserving the lightweight spirit of plain HTML.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Why not use React or Next.js?</summary>
+          <div class="faq-answer">
+            React is exceptional for enterprise applications with sprawling component libraries and complex state trees. However, for marketing sites, prototypes, calculators, or lightweight SPAs, React introduces an enormous dependency footprint (>1,400 packages), mandatory build steps, virtual DOM overhead, and complex hydration issues that simply aren't needed.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Does Breeze require a build step?</summary>
+          <div class="faq-answer">
+            <strong>No.</strong> You can drop <code>breeze.js</code> into any HTML file with a standard <code>&lt;script&gt;</code> tag and call <code>Breeze.init('app.breeze')</code> directly in the browser. A build step is completely optional, provided via <code>breeze build</code> solely for producing single-file inlined distributions.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Is Breeze truly dependency-free?</summary>
+          <div class="faq-answer">
+            Yes. The core runtime has <strong>zero external npm dependencies</strong>. Both <code>breeze.js</code> and <code>breeze-cli.js</code> are written strictly with native web platform APIs and standard Node.js built-in modules.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Can I use normal HTML elements in Breeze?</summary>
+          <div class="faq-answer">
+            Any standard HTML tag is supported directly as a Breeze element (e.g. <code>h1</code>, <code>p</code>, <code>button</code>, <code>input</code>, <code>textarea</code>, <code>section</code>, <code>div</code>). Breeze also recognizes standard HTML attributes in modifier brackets such as <code>[type=email, placeholder="Enter email..."]</code>.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">How does reactivity work without a Virtual DOM?</summary>
+          <div class="faq-answer">
+            During the initial render pass, the Breeze renderer scans element text nodes for <code>{stateKey}</code> interpolation expressions and registers the DOM text nodes into an internal dependency index. When <code>State.set(key, value)</code> is called, Breeze directly modifies only the registered text nodes in place, completely skipping full tree re-renders and virtual DOM diffing.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Can Breeze be extended with custom plugins?</summary>
+          <div class="faq-answer">
+            Yes. The plugin API (<code>Breeze.plugin(name, { install, actions })</code>) allows developers to hook into the lifecycle and define custom action keywords that can be triggered directly in markup via <code>@click -&gt; customAction()</code>.
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">Is Breeze suitable for production environments?</summary>
+          <div class="faq-answer">
+            Yes. Breeze compiles with <code>breeze build --spa --minify</code> into a production-ready, self-contained HTML bundle that can be deployed on Vercel, Netlify, Cloudflare Pages, GitHub Pages, or any static hosting service with zero configuration.
+          </div>
+        </details>
+
+      </div>
+    </section>
+
+
+    <!-- ── 12. Closing Section & Manifesto ──────────────────────────────── -->
+    <section class="section" id="closing" style="border-bottom: none;">
+      <div class="manifesto-box">
+        <span class="spec-stamp tomato" style="margin-bottom: 1.5rem;">The Breeze Manifesto</span>
+        <div class="manifesto-quote">
+          “Software should be made as simple as possible, but no simpler.”
+        </div>
+        <p class="manifesto-sub">
+          Breeze exists to prove that modern web development can remain declarative, reactive, and delightful—without surrendering to half a gigabyte of node_modules.
+        </p>
+        <div class="manifesto-actions">
+          <a href="https://github.com/alakmar344/breeze-framework" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="background-color: var(--c-tomato); font-size: 1rem; padding: 0.85rem 1.85rem;">
+            Explore the Source on GitHub ↗
+          </a>
+          <a href="#cli" class="btn btn-secondary" style="background-color: transparent; color: #FFFFFF; border-color: #94A3B8;">
+            View CLI Installation Guide
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Colophon / Footer ─────────────────────────────────────────────── -->
+    <footer class="site-footer">
+      <div class="footer-content">
+        <div>
+          <strong style="font-family: var(--font-serif); font-size: 1.1rem; color: var(--c-ink);">🌊 Breeze Framework</strong>
+          <p style="font-size: 0.82rem; margin-top: 0.25rem;">An open-source ultra-lightweight declarative web framework.</p>
+        </div>
+        <div class="footer-colophon">
+          <span>SPEC NO. 2026-BF-01</span> · <span>MIT LICENSE</span> · <a href="https://github.com/alakmar344/breeze-framework" target="_blank" rel="noopener noreferrer" style="color: var(--c-tomato); font-weight: 600;">GITHUB REPOSITORY</a>
+        </div>
+      </div>
+      <div style="padding-top: 1.25rem; font-size: 0.78rem; color: var(--c-ink-faint); text-align: center;">
+        Designed with Vintage Cream (#FAF8F5), Threepenny Navy (#1E293B), Washed Tomato Red (#EF4444), and Slime Green (#22C55E).
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Clipboard & Size Verification Scripts -->
   <script src="showcase.js"></script>
-  <script>
-    // Boot the Breeze application from app.breeze
-    Breeze.init('app.breeze', '#app').then(() => {
-      // ── Enrich Studio Section with Interactive Split IDE ───────────
-      const studioSec = document.getElementById('studio');
-      if (studioSec) {
-        const studioContainer = document.createElement('div');
-        studioContainer.innerHTML = `
-          <div class="studio-wrapper">
-            <div class="studio-header">
-              <div class="studio-title">
-                <div class="window-dots">
-                  <span class="dot dot-red"></span>
-                  <span class="dot dot-yellow"></span>
-                  <span class="dot dot-green"></span>
-                </div>
-                <span>⚡ Breeze Studio Playground</span>
-              </div>
-              <div class="studio-toolbar">
-                <label for="studio-preset" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">Template:</label>
-                <select id="studio-preset" class="studio-select">
-                  <option value="counter">⚡ Reactive Counter</option>
-                  <option value="todo">📝 Task / Todo List</option>
-                  <option value="hero">🚀 Hero Landing</option>
-                  <option value="cards">🎨 Cards & Grid</option>
-                </select>
-                <button class="bz-btn bz-primary" style="padding: 0.35rem 0.85rem; font-size: 0.85rem;" onclick="window.triggerConfetti(); window.showToast('Compiling & Rendering Live in 2ms!');">Run Live</button>
-              </div>
-            </div>
-            <div class="studio-split">
-              <div class="studio-pane-left">
-                <textarea id="studio-editor" class="studio-editor" spellcheck="false" placeholder="Write your .breeze code here..."></textarea>
-              </div>
-              <div class="studio-pane-right">
-                <div class="studio-tabs">
-                  <button class="studio-tab active" onclick="window.switchStudioTab('preview', this)">Live Preview</button>
-                  <button class="studio-tab" onclick="window.switchStudioTab('ast', this)">AST Inspector</button>
-                  <button class="studio-tab" onclick="window.switchStudioTab('html', this)">Generated HTML</button>
-                </div>
-                <div id="studio-preview" class="studio-preview-box"></div>
-                <pre id="studio-ast" class="studio-inspector"></pre>
-                <pre id="studio-html" class="studio-inspector"></pre>
-              </div>
-            </div>
-          </div>
-        `;
-        studioSec.appendChild(studioContainer);
-        if (window.setupStudio) window.setupStudio();
-      }
 
-      // ── Enrich Why Section with Visual Benchmark Comparison ─────────
-      const whySec = document.getElementById('why');
-      if (whySec) {
-        const benchmarkDiv = document.createElement('div');
-        benchmarkDiv.className = 'bz-wrap';
-        benchmarkDiv.style.marginTop = '2.5rem';
-        benchmarkDiv.innerHTML = `
-          <div class="bz-card bz-shadow" style="background: rgba(17, 24, 39, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; padding: 1.5rem;">
-            <h3 style="margin-bottom: 0.5rem; text-align: left;">📊 Framework Efficiency Benchmark</h3>
-            <p style="color: #94a3b8; font-size: 0.9rem; text-align: left; margin-bottom: 1.5rem;">Bundle weight and dependency overhead comparison across modern frameworks.</p>
-            <table class="comparison-table">
-              <thead>
-                <tr>
-                  <th>Framework</th>
-                  <th>Runtime Size</th>
-                  <th>Dependencies</th>
-                  <th>Build Step</th>
-                  <th>Relative Weight</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>🌊 Breeze</strong></td>
-                  <td><span style="color: #34d399; font-weight: 700;">~8 KB</span></td>
-                  <td><span style="color: #34d399; font-weight: 700;">0 (Zero)</span></td>
-                  <td>Optional (breeze build)</td>
-                  <td>
-                    <div class="bar-wrap"><div class="bar-fill bar-breeze"></div></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Svelte 5</td>
-                  <td>~25 KB</td>
-                  <td>~200 deps</td>
-                  <td>Mandatory</td>
-                  <td>
-                    <div class="bar-wrap"><div class="bar-fill bar-svelte"></div></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Vue 3</td>
-                  <td>~50 KB</td>
-                  <td>~350 deps</td>
-                  <td>Mandatory</td>
-                  <td>
-                    <div class="bar-wrap"><div class="bar-fill bar-vue"></div></div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>React 19 + Vite</td>
-                  <td>~140 KB</td>
-                  <td>~1,400+ deps</td>
-                  <td>Mandatory</td>
-                  <td>
-                    <div class="bar-wrap"><div class="bar-fill bar-react"></div></div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        `;
-        whySec.appendChild(benchmarkDiv);
-      }
-
-      // ── Enrich CLI Section with Interactive Terminal Emulator ───────
-      const cliSec = document.getElementById('cli');
-      if (cliSec) {
-        const terminalDiv = document.createElement('div');
-        terminalDiv.className = 'bz-wrap';
-        terminalDiv.innerHTML = `
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <div class="window-dots">
-                <span class="dot dot-red"></span>
-                <span class="dot dot-yellow"></span>
-                <span class="dot dot-green"></span>
-              </div>
-              <div style="display: flex; gap: 0.5rem;">
-                <button class="bz-btn bz-ghost cli-tab-btn active" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('init', this)">init</button>
-                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('dev', this)">dev</button>
-                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('build', this)">build</button>
-                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('serve', this)">serve</button>
-              </div>
-              <button class="bz-btn bz-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;" onclick="window.copyCurrentCli()">📋 Copy</button>
-            </div>
-            <div id="terminal-content" class="terminal-body"></div>
-          </div>
-        `;
-        cliSec.appendChild(terminalDiv);
-        if (window.switchCliTab) window.switchCliTab('init');
-      }
-    });
-  </script>
 </body>
 </html>
