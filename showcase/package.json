@@ -1,0 +1,20 @@
+{
+  "name": "breeze-showcase",
+  "version": "1.0.0",
+  "description": "Interactive showcase and documentation for Breeze Framework",
+  "scripts": {
+    "dev": "node ../breeze-cli.js dev",
+    "build": "node ../breeze-cli.js build app.breeze --spa --minify",
+    "start": "node ../breeze-cli.js serve dist"
+  },
+  "keywords": [
+    "breeze",
+    "framework",
+    "declarative",
+    "showcase",
+    "demo",
+    "interactive"
+  ],
+  "author": "Breeze Framework Contributors",
+  "license": "MIT"
+}

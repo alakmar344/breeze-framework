@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework</title>
+  <meta name="description" content="Build fast, reactive web applications with a single declarative .breeze file. Zero dependencies, ~8KB runtime, instant boot, and built-in design system.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="breeze.css">
+  <link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+  <!-- Breeze Core App Container -->
+  <div id="app"></div>
+
+  <!-- Breeze Framework Engine & Showcase Logic -->
+  <script src="breeze.js"></script>
+  <script src="showcase.js"></script>
+  <script>
+    // Boot the Breeze application from app.breeze
+    Breeze.init('app.breeze', '#app').then(() => {
+      // ── Enrich Studio Section with Interactive Split IDE ───────────
+      const studioSec = document.getElementById('studio');
+      if (studioSec) {
+        const studioContainer = document.createElement('div');
+        studioContainer.innerHTML = `
+          <div class="studio-wrapper">
+            <div class="studio-header">
+              <div class="studio-title">
+                <div class="window-dots">
+                  <span class="dot dot-red"></span>
+                  <span class="dot dot-yellow"></span>
+                  <span class="dot dot-green"></span>
+                </div>
+                <span>⚡ Breeze Studio Playground</span>
+              </div>
+              <div class="studio-toolbar">
+                <label for="studio-preset" style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">Template:</label>
+                <select id="studio-preset" class="studio-select">
+                  <option value="counter">⚡ Reactive Counter</option>
+                  <option value="todo">📝 Task / Todo List</option>
+                  <option value="hero">🚀 Hero Landing</option>
+                  <option value="cards">🎨 Cards & Grid</option>
+                </select>
+                <button class="bz-btn bz-primary" style="padding: 0.35rem 0.85rem; font-size: 0.85rem;" onclick="window.triggerConfetti(); window.showToast('Compiling & Rendering Live in 2ms!');">Run Live</button>
+              </div>
+            </div>
+            <div class="studio-split">
+              <div class="studio-pane-left">
+                <textarea id="studio-editor" class="studio-editor" spellcheck="false" placeholder="Write your .breeze code here..."></textarea>
+              </div>
+              <div class="studio-pane-right">
+                <div class="studio-tabs">
+                  <button class="studio-tab active" onclick="window.switchStudioTab('preview', this)">Live Preview</button>
+                  <button class="studio-tab" onclick="window.switchStudioTab('ast', this)">AST Inspector</button>
+                  <button class="studio-tab" onclick="window.switchStudioTab('html', this)">Generated HTML</button>
+                </div>
+                <div id="studio-preview" class="studio-preview-box"></div>
+                <pre id="studio-ast" class="studio-inspector"></pre>
+                <pre id="studio-html" class="studio-inspector"></pre>
+              </div>
+            </div>
+          </div>
+        `;
+        studioSec.appendChild(studioContainer);
+        if (window.setupStudio) window.setupStudio();
+      }
+
+      // ── Enrich Why Section with Visual Benchmark Comparison ─────────
+      const whySec = document.getElementById('why');
+      if (whySec) {
+        const benchmarkDiv = document.createElement('div');
+        benchmarkDiv.className = 'bz-wrap';
+        benchmarkDiv.style.marginTop = '2.5rem';
+        benchmarkDiv.innerHTML = `
+          <div class="bz-card bz-shadow" style="background: rgba(17, 24, 39, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; padding: 1.5rem;">
+            <h3 style="margin-bottom: 0.5rem; text-align: left;">📊 Framework Efficiency Benchmark</h3>
+            <p style="color: #94a3b8; font-size: 0.9rem; text-align: left; margin-bottom: 1.5rem;">Bundle weight and dependency overhead comparison across modern frameworks.</p>
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>Framework</th>
+                  <th>Runtime Size</th>
+                  <th>Dependencies</th>
+                  <th>Build Step</th>
+                  <th>Relative Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>🌊 Breeze</strong></td>
+                  <td><span style="color: #34d399; font-weight: 700;">~8 KB</span></td>
+                  <td><span style="color: #34d399; font-weight: 700;">0 (Zero)</span></td>
+                  <td>Optional (breeze build)</td>
+                  <td>
+                    <div class="bar-wrap"><div class="bar-fill bar-breeze"></div></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Svelte 5</td>
+                  <td>~25 KB</td>
+                  <td>~200 deps</td>
+                  <td>Mandatory</td>
+                  <td>
+                    <div class="bar-wrap"><div class="bar-fill bar-svelte"></div></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Vue 3</td>
+                  <td>~50 KB</td>
+                  <td>~350 deps</td>
+                  <td>Mandatory</td>
+                  <td>
+                    <div class="bar-wrap"><div class="bar-fill bar-vue"></div></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>React 19 + Vite</td>
+                  <td>~140 KB</td>
+                  <td>~1,400+ deps</td>
+                  <td>Mandatory</td>
+                  <td>
+                    <div class="bar-wrap"><div class="bar-fill bar-react"></div></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+        whySec.appendChild(benchmarkDiv);
+      }
+
+      // ── Enrich CLI Section with Interactive Terminal Emulator ───────
+      const cliSec = document.getElementById('cli');
+      if (cliSec) {
+        const terminalDiv = document.createElement('div');
+        terminalDiv.className = 'bz-wrap';
+        terminalDiv.innerHTML = `
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <div class="window-dots">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="bz-btn bz-ghost cli-tab-btn active" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('init', this)">init</button>
+                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('dev', this)">dev</button>
+                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('build', this)">build</button>
+                <button class="bz-btn bz-ghost cli-tab-btn" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;" onclick="window.switchCliTab('serve', this)">serve</button>
+              </div>
+              <button class="bz-btn bz-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;" onclick="window.copyCurrentCli()">📋 Copy</button>
+            </div>
+            <div id="terminal-content" class="terminal-body"></div>
+          </div>
+        `;
+        cliSec.appendChild(terminalDiv);
+        if (window.switchCliTab) window.switchCliTab('init');
+      }
+    });
+  </script>
+</body>
+</html>
