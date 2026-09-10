@@ -1,0 +1,93 @@
+@app "Breeze Demo — Full Feature Showcase"
+
+@theme {
+  primary: #6366f1
+  secondary: #8b5cf6
+  accent: #f59e0b
+  bg: #ffffff
+  text: #1f2937
+  radius: 8px
+  font: "Inter, sans-serif"
+}
+
+// ── Reactive state ───────────────────────────────────────────────────
+@state count = 0
+@state name = "Visitor"
+
+// ── Navigation ───────────────────────────────────────────────────────
+@nav [sticky]
+  link "🌊 Breeze" -> #home
+  link "Features" -> #features
+  link "Counter"  -> #counter
+  link "Docs"     -> #docs
+  link "Contact"  -> #contact
+
+// ── Hero ─────────────────────────────────────────────────────────────
+@section #home [hero, center, pad-xl]
+  h1 "Build the Web with 🌊 Breeze" [fade-in]
+  p "The ultra-lightweight declarative framework. No build tools. No node_modules. Just one file." [fade-in]
+  button "Explore Features" [primary, @click -> navigate(#features)]
+  button "View on GitHub" [outline]
+
+// ── Features grid ────────────────────────────────────────────────────
+@section #features [pad-xl, center]
+  h2 "Why developers love Breeze"
+  p "Everything you need. Nothing you don't."
+  div [grid-3, gap-lg, mt-lg]
+    card [shadow, hover-lift, fade-in]
+      h3 "⚡ Blazing Fast"
+      p "Zero dependencies. Minimal footprint. Renders your app in milliseconds."
+    card [shadow, hover-lift, fade-in]
+      h3 "🧩 Simple Syntax"
+      p "Human-readable .breeze files. Indentation-based nesting — no closing tags."
+    card [shadow, hover-lift, fade-in]
+      h3 "💪 Reactive State"
+      p "Built-in reactive state store. Bind {values} directly in your markup."
+    card [shadow, hover-lift, fade-in]
+      h3 "🛣️ Client Routing"
+      p "Hash-based SPA routing with smooth scroll. Just link sections by #id."
+    card [shadow, hover-lift, fade-in]
+      h3 "🎨 Design System"
+      p "A complete CSS system with 50+ utility classes, dark mode, and animations."
+    card [shadow, hover-lift, fade-in]
+      h3 "🔌 Plugin Ready"
+      p "Extend Breeze with plugins. Install lifecycle hooks. Add custom actions."
+
+// ── Interactive counter demo ─────────────────────────────────────────
+@section #counter [pad-xl, center, light]
+  h2 "Reactive State Demo"
+  p "Click the buttons and watch the counter update in real-time."
+  p "Counter value: {count}"
+  button "➕  Increment" [primary, @click -> increment(count)]
+  button "➖  Decrement" [secondary, @click -> decrement(count)]
+  button "🔄  Reset"    [accent, @click -> setState(count, 0)]
+
+// ── Docs / syntax reference ───────────────────────────────────────────
+@section #docs [pad-xl, dark, center]
+  h2 "Syntax at a Glance"
+  p "The entire Breeze syntax fits on a single page."
+  div [grid-3, gap-lg, mt-lg]
+    card [shadow]
+      h3 "📝 Directives"
+      p "@app  @nav  @section  @footer  @state  @theme  @style"
+    card [shadow]
+      h3 "🏷️ Modifiers"
+      p "[primary, hover-lift, @click -> action(), pad-lg, grid-3]"
+    card [shadow]
+      h3 "🔗 Bindings"
+      p "Use {stateName} anywhere in text to reactively display state."
+
+// ── Contact form ──────────────────────────────────────────────────────
+@section #contact [pad-xl, center]
+  h2 "Say Hello"
+  p "Have a question or idea? Drop us a line."
+  form
+    input [type=text, placeholder="Your name"]
+    input [type=email, placeholder="Email address"]
+    textarea [placeholder="Your message…"]
+    button "Send Message" [primary, full-width]
+
+// ── Footer ────────────────────────────────────────────────────────────
+@footer [dark]
+  p "🌊 Breeze Framework v1.0.0"
+  p "MIT License — © 2026 Breeze Framework Contributors"

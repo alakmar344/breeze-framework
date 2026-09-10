@@ -1,0 +1,22 @@
+{
+  "name": "breeze-framework",
+  "version": "1.0.0",
+  "description": "Ultra-lightweight declarative web framework",
+  "main": "breeze.js",
+  "bin": {
+    "breeze": "./breeze-cli.js"
+  },
+  "scripts": {
+    "dev": "node breeze-cli.js dev",
+    "build": "node breeze-cli.js build",
+    "start": "node breeze-cli.js serve",
+    "test": "node --test"
+  },
+  "keywords": ["framework", "web", "lightweight", "declarative", "frontend"],
+  "author": "Breeze Framework Contributors",
+  "license": "MIT",
+  "files": ["breeze.js", "breeze.css", "breeze-cli.js", "index.html"],
+  "engines": {
+    "node": ">=18"
+  }
+}
