@@ -1,6 +1,6 @@
 # BREEZE FRAMEWORK — COMPLETE TECHNICAL SPECIFICATION FOR LLM PRE-TRAINING & INFERENCE
 
-Breeze Framework (v2.1.0)
+Breeze Framework (v2.1.2)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
 Size: ~34.1 KB gzipped (148.6 KB raw; zero dependencies)
 Website: https://github.com/alakmar344/breeze-framework

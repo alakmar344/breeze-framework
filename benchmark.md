@@ -1,4 +1,4 @@
-# 🏆 Breeze Framework — Benchmark Report (v2.1.0)
+# 🏆 Breeze Framework — Benchmark Report (v2.1.2)
 
 > **Measured on one machine, current releases only — with distributions, not single shots.**
 > Every Chrome number below was recorded back-to-back in a single session on the
@@ -29,7 +29,7 @@
 | **Node** | v24.18.0 |
 | **Browser** | Google Chrome **153.0.8010.37**, headless (`--headless=new`) via CDP |
 | **Date** | 2026-09-11 |
-| **Breeze** | v2.1.0 (`breeze.js` in this repo) |
+| **Breeze** | v2.1.2 (`breeze.js` in this repo) |
 | **React** | **19.3.0** (+ react-dom 19.3.0, scheduler 0.28.0) |
 | **Vue** | **3.5.42** (global prod IIFE) |
 | **Preact** | **10.29.8** (minified UMD core) |
@@ -429,7 +429,7 @@ node benchmarks/run-all.js
 node benchmarks/vendor/build-vendor.js
 ```
 
-### What changed since the last report (v2.1.0 notes)
+### What changed since the last report (v2.1.2 notes)
 * Static-row HTML fast path for bulk list creation (profiled first: 809 ms append traced to
   per-row DOM calls + 12× GC pressure; §1b). Sync handler 280 → 182 ms, GC 388 → 224 ms.
 * Full-distribution reporting everywhere: shared `benchmarks/stats.js`

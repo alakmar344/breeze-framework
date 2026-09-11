@@ -1,6 +1,6 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-2.1.0-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.1.2-6366f1?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
 [![Size](https://img.shields.io/badge/JS_size-~34.1KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
@@ -10,7 +10,7 @@
 
 ---
 
-## ✨ Features (v2.1.0)
+## ✨ Features (v2.1.2)
 
 - 🚀 **Zero dependencies** — one `breeze.js` file, ~34.1 KB gzipped (148.6 KB raw, 28.2 KB Brotli; roughly half of React 19's 66.5 KB)
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
