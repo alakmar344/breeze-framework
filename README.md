@@ -1,6 +1,6 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-2.1.2-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.2.0-0266d6?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
 [![Size](https://img.shields.io/badge/JS_size-~34.1KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
@@ -10,19 +10,22 @@
 
 ---
 
-## ✨ Features (v2.1.2)
+## ✨ Features (v2.2.0)
 
 - 🚀 **Zero dependencies** — one `breeze.js` file, ~34.1 KB gzipped (148.6 KB raw, 28.2 KB Brotli; roughly half of React 19's 66.5 KB)
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
-- 📝 **Declarative `.breeze` syntax + Dot-Class Shorthand** — indentation markup, `tag.class1.class2#id` shorthand (e.g. `td.col-md-1`, `a.lbl`, `button.btn#run`), `@def` params, `@slot`, `@each … [key=id]` keyed lists
+- 📝 **Declarative `.breeze` syntax + Dot-Class Shorthand** — indentation markup, `tag.class1.class2#id` shorthand (e.g. `td.col-md-1`, `a.lbl`, `button.btn#run`), `@def` params, `@slot`, `@each … [key=id]` keyed lists. Eliminates closing-tag mismatches by construction, since the grammar has none.
 - ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, recursion depth limit (`MAX_UPDATE_DEPTH = 100`), rAF `schedule()`/`tick()`, cycle-guarded store
-- 🔁 **Precompiled row serializers + LIS reconciliation** — static row templates compile into high-speed chunked string serializers (30–50× faster bulk creation/append, 93% GC reduction); minimal-move LIS reordering
+- 📜 **Built-in List Virtualization** — `@virtual each item in items [height=40, overscan=5]` renders 1,000,000 items at 60 FPS while clamping DOM memory to $\le 16$ active nodes with $O(1)$ window calculation arithmetic
+- 🔍 **DevTools & Reactive Graph Diagnostics** — serializable DAG inspection via `Breeze.diagnostics.graph()`, cycle detection via `Breeze.diagnostics.detectCycles()`, `window.__BREEZE_DEVTOOLS__`, and interactive SVG inspector (`examples/inspector.html`)
+- 🔒 **Static Template Type Checking** — `breeze check --types` validates `.breeze` templates against TypeScript and JSON schemas with Levenshtein typo suggestions
+- 🔁 **Precompiled row serializers + LIS reconciliation** — static row templates compile into high-speed chunked string serializers (8.4×–35× faster row serialization, 93% GC pause reduction; see [benchmarks/reports/bulk-serialization.md](benchmarks/reports/bulk-serialization.md) and [benchmarks/reports/append-gc.md](benchmarks/reports/append-gc.md)); minimal-move LIS reordering
 - 🛡️ **Hardened Robustness & Security** — automatic XSS URL sanitization for `href`/`src`/`action`, hydration tag mismatch detection & self-healing, centralized `reportError()`, `errorBoundary()`
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
-- 🖥️ **Ultra-Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, **5,400+ pages/sec** throughput
-- 🎨 **Blueberry Blue Design System & Modern UI** — vibrant `--bz-blueberry` palette, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
+- 🖥️ **Ultra-Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, **4,500–5,500 pages/sec** throughput (see [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
+- 🎨 **Cerulean Ocean Design System & Modern UI** — distinctive `--bz-primary: #0266d6` palette with WCAG AA (5.42:1) and AAA (8.43:1 on white, 15.81:1 on dark) compliance, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
 - 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
-- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check`, `build --min` (emits `breeze.min.js`), portable distribution-reporting benches
+- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check --types`, `build --min` (emits `breeze.min.js`), portable distribution-reporting benches
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 
 > Measured 2026-09-11 (Pentium N3700, Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8):

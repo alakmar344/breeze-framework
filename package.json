@@ -35,6 +35,7 @@
     "bench:families": "node benchmarks/workload-families-runner.js",
     "bench:build-perf": "node benchmarks/build-perf-runner.js",
     "bench:parse": "node benchmarks/parse-latency-runner.js",
+    "bench:bulk": "node benchmarks/bulk-serialization-runner.js",
     "bench:all": "node benchmarks/run-all.js",
     "profile": "node breeze-cli.js profile"
   },

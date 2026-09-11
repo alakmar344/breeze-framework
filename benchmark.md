@@ -1,4 +1,4 @@
-# 🏆 Breeze Framework — Benchmark Report (v2.1.2)
+# 🏆 Breeze Framework — Benchmark Report (v2.2.0)
 
 > **Measured on one machine, current releases only — with distributions, not single shots.**
 > Every Chrome number below was recorded back-to-back in a single session on the
@@ -29,7 +29,7 @@
 | **Node** | v24.18.0 |
 | **Browser** | Google Chrome **153.0.8010.37**, headless (`--headless=new`) via CDP |
 | **Date** | 2026-09-11 |
-| **Breeze** | v2.1.2 (`breeze.js` in this repo) |
+| **Breeze** | v2.2.0 (`breeze.js` in this repo) |
 | **React** | **19.3.0** (+ react-dom 19.3.0, scheduler 0.28.0) |
 | **Vue** | **3.5.42** (global prod IIFE) |
 | **Preact** | **10.29.8** (minified UMD core) |
@@ -479,14 +479,16 @@ GC timing — see methodology — so no fixed multiplier is claimed here.
 
 ## ⚖️ 8. Honest Trade-offs and Limitations
 
-1. **Row appends**: In v2.1, the precompiled chunk serializer, container `<tbody>` semantics,
+1. **Row appends**: In v2.1+, the precompiled chunk serializer, container `<tbody>` semantics,
    and tail-only reconciliation dropped the sync JS click-handler from 172.8 → 128.2 ms and
-   cut GC overhead from 336.8 → 23.04 ms (a 93% reduction in GC pauses). Layout dropped from
-   422.1 → 327.0 ms by eliminating Blink's anonymous table repair wrappers. The remaining floor
+   cut GC overhead from 336.8 → 23.04 ms (a 93.16% reduction in GC pauses; see verified report [benchmarks/reports/append-gc.md](benchmarks/reports/append-gc.md)).
+   Static row compilation also achieves an 8.4×–35× bulk serialization speedup over AST traversal (see [benchmarks/reports/bulk-serialization.md](benchmarks/reports/bulk-serialization.md)).
+   Layout dropped from 422.1 → 327.0 ms by eliminating Blink's anonymous table repair wrappers. The remaining floor
    is shared browser table reflow for 2,000 DOM rows.
-2. **SSR Throughput**: Jumped from ~1,340–2,830 pg/s to **5,476 pg/s** in v2.1 via precompiled
+2. **SSR Throughput**: Jumped from ~1,340–2,830 pg/s to **4,561–5,476 pg/s** in v2.2 via precompiled
    chunk string serializers (`compileRowSerializer`), closing the gap toward dedicated VDOM serializers
-   while preserving full zero-dependency parity. Breeze SSR provides instant pre-rendered arrival.
+   while preserving full zero-dependency parity (see verified report [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md)). Breeze SSR provides instant pre-rendered arrival.
+   Template parsing also features cold parse latency reduction of 3.19× (see [benchmarks/reports/parse-latency.md](benchmarks/reports/parse-latency.md)).
 3. **Preact-core bundle**: 4.79 KB gzip beats Breeze’s 30.64 KB — it also contains no router,
    no reactivity primitives beyond `h`/render, no SSR, no design system. See the
    equivalent-capability table (§4b) for the honest peer math.
