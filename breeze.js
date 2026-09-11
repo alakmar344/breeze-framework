@@ -22,6 +22,13 @@
 
   const Parser = {
 
+    /** Emit a non-fatal parser diagnostic (kept quiet-friendly for tooling). */
+    _warn(msg) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[Breeze] ' + msg);
+      }
+    },
+
     /**
      * Parse a full .breeze source string into an array of AST nodes.
      * Indentation (2 spaces per level) determines parent-child nesting.
@@ -36,6 +43,7 @@
       // The "indent" here is the indent of the node that OWNS those children.
       const stack = [{ children: root, indent: -1 }];
       let i = 0;
+      let warnedTabs = false;
 
       while (i < lines.length) {
         const rawLine = lines[i];
@@ -47,6 +55,16 @@
           continue;
         }
 
+        // Breeze indentation is space-based. Tabs are the #1 cause of
+        // silently-misnested output, so surface it clearly (once).
+        if (!warnedTabs && /^\t/.test(rawLine)) {
+          warnedTabs = true;
+          Parser._warn(
+            `Line ${i + 1}: tab indentation detected. Breeze uses 2 spaces per ` +
+            `level — mixing tabs will misnest elements.`
+          );
+        }
+
         // Indentation level = number of leading spaces
         const indent = rawLine.search(/\S/);
 
@@ -54,11 +72,16 @@
         const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
         if (blockMatch) {
           const blockType = blockMatch[1];
+          if (!trimmed.includes('{')) {
+            Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
+          }
           const blockNode = { type: blockType, props: {} };
+          const blockStart = i;
+          let closed = false;
           i++;
           while (i < lines.length) {
             const tl = lines[i].trim();
-            if (tl === '}') { i++; break; }
+            if (tl === '}') { i++; closed = true; break; }
             if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
               const ci = tl.indexOf(':');
               if (ci !== -1) {
@@ -73,6 +96,9 @@
               }
             }
             i++;
+          }
+          if (!closed) {
+            Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
           }
           root.push(blockNode);
           continue;
@@ -173,6 +199,8 @@
           }
           return { type: 'state', key: m[1], value: val, indent };
         }
+        Parser._warn(`Malformed @state: "${content}". Expected: @state name = value`);
+        return null;
       }
 
       // @style "raw css string"
@@ -192,6 +220,8 @@
             indent
           };
         }
+        Parser._warn(`Malformed @each: "${content}". Expected: @each item in listKey`);
+        return null;
       }
 
       // @if conditionKey  or  @if !conditionKey
@@ -206,6 +236,8 @@
             indent
           };
         }
+        Parser._warn(`Malformed @if: "${content}". Expected: @if conditionKey or @if !conditionKey`);
+        return null;
       }
 
       // Generic directive fallback — treat as custom tag
@@ -799,11 +831,25 @@
       });
     },
 
-    /** Called by State.set() to refresh all DOM nodes bound to a key */
+    /**
+     * Called by State.set() to refresh all DOM nodes bound to a key.
+     * Simultaneously prunes bindings whose element has been detached from
+     * the document (e.g. items removed by @each / branches hidden by @if),
+     * preventing unbounded growth of the binding registry and wasted work
+     * updating orphaned nodes.
+     */
     updateBindings(key) {
-      (this._bindings[key] || []).forEach(b => {
+      const list = this._bindings[key];
+      if (!list || !list.length) return;
+      const alive = [];
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i];
+        // isConnected is undefined outside the browser — treat as alive there.
+        if (b.el.isConnected === false) continue;
         b.el.textContent = this.resolveBindings(b.template);
-      });
+        alive.push(b);
+      }
+      this._bindings[key] = alive;
     },
 
     // ── Modifier → DOM mapping ────────────────────────────────────────
@@ -846,12 +892,19 @@
         'slide-left': 'bz-slide-left', 'slide-right': 'bz-slide-right',
         bounce: 'bz-bounce', pulse: 'bz-pulse', 'zoom-in': 'bz-zoom-in',
         // State
-        disabled: 'disabled', active: 'active', hidden: 'bz-hidden',
+        active: 'active', hidden: 'bz-hidden',
         // Spacing helpers
         'mt-sm': 'bz-mt-sm', 'mt-md': 'bz-mt-md', 'mt-lg': 'bz-mt-lg',
         'mb-sm': 'bz-mb-sm', 'mb-md': 'bz-mb-md', 'mb-lg': 'bz-mb-lg',
         'no-wrap': 'bz-no-wrap'
       };
+
+      // HTML boolean attributes: `[disabled]`, `[checked]`, … must set the
+      // real DOM attribute, not a look-alike CSS class.
+      const BOOL_ATTRS = new Set([
+        'disabled', 'checked', 'readonly', 'required',
+        'selected', 'multiple', 'autofocus'
+      ]);
 
       modifiers.forEach(mod => {
         mod = mod.trim();
@@ -863,6 +916,12 @@
           if (em) {
             el.addEventListener(em[1], e => Renderer.executeAction(em[2].trim(), e, el));
           }
+          return;
+        }
+
+        // ── Boolean attribute: [disabled], [checked], … ──────────────
+        if (BOOL_ATTRS.has(mod)) {
+          el.setAttribute(mod, '');
           return;
         }
 
@@ -943,8 +1002,13 @@
   const Router = {
     _routes:  {},
     _current: null,
+    _initialized: false,
 
     init() {
+      // Idempotent: mounting more than once must not stack hashchange
+      // listeners (which would fire handleRoute N times per navigation).
+      if (this._initialized) { this.handleRoute(); return; }
+      this._initialized = true;
       window.addEventListener('hashchange', () => this.handleRoute());
       // Handle initial hash on load
       if (document.readyState === 'loading') {
