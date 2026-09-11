@@ -12,14 +12,16 @@
 
 ## ✨ Features
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, ~8 KB minified
-- 📝 **Declarative `.breeze` syntax** — readable, indentation-based, no closing tags
-- ⚡ **Reactive state** — `{stateKey}` bindings that update the DOM automatically
-- 🛣️ **Client-side routing** — hash-based SPA routing with smooth scroll
-- 🎨 **Complete design system** — 50+ utility classes, dark mode, animations
-- 🔌 **Plugin API** — extend with custom actions and lifecycle hooks
-- 📡 **Global event bus** — `Breeze.on` / `Breeze.emit`
-- 🛠️ **CLI tool** — `init`, `dev` (with live reload), `build`, `serve`
+- 🚀 **Zero dependencies** — one `breeze.js` file, ~8.2 KB gzipped
+- 📝 **Declarative `.breeze` syntax** — clean indentation-based markup, `@def` components, and `@slot` projections
+- ⚡ **Fine-grained reactive signals** — `Breeze.signal()`, `computed()`, `effect()`, and `batch()` for instant O(1) updates
+- 🔁 **Keyed reconciliation** — template-cloned list diffing (`@each item in list [key=id]`)
+- 🛣️ **Client router** — HTML5 History & Hash SPA modes with parameter matching (`:id`) and navigation guards
+- 🖥️ **Zero-dependency SSR & Hydration** — `Breeze.renderToString()` and `Breeze.hydrate()`
+- 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
+- 🎨 **Complete design system** — 50+ utility classes, dark mode, responsive layout primitives
+- 🔌 **Plugin & Event bus** — `Breeze.use()`, `Breeze.on()`, `Breeze.emit()`
+- 📊 **Krausest-benchmarked** — 54× faster row updates than React 18, 7.9× leaner memory heap
 
 ---
 
@@ -447,13 +449,35 @@ breeze serve dist 9000
 
 | Feature | Breeze | React | Svelte | Vue | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size | ~8 KB | ~45 KB | ~10 KB | ~35 KB | 0 |
+| Bundle size | ~8.2 KB | ~45 KB | ~10 KB | ~35 KB | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
-| Reactive state | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Client routing | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Reactive state | ✅ Signals | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
+| Client routing | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Design system | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Learning time | Minutes | Days | Hours | Hours | N/A |
 | Dependencies | 0 | ~1500 | ~200 | ~300 | 0 |
+
+---
+
+## 📊 Public Benchmarks (Krausest Workload)
+
+Automated headless Google Chrome runs via Chrome DevTools Protocol (CDP) measuring DOM manipulation latency and memory consumption:
+
+| Benchmark Operation | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3 | React 18 |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Create 1,000 rows** | **794.9 ms** | 690.5 ms | 875.9 ms | 841.2 ms | 912.0 ms |
+| **Update every 10th row** | **10.3 ms** | 67.0 ms | 119.3 ms | 98.0 ms | 562.7 ms |
+| **Select active row** | **1.10 ms** | 18.7 ms | 65.7 ms | 40.1 ms | 20.8 ms |
+| **Delete single row** | **9.60 ms** | 92.8 ms | 98.5 ms | 98.1 ms | 103.5 ms |
+| **Create 10,000 rows** | **7,252 ms** | 9,668 ms | 8,444 ms | 9,587 ms | 11,534 ms |
+| **Retained Memory Heap** | **2,471 KB** | 1,812 KB | 15,474 KB | 17,242 KB | 19,611 KB |
+
+*Detailed methodology, hardware specifications, and reproduction instructions in [benchmark.md](benchmark.md).*
+
+```bash
+# Run the public benchmark suite locally
+npm run bench:public
+```
 
 ---
 
@@ -474,13 +498,15 @@ Breeze uses: `fetch`, `CSS custom properties`, `CSS Grid`, `history.pushState`, 
 
 ```
 breeze-framework/
-├── breeze.js        # Core engine (parser, renderer, state, router)
-├── breeze.css       # Complete design system
-├── breeze-cli.js    # CLI tool (init, dev, build, serve)
-├── index.html       # Bootstrapper template
-├── example.breeze   # Full feature example app
+├── breeze.js           # Core framework (signals, parser, renderer, router, SSR, profiler)
+├── breeze.d.ts         # Full TypeScript API definitions
+├── breeze.css          # Complete utility design system
+├── breeze-cli.js       # CLI tool (init, dev, build, serve, profile, bench)
+├── benchmark.md        # Comprehensive empirical benchmark report
+├── benchmarks/         # Krausest js-framework-benchmark suite (Breeze, React, Vue, Preact, Vanilla)
+├── showcase/           # Showcase website & technical publication
+├── test/               # Automated unit & integration tests (node --test)
 ├── package.json
-├── LICENSE
 └── README.md
 ```
 

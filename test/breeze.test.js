@@ -319,4 +319,199 @@ describe('Breeze Framework Core', () => {
       console.warn = origWarn;
     }
   });
+
+  it('should support fine-grained signals, computed, effect, and batching', () => {
+    const count = Breeze.signal(10);
+    assert.equal(count.value, 10);
+    assert.equal(count.peek(), 10);
+
+    const doubled = Breeze.computed(() => count.value * 2);
+    assert.equal(doubled.value, 20);
+
+    let effectCalls = 0;
+    let effectValue = 0;
+    Breeze.effect(() => {
+      effectCalls++;
+      effectValue = doubled.value;
+    });
+
+    assert.equal(effectCalls, 1);
+    assert.equal(effectValue, 20);
+
+    count.value = 15;
+    assert.equal(doubled.value, 30);
+    assert.equal(effectValue, 30);
+    assert.equal(effectCalls, 2);
+
+    // Test batching
+    Breeze.batch(() => {
+      count.value = 20;
+      count.value = 25;
+      count.value = 30;
+    });
+
+    assert.equal(doubled.value, 60);
+    assert.equal(effectValue, 60);
+  });
+
+  it('should parse and compile component definitions with @def and @slot', () => {
+    const source = [
+      '@def Card(title, badge)',
+      '  div [bz-card]',
+      '    h3 "{title}"',
+      '    span "{badge}"',
+      '    @slot',
+      '@section #content',
+      '  Card "Header Text" [shadow]',
+      '    p "Nested slot paragraph"'
+    ].join('\n');
+
+    const ast = Breeze.parse(source);
+    const defNode = ast.find(n => n.type === 'def');
+    assert.ok(defNode);
+    assert.equal(defNode.name, 'Card');
+    assert.deepEqual(defNode.params, ['title', 'badge']);
+
+    const sec = ast.find(n => n.type === 'section');
+    assert.ok(sec);
+    const compInvocation = sec.children.find(c => c.type === 'component');
+    assert.ok(compInvocation);
+    assert.equal(compInvocation.name, 'Card');
+    assert.equal(compInvocation.text, 'Header Text');
+    assert.equal(compInvocation.children.length, 1);
+  });
+
+  it('should parse @elif and @else branches', () => {
+    const source = [
+      '@if count > 10',
+      '  p "High"',
+      '@elif count > 5',
+      '  p "Medium"',
+      '@else',
+      '  p "Low"'
+    ].join('\n');
+
+    const ast = Breeze.parse(source);
+    assert.equal(ast.length, 3);
+    assert.equal(ast[0].type, 'if');
+    assert.equal(ast[1].type, 'elif');
+    assert.equal(ast[2].type, 'else');
+  });
+
+  it('should support SSR renderToString without DOM dependencies', () => {
+    const source = [
+      '@app "SSR App"',
+      '@state greeting = "Hello World"',
+      '@section #hero [pad-lg, center]',
+      '  h1 "{greeting}"',
+      '  p "Rendered statically on server"',
+      '  button "Explore" [primary]'
+    ].join('\n');
+
+    const html = Breeze.renderToString(source, { greeting: 'Welcome SSR' });
+    assert.ok(html.includes('<section id="hero" class="bz-section bz-pad-lg bz-center">'));
+    assert.ok(html.includes('<h1>Welcome SSR</h1>'));
+    assert.ok(html.includes('<p>Rendered statically on server</p>'));
+    assert.ok(html.includes('<button class="bz-btn bz-primary">Explore</button>'));
+  });
+
+  it('should support router params, query strings, and beforeEach guards', () => {
+    Breeze.router.setMode('hash');
+    let routeCalled = false;
+    let capturedParams = null;
+
+    Breeze.route('#users/:id', (path, params) => {
+      routeCalled = true;
+      capturedParams = params;
+    });
+
+    let guardCalled = false;
+    Breeze.router.beforeEach((to, from, next) => {
+      guardCalled = true;
+      next(true);
+    });
+
+    Breeze.navigate('#users/42');
+    assert.ok(guardCalled);
+    assert.ok(routeCalled);
+    assert.equal(capturedParams.id, '42');
+    assert.equal(Breeze.router.params.id, '42');
+  });
+
+  it('should track metrics with the Breeze profiler', () => {
+    Breeze.profiler.reset();
+    Breeze.profiler.recordRender(5.2);
+    Breeze.profiler.recordDomOp('create');
+    Breeze.profiler.recordDomOp('text');
+    Breeze.profiler.recordSignalUpdate();
+    Breeze.profiler.recordKeyedDiff();
+
+    const report = Breeze.profiler.getReport();
+    assert.equal(report.renders, 1);
+    assert.equal(report.renderTimeMs, 5.2);
+    assert.equal(report.domOps.create, 1);
+    assert.equal(report.domOps.text, 1);
+    assert.equal(report.signalUpdates, 1);
+    assert.equal(report.keyedDiffs, 1);
+  });
+
+  it('should support custom method registration and execution', () => {
+    let methodRan = false;
+    Breeze.method('customAction', (arg) => {
+      methodRan = true;
+      assert.equal(arg, 'testArg');
+    });
+
+    assert.equal(typeof Breeze.methods.customAction, 'function');
+    Breeze.methods.customAction('testArg');
+    assert.ok(methodRan);
+  });
+
+  it('should support nested batching and signal subscriber cleanup', () => {
+    const a = Breeze.signal(1);
+    const b = Breeze.signal(2);
+    let runs = 0;
+
+    const dispose = Breeze.effect(() => {
+      runs++;
+      // access signals
+      const sum = a.value + b.value;
+    });
+
+    assert.equal(runs, 1);
+
+    // Nested batch
+    Breeze.batch(() => {
+      a.value = 10;
+      Breeze.batch(() => {
+        b.value = 20;
+      });
+      a.value = 30;
+    });
+
+    assert.equal(runs, 2);
+    assert.equal(a.value, 30);
+    assert.equal(b.value, 20);
+  });
+
+  it('should parse @error directives and two-way bind modifiers', () => {
+    const source = [
+      '@error "An error occurred"',
+      '@section #form',
+      '  input [bind=userName, placeholder="Enter name"]',
+      '  input [type=checkbox, bind=agreeTerms]'
+    ].join('\n');
+
+    const ast = Breeze.parse(source);
+    const errNode = ast.find(n => n.type === 'error');
+    assert.ok(errNode);
+    assert.equal(errNode.text, 'An error occurred');
+
+    const sec = ast.find(n => n.type === 'section');
+    assert.ok(sec);
+    const input1 = sec.children[0];
+    assert.ok(input1.modifiers.includes('bind=userName'));
+    const input2 = sec.children[1];
+    assert.ok(input2.modifiers.includes('bind=agreeTerms'));
+  });
 });
