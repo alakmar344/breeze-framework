@@ -25,7 +25,7 @@
 - 🖥️ **Ultra-Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, **4,500–5,500 pages/sec** throughput (see [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
 - 🎨 **Cerulean Ocean Design System & Modern UI** — distinctive `--bz-primary: #0266d6` palette with WCAG AA (5.42:1) and AAA (8.43:1 on white, 15.81:1 on dark) compliance, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
 - 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
-- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check --types`, `build --min` (emits `breeze.min.js`), portable distribution-reporting benches
+- 🛠️ **Production CLI** — `init` (templates), `dev` (live reload, auto-port, CORS), `build` (watch, SSG, Gzip/Brotli, asset copying), `serve`/`preview`, `generate` (component/page/route/store/service/test), `lint` (`--fix`), `format` (`--check`), `check` (`--types`), `doctor`, `clean`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 
 > Measured 2026-09-11 (Pentium N3700, Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8):
@@ -599,6 +599,62 @@ breeze-framework/
 ├── test/               # Automated unit & integration tests (node --test)
 ├── package.json
 └── README.md
+```
+
+---
+
+## 🛠️ CLI Reference
+
+The Breeze CLI is a zero-dependency toolkit for rapid development, code generation, diagnostics, and production compilation.
+
+```bash
+# Global syntax
+breeze <command> [options]
+```
+
+### Commands
+
+| Command | Arguments / Flags | Description |
+| :--- | :--- | :--- |
+| `init` (alias `create`) | `[name] [--template minimal\|counter\|default] [--force]` | Scaffold a new ready-to-run project with runtime & type definitions |
+| `dev` | `[dir] [--port 3000] [--host localhost] [--open] [--cors]` | Start live reload server with SSE, port collision recovery, and fallback runtime |
+| `build` | `[file] [--out-dir dist] [--minify] [--spa] [--watch] [--clean]` | Compile to static HTML with SSG, Brotli/Gzip auto-compression, and asset copying |
+| `serve` (alias `preview`) | `[dir] [--port 8080] [--host localhost] [--open]` | Static production preview server with Brotli/Gzip content negotiation |
+| `generate` (alias `g`) | `<kind> <name> [dir] [--force]` | Scaffold `component`, `page`, `route`, `store`, `service`, or `test` |
+| `lint` | `[target] [--fix]` | Inspect `.breeze` files for tab indentation, formatting, or directive issues |
+| `format` (alias `fmt`) | `[targets...] [--check]` | Normalize indentation to 2 spaces; `--check` validates for CI workflows |
+| `check` | `[target] [--types] [--schema types.ts] [--strict]` | Strict parse + SSR smoke test, or static type-checking against schema |
+| `doctor` (alias `info`) | — | Inspect system environment, Node.js version, and project health checks |
+| `clean` | `[--all]` | Clean build output (`dist/`, `.breeze/`, compressed bundles) |
+| `profile` | `[file]` | Benchmark parser throughput, SSR speed, and memory usage |
+| `bench` | — | Run full framework performance benchmark suite |
+| `help` | `[command]` | Display help manual for any command |
+
+### Examples
+
+```bash
+# 1. Create a project with counter template
+breeze init my-app --template counter
+
+# 2. Start dev server on port 4000 and open browser
+breeze dev --port 4000 --open
+
+# 3. Generate a new component and unit test
+breeze generate component UserCard
+breeze generate test UserCard
+
+# 4. Run static type checking against TypeScript schema
+breeze check --types --schema types.ts
+
+# 5. Format all templates or verify in CI
+breeze format
+breeze format --check
+
+# 6. Production build with minification and watch mode
+breeze build app.breeze --minify --out-dir dist-prod --watch
+
+# 7. Preview production build
+breeze preview dist-prod --port 9000
 ```
 
 ---
