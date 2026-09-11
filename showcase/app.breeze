@@ -63,7 +63,7 @@
 @section #hero [hero, center, pad-xl]
   div [center, pad-md]
     div [fade-in]
-      span "✨ Breeze Framework v2.1.0 — Zero Dependencies • Blueberry Blue • High-Speed Core" [rounded, primary, pad-sm]
+      span "✨ Breeze Framework v2.1.2 — Zero Dependencies • Blueberry Blue • High-Speed Core" [rounded, primary, pad-sm]
     h1 "Build the Web with 🌊 Breeze" [fade-in, mt-md]
     p "The ultra-lightweight declarative framework. Zero build tools. Zero node_modules. Pure reactive joy in a single file." [fade-in]
     div [flex, gap-md, mt-lg]
@@ -233,7 +233,7 @@
 
 // ── Footer ────────────────────────────────────────────────────────────────
 @footer [dark]
-  p "🌊 Breeze Framework v2.1.0 — Crafted for Speed, Simplicity, and Elegance"
+  p "🌊 Breeze Framework v2.1.2 — Crafted for Speed, Simplicity, and Elegance"
   p "MIT License • Created by Breeze Framework Contributors"
   div [flex, gap-md, center, mt-sm]
     button "Star on GitHub ⭐️" [outline, @click -> toast("Opening GitHub repository!")]

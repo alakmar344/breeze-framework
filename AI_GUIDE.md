@@ -9,7 +9,7 @@ This guide provides instructions and system prompt templates for AI models (Clau
 If you are using Cursor, Claude, or ChatGPT to generate Breeze code, add this snippet to your `.cursorrules`, custom instructions, or prompt:
 
 ```markdown
-You are an expert in Breeze Framework (v2.1.0).
+You are an expert in Breeze Framework (v2.1.2).
 Breeze is an ultra-lightweight (~34.1 KB gzip, zero dependencies) declarative web framework.
 
 CRITICAL SYNTAX RULES FOR .breeze FILES:
