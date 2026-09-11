@@ -113,8 +113,27 @@ async function main() {
     '--no-default-browser-check',
     `--user-data-dir=${profileDir}`
   ]);
+  chromeProc.on('error', (e) => console.error(`Chrome launch failed: ${e.message}`));
 
-  await new Promise(r => setTimeout(r, 2000));
+  // Poll CDP until Chrome is actually listening (fixed sleeps race on slow CPUs).
+  async function waitForCdp(timeoutMs) {
+    const start = Date.now();
+    for (;;) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
+        if (res.ok) {
+          const info = await res.json().catch(() => ({}));
+          if (info.Browser) console.log(`Chrome ready: ${(info.Browser || '').split('/').slice(0, 2).join(' ')}`);
+          return;
+        }
+      } catch (_) {}
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`Chrome CDP not reachable on 127.0.0.1:${CDP_PORT} after ${timeoutMs}ms — is another Chrome holding the port/profile?`);
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+  await waitForCdp(20000);
 
   const allResults = {};
 
@@ -288,7 +307,7 @@ async function main() {
   console.log(`📊 FINAL KRAUSEST BENCHMARK RESULTS (HEADLESS CHROME)`);
   console.log(`================================================================\n`);
 
-  console.log('| Benchmark Operation | Breeze | Vanilla JS | Preact | Vue 3 | React 18 |');
+  console.log('| Benchmark Operation | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |');
   console.log('| :--- | :---: | :---: | :---: | :---: | :---: |');
   const ops = [
     ['create1000', 'Create 1,000 rows (ms)'],

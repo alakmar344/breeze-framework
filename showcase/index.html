@@ -727,36 +727,37 @@
       <div class="section-tag">Section 09 · Empirical Benchmarks</div>
       <h2>Real-World DOM Performance</h2>
       <p class="section-intro">
-        Tested on the industry-standard <strong>Krausest <code>js-framework-benchmark</code></strong> suite running in headless Google Chrome via the Chrome DevTools Protocol (CDP). Empirical browser measurements — zero synthetic fluff.
+        Tested on the industry-standard <strong>Krausest <code>js-framework-benchmark</code></strong> suite running in headless Chrome 153 via CDP on an Intel Pentium N3700.
+        Latest releases only: React 19.3.0, Vue 3.5.42, Preact 10.29.8. Medians of 3 — see <code>benchmark.md</code> for machine fingerprint and variance notes.
       </p>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2.5rem;">
         <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
           <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: var(--c-tomato); font-weight: 700; margin-bottom: 0.25rem;">Fine-Grained Updates</div>
-          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">4.6×</div>
-          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">Faster row updates than React 18 (12.4 ms vs 56.7 ms) with keyed template reconciliation.</p>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">2.1×</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">Faster row updates than React 19 (18.1 ms vs 38.5 ms) with LIS keyed reconciliation.</p>
         </div>
 
         <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
           <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: var(--c-slime-dark); font-weight: 700; margin-bottom: 0.25rem;">Surgical Deletion</div>
-          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">1.10 ms</div>
-          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">64× faster row deletion than React 18 (71.1 ms) and 73× faster than Vue 3 (81.1 ms).</p>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">0.9 ms</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">69× faster row deletion than React 19 (62.5 ms). Surgical unlink, no sibling re-evaluation.</p>
         </div>
 
         <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
           <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: #7c3aed; font-weight: 700; margin-bottom: 0.25rem;">DBMonster 60 FPS</div>
-          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">58.3 FPS</div>
-          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">2.9× higher sustained animation FPS under rapid continuous mutations vs React 18 & Preact (20 FPS).</p>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">60.1 FPS</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">3.3× higher sustained animation FPS under rapid continuous mutations vs React 19 (18.3 FPS).</p>
         </div>
 
         <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
           <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: #2563EB; font-weight: 700; margin-bottom: 0.25rem;">Memory Efficiency</div>
-          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">8.1× Leaner</div>
-          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">2,425 KB retained V8 heap vs 19,622 KB in React 18 after heavy table stress testing.</p>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">9.4× Leaner</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">4,944 KB retained V8 heap vs 46,281 KB in React 19 after heavy table stress testing.</p>
         </div>
       </div>
 
-      <h3 style="margin-top: 2rem; margin-bottom: 0.75rem;">1. Krausest DOM Benchmark (Headless Chrome via CDP)</h3>
+      <h3 style="margin-top: 2rem; margin-bottom: 0.75rem;">1. Krausest DOM Benchmark (Headless Chrome 153 via CDP, median-of-3)</h3>
       <div class="table-wrapper">
         <table class="compare-table">
           <thead>
@@ -764,83 +765,83 @@
               <th>Krausest Workload Operation</th>
               <th>🌊 Breeze</th>
               <th>Vanilla JS</th>
-              <th>Preact 10</th>
-              <th>Vue 3</th>
-              <th>React 18</th>
+              <th>Preact 10.29.8</th>
+              <th>Vue 3.5.42</th>
+              <th>React 19.3.0</th>
             </tr>
           </thead>
           <tbody>
             <tr class="highlight-row">
               <td><strong>Create 1,000 rows</strong></td>
-              <td><span class="badge-green">539.00 ms</span></td>
-              <td>893.90 ms</td>
-              <td>794.30 ms</td>
-              <td>573.20 ms</td>
-              <td>580.40 ms</td>
+              <td>537.00 ms</td>
+              <td>614.30 ms</td>
+              <td>584.00 ms</td>
+              <td>527.50 ms</td>
+              <td>530.10 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Update every 10th row</strong></td>
-              <td><span class="badge-green">12.40 ms</span></td>
+              <td><span class="badge-green">18.10 ms</span></td>
+              <td>44.90 ms</td>
+              <td>62.10 ms</td>
               <td>48.30 ms</td>
-              <td>116.10 ms</td>
-              <td>72.60 ms</td>
-              <td>56.70 ms</td>
+              <td>38.50 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Select active row</strong></td>
-              <td><span class="badge-green">12.70 ms</span></td>
-              <td>25.50 ms</td>
-              <td>53.40 ms</td>
-              <td>32.80 ms</td>
-              <td>14.10 ms</td>
+              <td><span class="badge-green">11.90 ms</span></td>
+              <td>14.20 ms</td>
+              <td>17.90 ms</td>
+              <td>14.20 ms</td>
+              <td>14.00 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Swap rows (4 & 997)</strong></td>
-              <td><strong>420.90 ms</strong></td>
-              <td>46.40 ms</td>
-              <td>95.30 ms</td>
-              <td>58.00 ms</td>
-              <td>452.50 ms</td>
+              <td><strong>51.20 ms</strong></td>
+              <td>44.60 ms</td>
+              <td>65.20 ms</td>
+              <td>49.70 ms</td>
+              <td>324.40 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Delete single row</strong></td>
-              <td><span class="badge-green">1.10 ms</span></td>
-              <td>117.40 ms</td>
-              <td>97.10 ms</td>
-              <td>81.10 ms</td>
-              <td>71.10 ms</td>
+              <td><span class="badge-green">0.90 ms</span></td>
+              <td>65.80 ms</td>
+              <td>67.90 ms</td>
+              <td>71.90 ms</td>
+              <td>62.50 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Append 1,000 rows</strong></td>
-              <td><strong>688.60 ms</strong></td>
-              <td>483.80 ms</td>
-              <td>590.10 ms</td>
-              <td>479.20 ms</td>
-              <td>423.00 ms</td>
+              <td><strong>809.00 ms</strong></td>
+              <td>510.10 ms</td>
+              <td>515.00 ms</td>
+              <td>447.80 ms</td>
+              <td>460.50 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Clear 1,000 rows</strong></td>
-              <td><span class="badge-green">54.60 ms</span></td>
-              <td>55.10 ms</td>
-              <td>75.20 ms</td>
-              <td>64.30 ms</td>
-              <td>78.30 ms</td>
+              <td><strong>35.40 ms</strong></td>
+              <td>23.80 ms</td>
+              <td>28.60 ms</td>
+              <td>32.80 ms</td>
+              <td>41.00 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Create 10,000 rows (Stress)</strong></td>
-              <td><span class="badge-green">5,482.50 ms</span></td>
-              <td>6,596.40 ms</td>
-              <td>7,271.30 ms</td>
-              <td>5,814.00 ms</td>
-              <td>6,735.40 ms</td>
+              <td><span class="badge-green">5,572.80 ms</span></td>
+              <td>5,787.70 ms</td>
+              <td>5,962.00 ms</td>
+              <td>5,866.60 ms</td>
+              <td>7,535.30 ms</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Retained Memory Heap</strong></td>
-              <td><span class="badge-green">2,424.9 KB</span></td>
-              <td>1,813.1 KB</td>
-              <td>15,474.5 KB</td>
-              <td>17,240.3 KB</td>
-              <td>19,621.6 KB</td>
+              <td><span class="badge-green">4,944.3 KB</span></td>
+              <td>3,555.4 KB</td>
+              <td>19,167.0 KB</td>
+              <td>45,577.5 KB</td>
+              <td>46,281.1 KB</td>
             </tr>
           </tbody>
         </table>
@@ -861,38 +862,38 @@
           <tbody>
             <tr class="highlight-row">
               <td><strong>🌊 Breeze Framework</strong></td>
-              <td><span class="badge-green">58.3 FPS</span></td>
-              <td><strong>17.15 ms</strong></td>
-              <td><strong>47 / 99</strong></td>
-              <td>3,059.6 KB</td>
+              <td><span class="badge-green">60.1 FPS</span></td>
+              <td><strong>16.65 ms</strong></td>
+              <td><strong>56 / 99</strong></td>
+              <td>2,328.3 KB</td>
             </tr>
             <tr>
               <td><strong>Vanilla JS</strong></td>
-              <td>20.8 FPS</td>
-              <td>48.14 ms</td>
+              <td>18.5 FPS</td>
+              <td>54.09 ms</td>
               <td>99 / 99</td>
-              <td>1,330.8 KB</td>
+              <td>1,364.5 KB</td>
             </tr>
             <tr>
-              <td><strong>React 18</strong></td>
-              <td>20.0 FPS</td>
-              <td>49.95 ms</td>
-              <td>99 / 99</td>
-              <td>2,288.2 KB</td>
-            </tr>
-            <tr>
-              <td><strong>Preact 10</strong></td>
-              <td>20.0 FPS</td>
-              <td>49.97 ms</td>
-              <td>99 / 99</td>
-              <td>1,740.8 KB</td>
-            </tr>
-            <tr>
-              <td><strong>Vue 3</strong></td>
+              <td><strong>React 19.3.0</strong></td>
               <td>18.3 FPS</td>
-              <td>54.77 ms</td>
+              <td>54.73 ms</td>
               <td>99 / 99</td>
-              <td>5,175.9 KB</td>
+              <td>2,496.1 KB</td>
+            </tr>
+            <tr>
+              <td><strong>Preact 10.29.8</strong></td>
+              <td>18.7 FPS</td>
+              <td>53.46 ms</td>
+              <td>99 / 99</td>
+              <td>1,628.3 KB</td>
+            </tr>
+            <tr>
+              <td><strong>Vue 3.5.42</strong></td>
+              <td>15.2 FPS</td>
+              <td>65.93 ms</td>
+              <td>99 / 99</td>
+              <td>1,965.1 KB</td>
             </tr>
           </tbody>
         </table>
@@ -900,9 +901,10 @@
 
       <div style="margin-top: 1.75rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; background-color: var(--c-canvas-muted); padding: 1.25rem 1.5rem; border-left: 4px solid var(--c-slime-dark); border-radius: var(--radius-sm);">
         <div>
-          <strong style="font-size: 0.95rem;">🔬 Multi-Suite & 100% Deterministic:</strong>
+          <strong style="font-size: 0.95rem;">🔬 Multi-suite, same machine, current releases:</strong>
           <span style="font-size: 0.88rem; color: var(--c-ink-light); display: block; margin-top: 0.2rem;">
-            Empirical measurements across Krausest, DBMonster, SSR, and Bundle compression. Run <code>npm run bench:all</code> to reproduce offline.
+            Medians of 3 on a Pentium N3700 (Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8).
+            Absolute ms vary with load — ordering is the claim. Run <code>npm run bench:all</code> to reproduce. Full variance notes in <code>benchmark.md</code>.
           </span>
         </div>
         <a href="https://github.com/alakmar344/breeze-framework/blob/main/benchmark.md" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
@@ -934,12 +936,12 @@
           </thead>
           <tbody>
             <tr class="highlight-row">
-              <td><strong>Runtime Size</strong></td>
+              <td><strong>Runtime Size (gzip, measured)</strong></td>
               <td><span class="badge-green">~30.6 KB</span></td>
               <td>0 KB</td>
               <td>~25 KB</td>
-              <td>~50 KB</td>
-              <td>~140 KB</td>
+              <td>~60 KB</td>
+              <td>~66 KB</td>
             </tr>
             <tr class="highlight-row">
               <td><strong>Dependencies</strong></td>

@@ -104,7 +104,7 @@
   div [grid-3, gap-lg, mt-lg]
     card [shadow, hover-lift, fade-in]
       h3 "⚡ Pure Zero-Dependency Architecture"
-      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one 8KB script and build full reactive applications."
+      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one ~30KB script and build full reactive applications."
     card [shadow, hover-lift, fade-in]
       h3 "📝 Indentation-Based Syntax"
       p "Say goodbye to closing tags, JSX syntax quirks, and boilerplate. Breeze syntax is clean, readable, and lightning fast to write."

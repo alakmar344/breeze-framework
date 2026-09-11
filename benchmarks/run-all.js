@@ -32,26 +32,62 @@ async function main() {
   console.log(`CPUs: ${os.cpus()[0]?.model || 'Generic CPU'} (${os.cpus().length} threads)`);
   console.log(`Node.js: ${process.version}`);
 
+  // Machine + dependency fingerprint — every number in results.json was
+  // measured on THIS machine with THESE exact builds (see vendor/VERSIONS.md).
+  // Chrome version is probed over CDP (chrome --version lies when a desktop
+  // browser instance is already running — it just forwards to it).
+  let chromeVersion = 'unknown';
+  try {
+    const probePort = 19437;
+    const probeProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'breeze-chrome-probe-'));
+    const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+    const { spawn: sp } = require('child_process');
+    const probe = sp(chromeBin, [
+      '--headless=new', `--remote-debugging-port=${probePort}`, '--disable-gpu',
+      '--no-first-run', '--no-default-browser-check', `--user-data-dir=${probeProfile}`
+    ], { stdio: 'ignore' });
+    const start = Date.now();
+    while (Date.now() - start < 15000) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${probePort}/json/version`);
+        if (res.ok) {
+          const info = await res.json().catch(() => ({}));
+          if (info.Browser) { chromeVersion = info.Browser; break; }
+        }
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, 250));
+    }
+    try { probe.kill(); } catch (_) {}
+    try { fs.rmSync(probeProfile, { recursive: true, force: true }); } catch (_) {}
+  } catch (_) {}
+  let vendorVersions = {};
+  try {
+    vendorVersions = require('./vendor/build-vendor.js').PINNED;
+  } catch (_) {}
+
   const consolidatedResults = {
     metadata: {
       date: new Date().toISOString(),
       platform: `${os.type()} ${os.release()} ${os.arch()}`,
       cpu: os.cpus()[0]?.model || 'Multi-core CPU',
+      cpuThreads: os.cpus().length,
       node: process.version,
-      browser: 'Google Chrome (Headless CDP)'
+      browser: `Google Chrome Headless (CDP) — ${chromeVersion}`,
+      vendorVersions,
+      note: 'All Chrome numbers are median-of-BZ_BENCH_RUNS on this CPU; absolute ms varies with machine load, relative ordering is the claim.'
     }
   };
 
   // 1. Bundle Size & Startup Benchmark
-  console.log('\n[Suite 1/4] Running Bundle & Startup Benchmark...');
+  console.log('\n[Suite 1/5] Running Bundle & Startup Benchmark...');
   consolidatedResults.bundle = runBundleBenchmark();
 
   // 2. SSR Throughput Benchmark
-  console.log('\n[Suite 2/4] Running SSR Throughput Benchmark...');
+  console.log('\n[Suite 2/5] Running SSR Throughput Benchmark...');
   consolidatedResults.ssr = runSsrBenchmark(1000);
 
   // 3. DBMonster 60 FPS Stress Benchmark
-  console.log('\n[Suite 3/4] Running DBMonster Continuous Animation Benchmark...');
+  console.log('\n[Suite 3/5] Running DBMonster Continuous Animation Benchmark...');
   consolidatedResults.dbmonster = await runDbMonsterBenchmark();
 
   // 4. Krausest DOM Benchmark

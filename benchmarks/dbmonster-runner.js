@@ -2,7 +2,7 @@
 /**
  * DBMonster Benchmark Runner for Breeze Framework
  * Measures sustained 60 FPS animation loop performance, frame times, and dropped frames
- * across Breeze, Vanilla JS, Preact, Vue 3, and React 18 in headless Google Chrome.
+ * across Breeze, Vanilla JS, Preact 10, Vue 3, and React 19 in headless Google Chrome.
  */
 
 'use strict';
@@ -104,8 +104,27 @@ async function runDbMonsterBenchmark() {
     '--no-default-browser-check',
     `--user-data-dir=${profileDir}`
   ]);
+  chromeProc.on('error', (e) => console.error(`Chrome launch failed: ${e.message}`));
 
-  await new Promise(r => setTimeout(r, 1500));
+  // Poll CDP until Chrome is actually listening (fixed sleeps race on slow CPUs).
+  async function waitForCdp(timeoutMs) {
+    const start = Date.now();
+    for (;;) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
+        if (res.ok) {
+          const info = await res.json().catch(() => ({}));
+          if (info.Browser) console.log(`Chrome ready: ${(info.Browser || '').split('/').slice(0, 2).join(' ')}`);
+          return;
+        }
+      } catch (_) {}
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`Chrome CDP not reachable on 127.0.0.1:${CDP_PORT} after ${timeoutMs}ms — is another Chrome holding the port/profile?`);
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+  await waitForCdp(20000);
 
   const results = {};
 

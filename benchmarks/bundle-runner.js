@@ -42,12 +42,9 @@ const frameworks = [
     npmTransitiveNote: 'estimate (npm install vue dev tree, not bundled payload)'
   },
   {
-    name: 'React 18 + ReactDOM',
+    name: 'React 19 + ReactDOM 19',
     id: 'react',
-    multiFiles: [
-      path.join(vendorDir, 'react.production.min.js'),
-      path.join(vendorDir, 'react-dom.production.min.js')
-    ],
+    file: path.join(vendorDir, 'react-19-stack.js'),
     dependencies: 0,
     npmTransitiveEstimate: 1400,
     npmTransitiveNote: 'estimate (npm install react+react-dom dev tree, not bundled payload)'

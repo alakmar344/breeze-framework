@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>React 18 Benchmark</title>
+  <title>React 19 Benchmark</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 20px; }
     .btn { padding: 6px 12px; margin: 4px; cursor: pointer; }
@@ -15,8 +15,7 @@
     .lbl { cursor: pointer; color: #337ab7; text-decoration: none; }
     .remove { cursor: pointer; color: red; }
   </style>
-  <script src="/vendor/react.production.min.js"></script>
-  <script src="/vendor/react-dom.production.min.js"></script>
+  <script src="/vendor/react-19-stack.js"></script>
 </head>
 <body>
   <div id="main"></div>
@@ -90,7 +89,7 @@
       }, []);
 
       return e('div', null,
-        e('h1', null, 'React 18 Benchmark'),
+        e('h1', null, 'React 19 Benchmark'),
         e('div', null,
           e('button', { id: 'run', className: 'btn', onClick: run }, 'Create 1,000 rows'),
           e('button', { id: 'runlots', className: 'btn', onClick: runlots }, 'Create 10,000 rows'),
