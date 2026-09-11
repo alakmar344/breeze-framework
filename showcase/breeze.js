@@ -1,5 +1,5 @@
 /*!
- * Breeze Framework v2.1.2 (Comfort + Perf + Benchmarks)
+ * Breeze Framework v2.2.0 (Comfort + Perf + Benchmarks)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
@@ -4417,7 +4417,7 @@
   // ═══════════════════════════════════════════════════════════════════════
 
   const BreezeAPI = {
-    version: '2.1.2',
+    version: '2.2.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},

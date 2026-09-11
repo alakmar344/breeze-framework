@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v2.1.2 — TypeScript Definitions
+ * Breeze Framework v2.2.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 

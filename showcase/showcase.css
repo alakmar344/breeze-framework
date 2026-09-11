@@ -24,10 +24,10 @@
   --c-slime:        #22C55E;
   --c-slime-dark:   #16A34A;
   --c-slime-light:  #DCFCE7;
-  --c-blueberry:       #3B82F6;
-  --c-blueberry-dark:  #1D4ED8;
-  --c-blueberry-light: #EFF6FF;
-  --c-blueberry-glow:  rgba(59, 130, 246, 0.35);
+  --c-blueberry:       #0266D6;
+  --c-blueberry-dark:  #0048A7;
+  --c-blueberry-light: #EBF4FF;
+  --c-blueberry-glow:  rgba(2, 102, 214, 0.35);
   --c-border:       #E2DBD2;
   --c-border-strong:#1E293B;
 
@@ -1155,7 +1155,7 @@ code, kbd, samp, pre {
 .blueberry-badge {
   background: var(--c-blueberry-light);
   color: var(--c-blueberry-dark);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(2, 102, 214, 0.3);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;

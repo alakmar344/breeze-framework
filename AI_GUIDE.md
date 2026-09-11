@@ -9,21 +9,21 @@ This guide provides instructions and system prompt templates for AI models (Clau
 If you are using Cursor, Claude, or ChatGPT to generate Breeze code, add this snippet to your `.cursorrules`, custom instructions, or prompt:
 
 ```markdown
-You are an expert in Breeze Framework (v2.1.2).
+You are an expert in Breeze Framework (v2.2.0).
 Breeze is an ultra-lightweight (~34.1 KB gzip, zero dependencies) declarative web framework.
 
 CRITICAL SYNTAX RULES FOR .breeze FILES:
 1. NEVER emit closing tags (no </div>, </section>, </p>, </button>). Indentation establishes hierarchy.
 2. ALWAYS use exactly 2 spaces per indentation level (tabs are expanded with a warning).
-3. Directives begin with @ (@app, @theme, @state, @nav, @section, @footer, @each, @if/@elif/@else, @def, @slot, @error).
+3. Directives begin with @ (@app, @theme, @state, @nav, @section, @footer, @each, @virtual each, @if/@elif/@else, @def, @slot, @error).
 4. Elements follow: tag "text with {stateBinding}" [modifiers] #id
 5. Modifiers in brackets: [primary, hero, center, pad-lg, grid-2, shadow, hover-lift, ref=name, @show=key, @model=key, @cloak, @transition=fade-in].
 6. Event actions in brackets: [@click -> increment(key)], [@click -> navigate(#id)], [@click -> push(arrayKey, value)].
-7. Loops: @each item in listKey [key=id] (use {item}, {item.prop} and {item.index} in children).
+7. Loops: @each item in listKey [key=id] or virtualized @virtual each item in listKey [height=40, overscan=5] (use {item}, {item.prop} and {item.index} in children).
 8. Conditionals: @if key / @if !key with @elif / @else chains (first-truthy wins, dotted keys ok).
 9. Components: @def Card(title, badge) + Card("Hi", badge="New") + @slot for children.
 10. Shorthand: tag.class1.class2#id supported directly (e.g. td.col-md-1, button.btn.primary#run).
-11. Modern UI: use Blueberry Blue tokens (--bz-blueberry), card-glass, switch, badge-blueberry, btn-glow.
+11. Modern UI: use Cerulean Ocean tokens (--bz-primary, --bz-blueberry), card-glass, switch, badge-blueberry, btn-glow.
 12. Web Components: export native custom elements via Breeze.defineElement('tag-name', template, opts).
 ```
 
