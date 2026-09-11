@@ -1,6 +1,6 @@
 {
   "name": "breeze-framework",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Ultra-lightweight declarative web framework",
   "main": "breeze.js",
   "bin": {
@@ -19,6 +19,17 @@
     "bench:bundle": "node benchmarks/bundle-runner.js",
     "bench:ssr": "node benchmarks/ssr-runner.js",
     "bench:dbmonster": "node benchmarks/dbmonster-runner.js",
+    "bench:mount10k": "node benchmarks/mount-10k-runner.js",
+    "bench:update1row": "node benchmarks/update-1-row-runner.js",
+    "bench:filter": "node benchmarks/filter-search-runner.js",
+    "bench:sort": "node benchmarks/sort-1k-runner.js",
+    "bench:nested": "node benchmarks/nested-list-runner.js",
+    "bench:forms": "node benchmarks/form-validate-runner.js",
+    "bench:routes": "node benchmarks/route-match-runner.js",
+    "bench:hydrate": "node benchmarks/hydrate-string-runner.js",
+    "bench:todo": "node benchmarks/todo-mvc-runner.js",
+    "bench:sustained": "node benchmarks/sustained-updates-runner.js",
+    "bench:v2": "node benchmarks/mount-10k-runner.js && node benchmarks/update-1-row-runner.js && node benchmarks/filter-search-runner.js && node benchmarks/sort-1k-runner.js && node benchmarks/nested-list-runner.js && node benchmarks/form-validate-runner.js && node benchmarks/route-match-runner.js && node benchmarks/hydrate-string-runner.js && node benchmarks/todo-mvc-runner.js && node benchmarks/sustained-updates-runner.js",
     "bench:all": "node benchmarks/run-all.js",
     "profile": "node breeze-cli.js profile"
   },

@@ -2,12 +2,12 @@
 
 @seo {
   title: "🌊 Breeze Framework — Ultra-Lightweight Declarative Web Framework"
-  description: "The middle ground between vanilla HTML and heavy frameworks. Built-in reactive state, client routing, and design system in ~8 KB."
+  description: "The middle ground between vanilla HTML and heavy frameworks. Reactive signals, keyed lists, router with outlets, SSR + hydrate, CLI and design system — zero dependencies."
   keywords: "breeze framework, lightweight web framework, reactive javascript, zero dependencies"
   author: "Breeze Framework Contributors"
   canonical: "https://breeze-framework.org/"
   ogTitle: "🌊 Breeze Framework — Fast, Reactive, Zero Dependencies"
-  ogDescription: "An ultra-lightweight declarative framework with reactive state and routing in ~8KB."
+  ogDescription: "An ultra-lightweight declarative framework with reactive state and routing. Zero dependencies."
 }
 
 @schema {
@@ -18,14 +18,14 @@
 }
 
 @aeo {
-  summary: "Breeze is an ultra-lightweight (~8KB) declarative web framework with zero dependencies, reactive state, client routing, and built-in design tokens."
+  summary: "Breeze v2 is an ultra-lightweight declarative web framework with zero dependencies, disposable-effect signals, LIS keyed lists, outlet router, SSR parity and non-destructive hydrate, plus CLI generate/lint/format/check."
   topics: "web development, declarative UI, zero dependencies, reactive state, client-side routing, light framework"
   speakable: ["h1", ".hero-lead", "#why h2"]
 }
 
 @geo {
   entities: "Breeze Framework, Web Framework, Declarative Programming, Reactive Programming, JavaScript"
-  facts: "Breeze core runtime is ~8KB gzipped with zero external dependencies and supports SPA routing and state reactivity."
+  facts: "Breeze v2 shipped runtime is ~24.6 KB gzipped with zero external dependencies; supports outlet SPA routing, SSR parity and median-run benchmarks."
 }
 
 @theme {
@@ -45,6 +45,8 @@
 @state count = 42
 @state totalUsers = 1250
 @state appStatus = "Active & Blazing Fast"
+@state showStudio = true
+@state v2email = ""
 
 // ── Navigation Bar ────────────────────────────────────────────────────────
 @nav [sticky]
@@ -60,7 +62,7 @@
 @section #hero [hero, center, pad-xl]
   div [center, pad-md]
     div [fade-in]
-      span "✨ Breeze Framework v1.0.0 — Zero Dependencies • ~8KB Runtime" [rounded, primary, pad-sm]
+      span "✨ Breeze Framework v2.0.0 — Zero Dependencies • Comfy DX • Honest Benchmarks" [rounded, primary, pad-sm]
     h1 "Build the Web with 🌊 Breeze" [fade-in, mt-md]
     p "The ultra-lightweight declarative framework. Zero build tools. Zero node_modules. Pure reactive joy in a single file." [fade-in]
     div [flex, gap-md, mt-lg]
@@ -75,8 +77,8 @@
 @section #metrics [pad-lg, center, dark]
   div [grid-4, gap-lg]
     card [shadow, hover-lift, fade-in]
-      h2 "~8 KB" [primary]
-      p "Minified Core Runtime"
+      h2 "~24.6 KB" [primary]
+      p "Shipped Runtime (gzip)"
     card [shadow, hover-lift, fade-in]
       h2 "0" [secondary]
       p "External Dependencies"
@@ -102,7 +104,7 @@
   div [grid-3, gap-lg, mt-lg]
     card [shadow, hover-lift, fade-in]
       h3 "⚡ Pure Zero-Dependency Architecture"
-      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one 8KB script and build full reactive applications."
+      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one ~30KB script and build full reactive applications."
     card [shadow, hover-lift, fade-in]
       h3 "📝 Indentation-Based Syntax"
       p "Say goodbye to closing tags, JSX syntax quirks, and boilerplate. Breeze syntax is clean, readable, and lightning fast to write."
@@ -183,9 +185,26 @@
       p "Get started in 5 seconds without installing heavy dependencies:"
       button "📋 Copy Scaffolding Command" [primary, @click -> toast("Copied: npx breeze-framework init my-app")]
 
+// ── v2 Comfort Room ───────────────────────────────────────────────────────
+@section #v2 [pad-xl, center]
+  h2 "v2 comfort: show, refs, models, transitions"
+  p "Toggle the studio, focus by ref, validate email live. All zero-dep."
+  div [flex, gap-md, center, mt-md]
+    button "Toggle studio" [outline, @click -> toggle(showStudio)]
+    button "Focus email" [ghost, @click -> focusEmail()]
+  div [@show=showStudio, mt-md]
+    card [shadow, pad-lg]
+      h3 "Live email check" [@transition=fade-in]
+      form
+        input [type=email, @model=v2email, placeholder="you@site.com"]
+        p "Typed: {v2email}" [small, muted]
+  div [mt-md]
+    p "Cloaked until wired:" [small, muted]
+    p "v2 suspense / portal / outlet ready" [@cloak, small]
+
 // ── Footer ────────────────────────────────────────────────────────────────
 @footer [dark]
-  p "🌊 Breeze Framework v1.0.0 — Crafted for Speed, Simplicity, and Elegance"
+  p "🌊 Breeze Framework v2.0.0 — Crafted for Speed, Simplicity, and Elegance"
   p "MIT License • Created by Breeze Framework Contributors"
   div [flex, gap-md, center, mt-sm]
     button "Star on GitHub ⭐️" [outline, @click -> toast("Opening GitHub repository!")]

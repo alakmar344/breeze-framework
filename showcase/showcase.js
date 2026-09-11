@@ -37,19 +37,37 @@
   }
 
   // ── Real Repository Size Verification ────────────────────────────────────
-  // Actual measurements calculated directly from repository files:
+  // Shipped breeze.js v2 (LIS reorder, template precompile, DX kit, 10 new benches).
+  // Regenerate with: node benchmarks/bundle-runner.js
   const SIZES = {
-    rawBytes: 35225,
-    rawKb: '34.40',
+    rawBytes: 136920,
+    rawKb: '133.71',
     minBytes: 23674,
     minKb: '23.12',
-    gzipBytes: 8407,
-    gzipKb: '8.21',
-    cssGzipKb: '5.78',
-    deps: 0
+    gzipBytes: 31375,
+    gzipKb: '30.64',
+    cssGzipKb: '6.39',
+    deps: 0,
+    note: 'shipped v2 file (honest, not minified core-only)'
   };
 
+  // ── v2 comfort demo: focusEmail custom action (used by app.breeze #v2) ──
+  function registerV2Methods() {
+    if (typeof window === 'undefined' || !window.Breeze) return;
+    try {
+      window.Breeze.method('focusEmail', () => {
+        const input = document.querySelector('#v2 input[type="email"]') ||
+          document.querySelector('input[type="email"]');
+        if (input) {
+          input.focus();
+          if (window.Breeze.announce) window.Breeze.announce('Email field focused');
+        }
+      });
+    } catch (_) {}
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    registerV2Methods();
     // Populate dynamic size elements if present
     const liveSizeEl = document.getElementById('live-size-val');
     if (liveSizeEl) {

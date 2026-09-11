@@ -1,8 +1,8 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.0.0-6366f1?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
-[![Size](https://img.shields.io/badge/JS_size-~8KB-f59e0b?style=flat-square)](breeze.js)
+[![Size](https://img.shields.io/badge/JS_size-~30.6KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
 [![Demo](https://img.shields.io/badge/demo-live-22c55e?style=flat-square)](breeze-framework.vercel.app)
 
@@ -10,17 +10,22 @@
 
 ---
 
-## ✨ Features
+## ✨ Features (v2.0.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, ~8.2 KB gzipped
-- 📝 **Declarative `.breeze` syntax** — clean indentation-based markup, `@def` components, and `@slot` projections
-- ⚡ **Fine-grained reactive signals** — `Breeze.signal()`, `computed()`, `effect()`, and `batch()` for instant O(1) updates
-- 🔁 **Keyed reconciliation** — template-cloned list diffing (`@each item in list [key=id]`)
-- 🛣️ **Client router** — HTML5 History & Hash SPA modes with parameter matching (`:id`) and navigation guards
-- 🖥️ **Zero-dependency SSR & Hydration** — `Breeze.renderToString()` and `Breeze.hydrate()`
+- 🚀 **Zero dependencies** — one `breeze.js` file, ~30.6 KB gzipped (133.7 KB raw, 25.1 KB Brotli; full comfort kit, less than half of React 19's 66.5 KB)
+- 📝 **Declarative `.breeze` syntax** — indentation markup, `@def` params, `@slot`, `@each … [key=id]` keyed lists, `@show/@model/@ref/@cloak/@transition` comfort directives
+- ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, rAF `schedule()`/`tick()`, cycle-guarded store
+- 🔁 **LIS keyed reconciliation** — true longest-increasing-subsequence minimal moves (swap-2-in-1000 → ~2 moves), append `DocumentFragment` fast-path, `data-bz-key` select, duplicate warnings
+- 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
+- 🖥️ **SSR + non-destructive hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, ~2.6k pg/s (5× v1.1)
+- 🧰 **Comfort kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
+- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check`, `build --min` (emits `breeze.min.js`), portable median-run benches
+- 🎨 **Design system** — 50+ utilities + suspense/cloak/transition/form/invalid/keyed/outlet/stack/cluster, `color-mix` fallbacks, reduced-motion
+- 📊 **15 benchmark suites** — Krausest, DBMonster, SSR, bundle, micro + 10 new v2 node suites (mount-10k, update-1row, filter, sort, nested, forms, routes, hydrate, todo, sustained)
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
-- 🎨 **Complete design system** — 50+ utility classes, dark mode, responsive layout primitives
-- 📊 **Empirical Multi-Suite Benchmarks** — 4.6× faster updates than React 18, 64× faster row deletion, 58 FPS continuous DBMonster animations, 8.1× leaner memory heap
+
+> Measured 2026-09-11 (Pentium N3700, Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8):
+> 2.1× updates, 69× deletes, 6.3× swap, 60.1 FPS (3.3× React), 9.4× leaner heap — see `benchmark.md`.
 
 ---
 
@@ -446,12 +451,14 @@ breeze serve dist 9000
 
 ## 🆚 Comparison
 
-| Feature | Breeze | React | Svelte | Vue | Vanilla HTML |
+| Feature | Breeze v2 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size | ~8.2 KB | ~45 KB | ~10 KB | ~35 KB | 0 |
+| Bundle size | ~30.6 KB gzip | ~66 KB gzip | ~10 KB | ~60 KB gzip | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
-| Reactive state | ✅ Signals | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
-| Client routing | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Reactive state | ✅ Signals + ref/memo/dispose/batch/schedule | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
+| Client routing | ✅ (hash/history, `:id`/`:id?`/`*`, outlet, async guards, regex cache) | ✅ | ❌ | ❌ | ❌ |
+| SSR + hydrate | ✅ (parity + non-destructive + cache) | ✅ | ✅ | ✅ | ❌ |
+| Forms/i18n/a11y | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
 | Design system | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Learning time | Minutes | Days | Hours | Hours | N/A |
 | Dependencies | 0 | ~1500 | ~200 | ~300 | 0 |
@@ -460,19 +467,22 @@ breeze serve dist 9000
 
 ## 📊 Public Multi-Suite Benchmarks
 
-Automated headless Google Chrome runs via Chrome DevTools Protocol (CDP) and Node.js v24 measuring DOM manipulation latency, animation FPS, SSR throughput, and memory consumption:
+Measured 2026-09-11 on an Intel Pentium N3700, headless Chrome 153 via CDP
+(median-of-3; latest releases: React 19.3.0, Vue 3.5.42, Preact 10.29.8).
+Absolute ms are slow on this chip — ordering is the claim:
 
-| Benchmark Operation | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3 | React 18 |
+| Benchmark Operation | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3.5 | React 19 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Create 1,000 rows** | **539.0 ms** | 893.9 ms | 794.3 ms | 573.2 ms | 580.4 ms |
-| **Update every 10th row** | **12.4 ms** | 48.3 ms | 116.1 ms | 72.6 ms | 56.7 ms |
-| **Select active row** | **12.7 ms** | 25.5 ms | 53.4 ms | 32.8 ms | 14.1 ms |
-| **Delete single row** | **1.10 ms** | 117.4 ms | 97.1 ms | 81.1 ms | 71.1 ms |
-| **DBMonster (Continuous 60 FPS)** | **58.3 FPS** | 20.8 FPS | 20.0 FPS | 18.3 FPS | 20.0 FPS |
-| **Create 10,000 rows** | **5,482 ms** | 6,596 ms | 7,271 ms | 5,814 ms | 6,735 ms |
-| **Retained Memory Heap** | **2,425 KB** | 1,813 KB | 15,475 KB | 17,240 KB | 19,622 KB |
+| **Create 1,000 rows** | 537.0 ms | 614.3 ms | 584.0 ms | 527.5 ms | 530.1 ms |
+| **Update every 10th row** | **18.1 ms** | 44.9 ms | 62.1 ms | 48.3 ms | 38.5 ms |
+| **Select active row** | **11.9 ms** | 14.2 ms | 17.9 ms | 14.2 ms | 14.0 ms |
+| **Delete single row** | **0.9 ms** | 65.8 ms | 67.9 ms | 71.9 ms | 62.5 ms |
+| **Swap rows 4 & 997** | 51.2 ms | 44.6 ms | 65.2 ms | 49.7 ms | 324.4 ms |
+| **DBMonster animation** | **60.1 FPS** | 18.5 FPS | 18.7 FPS | 15.2 FPS | 18.3 FPS |
+| **Create 10,000 rows** | **5,572.8 ms** | 5,787.7 ms | 5,962.0 ms | 5,866.6 ms | 7,535.3 ms |
+| **Retained Memory Heap** | 4,944 KB | 3,555 KB | 19,167 KB | 45,578 KB | 46,281 KB |
 
-*Detailed methodology, hardware specifications, and reproduction instructions in [benchmark.md](benchmark.md).*
+*Full methodology, machine fingerprint, per-op variance, historical baselines and honest losses (row-append) in [benchmark.md](benchmark.md). Raw output: `benchmarks/results.json`.*
 
 ```bash
 # Run all framework benchmarks locally

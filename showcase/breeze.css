@@ -306,16 +306,25 @@ em       { font-style: italic; }
   align-items: center;
   justify-content: center;
   text-align: center;
+  /* Fallback for Safari < 16.2 / older browsers without color-mix */
+  background: linear-gradient(135deg, var(--bz-bg) 0%, var(--bz-bg-alt) 100%);
   background: linear-gradient(135deg, var(--bz-bg) 0%, color-mix(in srgb, var(--bz-primary) 5%, var(--bz-bg)) 100%);
   padding: var(--bz-space-xl) var(--bz-space-lg);
 }
 .bz-hero h1 {
   font-size: clamp(2.5rem, 7vw, 5rem);
+  /* Solid-ink fallback when background-clip:text is unsupported */
+  color: var(--bz-primary);
   background: linear-gradient(135deg, var(--bz-primary), var(--bz-secondary));
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 1.5rem;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .bz-hero h1 {
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
 }
 .bz-hero p   { font-size: var(--bz-font-size-lg); color: var(--bz-muted); max-width: 60ch; }
 .bz-hero .bz-btn-group,
@@ -436,6 +445,8 @@ button.bz-btn {
    ════════════════════════════════════════════════════════════════ */
 .bz-hover-lift:hover  { transform: translateY(-4px); box-shadow: var(--bz-shadow-lg); }
 .bz-hover-scale:hover { transform: scale(1.03); }
+/* Fallback glow without color-mix, then enhanced version */
+.bz-hover-glow:hover  { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
 .bz-hover-glow:hover  { box-shadow: 0 0 20px color-mix(in srgb, var(--bz-primary) 40%, transparent); }
 
 
@@ -821,3 +832,59 @@ label.bz-label {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   V2 COMFORT — cloak, suspense, transitions, forms, portal
+   ════════════════════════════════════════════════════════════════ */
+
+/* Hide un-hydrated / cloaked nodes until Breeze wires them */
+[bz-cloak] { display: none !important; }
+
+/* Suspense fallback shimmer (honest, no layout shift) */
+.bz-suspense {
+  min-height: 3rem;
+  border-radius: var(--bz-radius);
+  background: linear-gradient(90deg, var(--bz-bg-alt) 25%, var(--bz-border) 50%, var(--bz-bg-alt) 75%);
+  background-size: 200% 100%;
+  animation: bz-shimmer 1.2s infinite;
+}
+@keyframes bz-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bz-suspense { animation: none; }
+}
+
+/* Route / view transitions (opt-in via @transition=*) */
+.bz-transition-fade { animation: bz-fade .18s ease-out; }
+@keyframes bz-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Form validation states */
+.bz-input.bz-invalid, .bz-textarea.bz-invalid, .bz-select.bz-invalid {
+  border-color: var(--bz-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bz-danger) 18%, transparent);
+}
+.bz-field-error {
+  color: var(--bz-danger);
+  font-size: var(--bz-font-size-sm);
+  margin-top: .25rem;
+}
+.bz-field-hint {
+  color: var(--bz-muted);
+  font-size: var(--bz-font-size-sm);
+  margin-top: .25rem;
+}
+
+/* Keyed row affordances (benchmarks + data tables) */
+tr[data-bz-key], [data-bz-key].bz-active { scroll-margin-top: 4rem; }
+tr.danger, .bz-active { background: color-mix(in srgb, var(--bz-danger) 8%, transparent); }
+
+/* Container convenience for outlet-based apps */
+.bz-outlet:empty { min-height: 2rem; }
+.bz-stack { display: flex; flex-direction: column; gap: var(--bz-space-md); }
+.bz-cluster { display: flex; flex-wrap: wrap; gap: var(--bz-space-sm); align-items: center; }
