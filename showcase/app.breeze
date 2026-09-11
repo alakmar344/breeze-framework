@@ -25,7 +25,7 @@
 
 @geo {
   entities: "Breeze Framework, Web Framework, Declarative Programming, Reactive Programming, JavaScript"
-  facts: "Breeze v2 shipped runtime is ~24.6 KB gzipped with zero external dependencies; supports outlet SPA routing, SSR parity and median-run benchmarks."
+  facts: "Breeze v2 shipped runtime is ~34.1 KB gzipped with zero external dependencies; supports outlet SPA routing, SSR parity and distribution-reporting benchmarks."
 }
 
 @theme {
@@ -77,7 +77,7 @@
 @section #metrics [pad-lg, center, dark]
   div [grid-4, gap-lg]
     card [shadow, hover-lift, fade-in]
-      h2 "~24.6 KB" [primary]
+      h2 "~34.1 KB" [primary]
       p "Shipped Runtime (gzip)"
     card [shadow, hover-lift, fade-in]
       h2 "0" [secondary]
@@ -104,7 +104,7 @@
   div [grid-3, gap-lg, mt-lg]
     card [shadow, hover-lift, fade-in]
       h3 "⚡ Pure Zero-Dependency Architecture"
-      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one ~30KB script and build full reactive applications."
+      p "No complex node_modules trees. No Webpack, Rollup, or Vite config files. Include one ~34KB script and build full reactive applications."
     card [shadow, hover-lift, fade-in]
       h3 "📝 Indentation-Based Syntax"
       p "Say goodbye to closing tags, JSX syntax quirks, and boilerplate. Breeze syntax is clean, readable, and lightning fast to write."

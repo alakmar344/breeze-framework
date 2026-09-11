@@ -1014,10 +1014,10 @@ describe('Breeze Framework Core', () => {
     }
   });
 
-  it('v2: version is 2.0.0 across package + runtime', () => {
+  it('v2: version is 2.1.0 across package + runtime', () => {
     const pkg = require('../package.json');
-    assert.equal(pkg.version, '2.0.0');
-    assert.equal(Breeze.version, '2.0.0');
+    assert.equal(pkg.version, '2.1.0');
+    assert.equal(Breeze.version, '2.1.0');
   });
 
   it('v2: announce/focus are no-ops in Node (no document crash)', () => {
@@ -1033,5 +1033,47 @@ describe('Breeze Framework Core', () => {
     Breeze.setState('rows', [1, 2, 3, 4, 5, 6].map(id => ({ id })));
     const html = Breeze.renderToString('@section #s\n  @each r in rows [key=id]\n    p "{r.id}"', { rows: [1, 2, 3, 4, 5, 6].map(id => ({ id })) });
     assert.ok(html.includes('<p>1</p>') && html.includes('<p>6</p>'));
+  });
+
+  it('v2.1: static-row templates are detected without DOM', () => {
+    Breeze._resetForTests();
+    const T = Breeze.testing;
+    const rows = (body) => Breeze.parse(`@section #s\n  @each row in rows [key=id]\n${body}`)
+      .find(n => n.type === 'section').children[0].children;
+    // Static: plain tags + item-only tokens.
+    assert.equal(T.isStaticRowTemplate(rows('    tr\n      td "{row.id}"\n      td "{row.label}"'), 'row'), true);
+    // Non-static: action modifier.
+    assert.equal(T.isStaticRowTemplate(rows('    tr\n      button "Go" [primary, @click -> emit(pick)]'), 'row'), false);
+    // Non-static: two-way binding.
+    assert.equal(T.isStaticRowTemplate(rows('    tr\n      input [bind=name]'), 'row'), false);
+    // Non-static: state token (needs live updates).
+    assert.equal(T.isStaticRowTemplate(rows('    tr\n      td "{count}"'), 'row'), false);
+    // Non-static: repeated id would duplicate.
+    assert.equal(T.isStaticRowTemplate(rows('    div #dup "x"'), 'row'), false);
+    // Non-static: conditionals / components need live wiring.
+    assert.equal(T.isStaticRowTemplate(rows('    @if open\n      td "x"'), 'row'), false);
+    // Non-static: table-section roots without a safe parse context.
+    assert.equal(T.isStaticRowTemplate(rows('    colgroup\n      col'), 'row'), false);
+    // Empty: not a template.
+    assert.equal(T.isStaticRowTemplate([], 'row'), false);
+  });
+
+  it('v2.1: static rows serialize to escaped HTML with keys and classes', () => {
+    Breeze._resetForTests();
+    const T = Breeze.testing;
+    const kids = Breeze.parse('@section #s\n  @each row in rows [key=id]\n    tr\n      td "{row.id}"\n      td "{row.label}" [muted]')
+      .find(n => n.type === 'section').children[0].children;
+    const out = T.renderRowsHtml(kids, 'row', [{ id: 7, label: 'a<b>&"q"' }], 0, 'id');
+    assert.deepEqual(out.keys, [7]);
+    assert.equal(out.rootTag, 'tr');
+    assert.ok(out.html.includes('data-bz-key="7"'));
+    assert.ok(out.html.includes('a&lt;b&gt;&amp;"q"'));
+    assert.ok(out.html.includes('bz-td') && out.html.includes('bz-muted') && out.html.includes('bz-tr'));
+    // Multi-child rows get a keyed div wrapper.
+    const kids2 = Breeze.parse('@section #s\n  @each r in rows\n    p "{r.a}"\n    p "{r.b}"')
+      .find(n => n.type === 'section').children[0].children;
+    const out2 = T.renderRowsHtml(kids2, 'r', [{ a: 'x', b: 'y' }], 5, 'id');
+    assert.ok(out2.html.startsWith('<div data-bz-key="5">'));
+    assert.ok(out2.html.includes('<p>x</p><p>y</p>'));
   });
 });

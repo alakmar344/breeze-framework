@@ -1,5 +1,5 @@
 /*!
- * Breeze Framework v2.0.0 (Comfort + Perf + Benchmarks)
+ * Breeze Framework v2.1.0 (Comfort + Perf + Benchmarks)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
@@ -881,6 +881,143 @@
 
 
   // ═══════════════════════════════════════════════════════════════════════
+  // SHARED CLASS MAP — single source of truth for Renderer.applyModifiers,
+  // SSR parity and the static-row HTML fast path.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const BZ_CLASS_MAP = {
+    sticky: 'bz-sticky', hero: 'bz-hero', center: 'bz-center',
+    'pad-sm': 'bz-pad-sm', 'pad-md': 'bz-pad-md',
+    'pad-lg': 'bz-pad-lg', 'pad-xl': 'bz-pad-xl',
+    grid: 'bz-grid', 'grid-2': 'bz-grid-2', 'grid-3': 'bz-grid-3', 'grid-4': 'bz-grid-4',
+    flex: 'bz-flex', column: 'bz-column', wrap: 'bz-wrap',
+    'gap-sm': 'bz-gap-sm', 'gap-md': 'bz-gap-md', 'gap-lg': 'bz-gap-lg',
+    'full-width': 'bz-full-width', 'full-height': 'bz-full-height',
+    'align-center': 'bz-align-center', 'align-start': 'bz-align-start',
+    'align-end': 'bz-align-end', 'justify-center': 'bz-justify-center',
+    'justify-between': 'bz-justify-between', 'justify-end': 'bz-justify-end',
+    dark: 'bz-dark', light: 'bz-light',
+    primary: 'bz-primary', secondary: 'bz-secondary', accent: 'bz-accent',
+    success: 'bz-success', warning: 'bz-warning', danger: 'bz-danger',
+    outline: 'bz-outline', ghost: 'bz-ghost', info: 'bz-info',
+    bold: 'bz-bold', italic: 'bz-italic', muted: 'bz-muted',
+    small: 'bz-small', large: 'bz-large',
+    'text-left': 'bz-text-left', 'text-right': 'bz-text-right', 'text-center': 'bz-text-center',
+    shadow: 'bz-shadow', rounded: 'bz-rounded',
+    'hover-lift': 'bz-hover-lift', 'hover-glow': 'bz-hover-glow',
+    'hover-scale': 'bz-hover-scale',
+    'fade-in': 'bz-fade-in', 'slide-up': 'bz-slide-up',
+    'slide-left': 'bz-slide-left', 'slide-right': 'bz-slide-right',
+    bounce: 'bz-bounce', pulse: 'bz-pulse', 'zoom-in': 'bz-zoom-in',
+    active: 'active', hidden: 'bz-hidden',
+    'mt-sm': 'bz-mt-sm', 'mt-md': 'bz-mt-md', 'mt-lg': 'bz-mt-lg',
+    'mb-sm': 'bz-mb-sm', 'mb-md': 'bz-mb-md', 'mb-lg': 'bz-mb-lg',
+    'no-wrap': 'bz-no-wrap'
+  };
+
+  const BZ_BOOL_ATTRS = new Set([
+    'disabled', 'checked', 'readonly', 'required',
+    'selected', 'multiple', 'autofocus'
+  ]);
+
+  // ── Static-row HTML helpers (module scope: zero per-row closures) ───
+  // Fast escaping with identical semantics to escHtml/escAttr: values without
+  // special chars (the common case: ids, labels) skip the regexes entirely.
+  function escHtmlFast(s) {
+    if (s == null) return '';
+    const str = typeof s === 'string' ? s : String(s);
+    if (str.indexOf('&') === -1 && str.indexOf('<') === -1 && str.indexOf('>') === -1) return str;
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function escAttrFast(s) {
+    if (s == null) return '';
+    const str = typeof s === 'string' ? s : String(s);
+    if (str.indexOf('&') === -1 && str.indexOf('<') === -1 && str.indexOf('>') === -1 && str.indexOf('"') === -1) return str;
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Compiled-template memo: row templates reuse the same few strings per row.
+  const _TPL_MEMO = new Map();
+  function bzCompile(str) {
+    let tpl = _TPL_MEMO.get(str);
+    if (!tpl) {
+      tpl = Parser.compileTemplate(str);
+      if (_TPL_MEMO.size > 512) _TPL_MEMO.clear();
+      _TPL_MEMO.set(str, tpl);
+    }
+    return tpl;
+  }
+
+  function bzRowVal(itemVar, item, isObj, index, key) {
+    if (key === itemVar) {
+      if (!isObj) return String(item);
+      try { return JSON.stringify(item); } catch (_) { return String(item); }
+    }
+    if (key === `${itemVar}.index`) return String(index);
+    if (key.startsWith(itemVar + '.')) {
+      const prop = key.slice(itemVar.length + 1);
+      if (isObj && item[prop] !== undefined && item[prop] !== null) return String(item[prop]);
+      return '';
+    }
+    return `{${key}}`;
+  }
+
+  function bzIsToken(v) {
+    return typeof v === 'string' && v.length > 2 && v.charCodeAt(0) === 123 && v.charCodeAt(v.length - 1) === 125;
+  }
+
+  function bzTplText(str, itemVar, item, isObj, index) {
+    if (str == null) return '';
+    if (typeof str !== 'string') return escHtmlFast(str);
+    if (str.indexOf('{') === -1) return escHtmlFast(str);
+    const tpl = bzCompile(str);
+    if (tpl.static) return escHtmlFast(str);
+    let out = tpl.parts[0];
+    for (let i = 0; i < tpl.keys.length; i++) {
+      const v = bzRowVal(itemVar, item, isObj, index, tpl.keys[i]);
+      out += (bzIsToken(v) ? v : escHtmlFast(v)) + tpl.parts[i + 1];
+    }
+    return out;
+  }
+
+  function bzTplAttr(str, itemVar, item, isObj, index) {
+    if (typeof str !== 'string' || str.indexOf('{') === -1) return str;
+    const tpl = bzCompile(str);
+    if (tpl.static) return str;
+    let out = tpl.parts[0];
+    for (let i = 0; i < tpl.keys.length; i++) {
+      const v = bzRowVal(itemVar, item, isObj, index, tpl.keys[i]);
+      out += (bzIsToken(v) ? v : String(v)) + tpl.parts[i + 1];
+    }
+    return out;
+  }
+
+  // Returns [classesString, attrsString] with plain string concat (no arrays).
+  function bzModsHtml(mods, itemVar, item, isObj, index) {
+    let classes = '';
+    let attrs = '';
+    for (let i = 0; i < (mods || []).length; i++) {
+      const raw = mods[i];
+      if (raw == null) continue;
+      const mod = String(bzTplAttr(typeof raw === 'string' ? raw : String(raw), itemVar, item, isObj, index)).trim();
+      if (!mod || mod[0] === '@' || mod.startsWith('bind=') || mod.startsWith('bind:value=') || mod.startsWith('ref=')) continue;
+      const eq = mod.indexOf('=');
+      if (eq !== -1) {
+        const attr = mod.slice(0, eq).trim();
+        if (!attr || Directives.get(attr)) continue;
+        attrs += ` ${attr}="${escAttrFast(mod.slice(eq + 1).trim().replace(/^["']|["']$/g, ''))}"`;
+        continue;
+      }
+      if (BZ_BOOL_ATTRS.has(mod)) { attrs += ` ${mod}=""`; continue; }
+      const cls = BZ_CLASS_MAP[mod] || `bz-${mod}`;
+      classes += (classes ? ' ' : '') + cls;
+    }
+    return [classes, attrs];
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════
   // STATE — Reactive store with signals, watchers, & batching
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -1494,6 +1631,36 @@
         return v || [];
       };
       const baseWatchKey = String(listKey).split('.')[0];
+      const keyOf = (item, i) => (typeof item === 'object' && item !== null && item[keyProp] !== undefined)
+        ? item[keyProp]
+        : i;
+      const staticTemplate = () => {
+        if (node._bzStatic === undefined) {
+          try { node._bzStatic = Renderer.isStaticRowTemplate(node.children, itemVar); }
+          catch (_) { node._bzStatic = false; }
+        }
+        return node._bzStatic;
+      };
+      // Adopt nodes produced by the HTML fast path. Works on the DETACHED
+      // fragment (no layout, no live-document costs): indexed access plus one
+      // getAttribute check per row (dataset would allocate a map per element).
+      // A structural surprise degrades that row to the DOM path.
+      const adoptFragmentRows = (frag, recs) => {
+        const kids = frag.children;
+        for (let i = 0; i < recs.length; i++) {
+          const rec = recs[i];
+          let el = kids[i] || null;
+          if (!el || !el.getAttribute || el.getAttribute('data-bz-key') !== String(rec.key)) {
+            const built = Renderer.renderItemChildren(node.children, itemVar, rec.item, rec.index);
+            if (built && el) { frag.replaceChild(built, el); el = built; }
+            else if (built) { frag.appendChild(built); el = built; }
+            else if (el) { frag.removeChild(el); el = null; }
+          }
+          rec.el = el;
+          if (el) el._bzItemKey = rec.key;
+          delete rec._html;
+        }
+      };
 
       const reconcile = () => {
         Profiler.recordKeyedDiff();
@@ -1505,8 +1672,20 @@
           return;
         }
 
-        // Fast-path 1: Initial Render (DocumentFragment batch append)
+        // Fast-path 1: Initial Render — static templates go through ONE html
+        // string + a single parse/insert; interactive templates use fragments.
         if (renderedRecords.length === 0) {
+          if (staticTemplate()) {
+            const { html, keys, rootTag } = Renderer.renderRowsHtml(node.children, itemVar, items, 0, keyProp);
+            const frag = Renderer.parseRowHtml(html, rootTag);
+            const nextRecords = items.map((item, i) => ({ key: keys[i], el: null, item, index: i, _html: true }));
+            adoptFragmentRows(frag, nextRecords);
+            container.appendChild(frag);
+            renderedRecords = nextRecords.filter(rec => rec && rec.el);
+            renderedRecords.forEach(rec => recordMap.set(rec.key, rec));
+            Profiler.recordDomOp('create');
+            return;
+          }
           const frag = document.createDocumentFragment();
           const nextRecords = new Array(items.length);
           for (let i = 0; i < items.length; i++) {
@@ -1527,16 +1706,25 @@
           return;
         }
 
-        // Keyed Reconciliation with append fast-path + minimal moves
+        // Keyed Reconciliation with HTML-tail fast path for static templates.
+        // Pure key-prefix check first (zero DOM work): if every existing key
+        // matches in order, new tail rows are built as ONE html string.
         const nextRecords = new Array(items.length);
         const nextKeyMap = new Map();
         const seenKeys = new Set();
 
+        let htmlTail = null;
+        if (renderedRecords.length > 0 && renderedRecords.length < items.length && staticTemplate()) {
+          let prefix = true;
+          for (let i = 0; i < renderedRecords.length; i++) {
+            if (keyOf(items[i], i) !== renderedRecords[i].key) { prefix = false; break; }
+          }
+          if (prefix) htmlTail = { start: renderedRecords.length };
+        }
+
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          const key = (typeof item === 'object' && item !== null && item[keyProp] !== undefined)
-            ? item[keyProp]
-            : i;
+          const key = keyOf(item, i);
           if (seenKeys.has(key) && typeof console !== 'undefined' && console.warn) {
             console.warn(`[Breeze] Duplicate key "${key}" in list "${listKey}" — keys must be unique. Later rows win.`);
           }
@@ -1560,6 +1748,9 @@
               existing.index = i;
             }
             nextRecords[i] = existing;
+          } else if (htmlTail && i >= htmlTail.start) {
+            // Tail placeholder — built as HTML after removals, not per-row DOM.
+            nextRecords[i] = { key, el: null, item, index: i, _html: true };
           } else {
             // Newly added row!
             const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
@@ -1580,7 +1771,24 @@
           }
         }
 
-        // Step 2: Fast-path append — if existing order is a prefix of next order, just append tail
+        // Step 2a: HTML tail — ONE string, ONE parse, ONE insertion for static rows.
+        // Adoption happens on the detached fragment (no live-document costs).
+        if (htmlTail) {
+          const tailItems = items.slice(htmlTail.start);
+          const built = Renderer.renderRowsHtml(node.children, itemVar, tailItems, htmlTail.start, keyProp);
+          const frag = Renderer.parseRowHtml(built.html, built.rootTag);
+          adoptFragmentRows(frag, nextRecords.slice(htmlTail.start));
+          container.appendChild(frag);
+          // Drop any rows adoption could not materialise (keeps recordMap truthful).
+          for (let i = htmlTail.start; i < nextRecords.length; i++) {
+            if (!nextRecords[i] || !nextRecords[i].el) {
+              if (nextRecords[i]) nextKeyMap.delete(nextRecords[i].key);
+              nextRecords[i] = null;
+            }
+          }
+          Profiler.recordDomOp('create');
+        } else {
+        // Step 2b: Fast-path append — if existing order is a prefix of next order, just append tail
         let isPrefix = renderedRecords.length > 0 && renderedRecords.length < nextRecords.length;
         if (isPrefix) {
           for (let i = 0; i < renderedRecords.length; i++) {
@@ -1626,8 +1834,9 @@
             anchor = rec.el;
           }
         }
+        } // end Step 2b (DOM fragment / LIS paths)
 
-        renderedRecords = nextRecords.filter(Boolean);
+        renderedRecords = nextRecords.filter(rec => rec && rec.el);
         recordMap = nextKeyMap;
       };
 
@@ -1662,8 +1871,7 @@
     /**
      * v2 select fast-path: toggle an active class on one keyed row without
      * reconciling the whole list. Returns true if handled via data-key lookup.
-     */
-    setActiveKey(container, key, activeClass) {
+     */    setActiveKey(container, key, activeClass) {
       if (!container) return false;
       activeClass = activeClass || 'danger';
       try {
@@ -1688,6 +1896,176 @@
         }
       } catch (_) {}
       return false;
+    },
+
+    // ── Static-row HTML fast path (bulk append/create) ────────────────
+    // When a row template needs no live wiring (no actions, bindings, refs,
+    // conditionals, components or duplicate-risk ids), whole batches are built
+    // as ONE html string + a single insertAdjacentHTML — no per-row DOM API
+    // calls, no per-row clone objects. Falls back to the DOM path otherwise.
+
+    _NON_STATIC_TYPES: new Set([
+      'slot', 'error', 'each', 'if', 'elif', 'else', 'component', 'def',
+      'portal', 'link', 'style', 'theme', 'seo', 'schema', 'aeo', 'geo',
+      'app', 'state', 'nav', 'section', 'footer', 'header', 'main'
+    ]),
+
+    _rowTokensStatic(str, itemVar) {
+      if (!str || typeof str !== 'string' || str.indexOf('{') === -1) return true;
+      const re = /\{([\w.$-]+)\}/g;
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        const key = m[1];
+        if (key !== itemVar && key !== `${itemVar}.index` && !key.startsWith(itemVar + '.')) {
+          return false; // state binding or foreign token — needs live wiring
+        }
+      }
+      return true;
+    },
+
+    _nodeStatic(node, itemVar) {
+      if (!node) return true;
+      if (this._NON_STATIC_TYPES.has(node.type)) return false;
+      if (!/^[a-z][\w-]*$/.test(node.type) && node.type !== 'card' && node.type !== 'button') return false;
+      if (node.id) return false; // repeated ids would duplicate — use DOM path
+      const mods = node.modifiers || [];
+      for (let i = 0; i < mods.length; i++) {
+        const mod = String(mods[i]).trim();
+        if (!mod) continue;
+        if (mod[0] === '@' || mod.startsWith('bind=') || mod.startsWith('bind:value=') || mod.startsWith('ref=')) return false;
+        if (mod.includes('=')) {
+          const attr = mod.slice(0, mod.indexOf('=')).trim();
+          if (attr && Directives.get(attr)) return false; // custom directive needs mount
+        }
+      }
+      if (!this._rowTokensStatic(node.text, itemVar)) return false;
+      for (let i = 0; i < mods.length; i++) {
+        if (!this._rowTokensStatic(mods[i], itemVar)) return false;
+      }
+      const kids = node.children || [];
+      for (let i = 0; i < kids.length; i++) {
+        if (!this._nodeStatic(kids[i], itemVar)) return false;
+      }
+      return true;
+    },
+
+    /** Pure check (unit-testable, no DOM): can these row children use the HTML path? */
+    isStaticRowTemplate(children, itemVar) {
+      if (!children || !children.length) return false;
+      // Table-section roots other than tr/td/th/thead/tbody/tfoot have no safe
+      // detached parse context (colgroup/caption/col) — use the DOM path.
+      if (children.length === 1 && children[0]) {
+        const rt = String(children[0].tag || children[0].type || '').toLowerCase();
+        if (rt === 'colgroup' || rt === 'caption' || rt === 'col') return false;
+      }
+      for (let i = 0; i < children.length; i++) {
+        if (!this._nodeStatic(children[i], itemVar)) return false;
+      }
+      return true;
+    },
+
+    /** Pure serializer (unit-testable, no DOM): interpolated template node → HTML string.
+     *  Uses module-scope helpers (no per-row closures/objects) — this is the hot path. */
+    itemNodeToHtml(node, itemVar, item, index, rowKey) {
+      if (!node) return '';
+      const isObj = typeof item === 'object' && item !== null;
+      const keyAttr = (rowKey !== null && rowKey !== undefined) ? ` data-bz-key="${escAttrFast(String(rowKey))}"` : '';
+      const renderKids = (kids) => {
+        let h = '';
+        for (let i = 0; i < (kids || []).length; i++) {
+          h += this.itemNodeToHtml(kids[i], itemVar, item, index, null);
+        }
+        return h;
+      };
+      if (node.type === 'card' || node.type === 'button') {
+        const isCard = node.type === 'card';
+        const parts = bzModsHtml(node.modifiers, itemVar, item, isObj, index);
+        const idAttr = node.id ? ` id="${escAttrFast(node.id)}"` : '';
+        const openTag = isCard ? 'div' : 'button';
+        const base = isCard ? 'bz-card' : 'bz-btn';
+        return `<${openTag}${idAttr}${keyAttr} class="${base}${parts[0] ? ' ' + parts[0] : ''}"${parts[1]}>${bzTplText(node.text, itemVar, item, isObj, index)}${renderKids(node.children)}</${openTag}>`;
+      }
+      const tag = node.tag || node.type || 'div';
+      const parts = bzModsHtml(node.modifiers, itemVar, item, isObj, index);
+      const idAttr = node.id ? ` id="${escAttrFast(node.id)}"` : '';
+      const semanticClass = {
+        form: 'bz-form', input: 'bz-input', textarea: 'bz-textarea',
+        select: 'bz-select', label: 'bz-label',
+        table: 'bz-table', tbody: 'bz-tbody', tr: 'bz-tr', td: 'bz-td', th: 'bz-th',
+        ul: 'bz-list', ol: 'bz-list'
+      }[tag];
+      const clsAttr = (semanticClass || parts[0])
+        ? ` class="${semanticClass ? semanticClass + (parts[0] ? ' ' + parts[0] : '') : parts[0]}"`
+        : '';
+      const voidTags = { area: 1, base: 1, br: 1, col: 1, embed: 1, hr: 1, img: 1, input: 1, link: 1, meta: 1, source: 1, track: 1, wbr: 1 };
+      if (voidTags[tag]) return `<${tag}${idAttr}${keyAttr}${clsAttr}${parts[1]}>`;
+      return `<${tag}${idAttr}${keyAttr}${clsAttr}${parts[1]}>${bzTplText(node.text, itemVar, item, isObj, index)}${renderKids(node.children)}</${tag}>`;
+    },
+
+    /**
+     * Build ONE html string for a slice of rows. Returns { html, keys, rootTag } where
+     * keys[i] is the row key for rows[startIdx + i] (caller tags parsed nodes).
+     */
+    renderRowsHtml(children, itemVar, items, startIdx, keyProp) {
+      const parts = new Array(items.length);
+      const keys = new Array(items.length);
+      const multi = children.length > 1;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const key = (typeof item === 'object' && item !== null && item[keyProp] !== undefined)
+          ? item[keyProp]
+          : startIdx + i;
+        keys[i] = key;
+        if (!multi) {
+          parts[i] = this.itemNodeToHtml(children[0], itemVar, item, startIdx + i, key);
+        } else {
+          let h = `<div data-bz-key="${escAttr(String(key))}">`;
+          for (let c = 0; c < children.length; c++) {
+            h += this.itemNodeToHtml(children[c], itemVar, item, startIdx + i, null);
+          }
+          parts[i] = h + `</div>`;
+        }
+      }
+      let rootTag = 'div';
+      if (!multi && children[0]) {
+        const t = children[0];
+        rootTag = String(t.tag || t.type || 'div').toLowerCase();
+        if (rootTag === 'card') rootTag = 'div';
+        else if (rootTag === 'button') rootTag = 'button';
+      }
+      return { html: parts.join(''), keys, rootTag };
+    },
+
+    /**
+     * Parse row HTML in the correct HTML-parser context. A bare <tr> string fed to
+     * div/template innerHTML is DROPPED by the spec ("in body" ignores table-section
+     * tags), so table-section roots are parsed inside a detached table/tbody/tr.
+     * Returns a DocumentFragment with the row elements in order.
+     */
+    parseRowHtml(html, rootTag) {
+      const frag = document.createDocumentFragment();
+      const tag = String(rootTag || 'div').toLowerCase();
+      let host = null;
+      let source = null;
+      if (tag === 'tr') {
+        host = document.createElement('tbody');
+        host.innerHTML = html;
+        source = host;
+      } else if (tag === 'td' || tag === 'th') {
+        host = document.createElement('tr');
+        host.innerHTML = html;
+        source = host;
+      } else if (tag === 'thead' || tag === 'tbody' || tag === 'tfoot') {
+        host = document.createElement('table');
+        host.innerHTML = html;
+        source = host;
+      } else {
+        host = document.createElement('template');
+        host.innerHTML = html;
+        source = host.content;
+      }
+      while (source.firstChild) frag.appendChild(source.firstChild);
+      return frag;
     },
 
     /** Surgical in-place DOM update of a row without recreation.
@@ -1909,40 +2287,9 @@
     // ── Modifier mapping ──────────────────────────────────────────────
 
     applyModifiers(el, modifiers) {
-      const classMap = {
-        sticky: 'bz-sticky', hero: 'bz-hero', center: 'bz-center',
-        'pad-sm': 'bz-pad-sm', 'pad-md': 'bz-pad-md',
-        'pad-lg': 'bz-pad-lg', 'pad-xl': 'bz-pad-xl',
-        grid: 'bz-grid', 'grid-2': 'bz-grid-2', 'grid-3': 'bz-grid-3', 'grid-4': 'bz-grid-4',
-        flex: 'bz-flex', column: 'bz-column', wrap: 'bz-wrap',
-        'gap-sm': 'bz-gap-sm', 'gap-md': 'bz-gap-md', 'gap-lg': 'bz-gap-lg',
-        'full-width': 'bz-full-width', 'full-height': 'bz-full-height',
-        'align-center': 'bz-align-center', 'align-start': 'bz-align-start',
-        'align-end': 'bz-align-end', 'justify-center': 'bz-justify-center',
-        'justify-between': 'bz-justify-between', 'justify-end': 'bz-justify-end',
-        dark: 'bz-dark', light: 'bz-light',
-        primary: 'bz-primary', secondary: 'bz-secondary', accent: 'bz-accent',
-        success: 'bz-success', warning: 'bz-warning', danger: 'bz-danger',
-        outline: 'bz-outline', ghost: 'bz-ghost', info: 'bz-info',
-        bold: 'bz-bold', italic: 'bz-italic', muted: 'bz-muted',
-        small: 'bz-small', large: 'bz-large',
-        'text-left': 'bz-text-left', 'text-right': 'bz-text-right', 'text-center': 'bz-text-center',
-        shadow: 'bz-shadow', rounded: 'bz-rounded',
-        'hover-lift': 'bz-hover-lift', 'hover-glow': 'bz-hover-glow',
-        'hover-scale': 'bz-hover-scale',
-        'fade-in': 'bz-fade-in', 'slide-up': 'bz-slide-up',
-        'slide-left': 'bz-slide-left', 'slide-right': 'bz-slide-right',
-        bounce: 'bz-bounce', pulse: 'bz-pulse', 'zoom-in': 'bz-zoom-in',
-        active: 'active', hidden: 'bz-hidden',
-        'mt-sm': 'bz-mt-sm', 'mt-md': 'bz-mt-md', 'mt-lg': 'bz-mt-lg',
-        'mb-sm': 'bz-mb-sm', 'mb-md': 'bz-mb-md', 'mb-lg': 'bz-mb-lg',
-        'no-wrap': 'bz-no-wrap'
-      };
+      const classMap = BZ_CLASS_MAP;
 
-      const BOOL_ATTRS = new Set([
-        'disabled', 'checked', 'readonly', 'required',
-        'selected', 'multiple', 'autofocus'
-      ]);
+      const BOOL_ATTRS = BZ_BOOL_ATTRS;
 
       modifiers.forEach(mod => {
         mod = mod.trim();
@@ -2744,33 +3091,10 @@
       return v;
     };
 
-    // Shared class map (mirrors Renderer.applyModifiers) for SSR parity —
-    // action/bind/attr modifiers are NOT classes and must not leak as bz-@click etc.
-    const SSR_CLASS_MAP = {
-      sticky: 'bz-sticky', hero: 'bz-hero', center: 'bz-center',
-      'pad-sm': 'bz-pad-sm', 'pad-md': 'bz-pad-md', 'pad-lg': 'bz-pad-lg', 'pad-xl': 'bz-pad-xl',
-      grid: 'bz-grid', 'grid-2': 'bz-grid-2', 'grid-3': 'bz-grid-3', 'grid-4': 'bz-grid-4',
-      flex: 'bz-flex', column: 'bz-column', wrap: 'bz-wrap',
-      'gap-sm': 'bz-gap-sm', 'gap-md': 'bz-gap-md', 'gap-lg': 'bz-gap-lg',
-      'full-width': 'bz-full-width', 'full-height': 'bz-full-height',
-      'align-center': 'bz-align-center', 'align-start': 'bz-align-start',
-      'align-end': 'bz-align-end', 'justify-center': 'bz-justify-center',
-      'justify-between': 'bz-justify-between', 'justify-end': 'bz-justify-end',
-      dark: 'bz-dark', light: 'bz-light',
-      primary: 'bz-primary', secondary: 'bz-secondary', accent: 'bz-accent',
-      success: 'bz-success', warning: 'bz-warning', danger: 'bz-danger',
-      outline: 'bz-outline', ghost: 'bz-ghost', info: 'bz-info',
-      bold: 'bz-bold', italic: 'bz-italic', muted: 'bz-muted',
-      small: 'bz-small', large: 'bz-large',
-      'text-left': 'bz-text-left', 'text-right': 'bz-text-right', 'text-center': 'bz-text-center',
-      shadow: 'bz-shadow', rounded: 'bz-rounded',
-      'hover-lift': 'bz-hover-lift', 'hover-glow': 'bz-hover-glow', 'hover-scale': 'bz-hover-scale',
-      'fade-in': 'bz-fade-in', 'slide-up': 'bz-slide-up', 'slide-left': 'bz-slide-left',
-      'slide-right': 'bz-slide-right', bounce: 'bz-bounce', pulse: 'bz-pulse', 'zoom-in': 'bz-zoom-in',
-      active: 'active', hidden: 'bz-hidden',
-      'mt-sm': 'bz-mt-sm', 'mt-md': 'bz-mt-md', 'mt-lg': 'bz-mt-lg',
-      'mb-sm': 'bz-mb-sm', 'mb-md': 'bz-mb-md', 'mb-lg': 'bz-mb-lg', 'no-wrap': 'bz-no-wrap'
-    };
+    // Shared class map (single source of truth for applyModifiers, SSR and the
+    // static-row HTML fast path — action/bind/attr modifiers are NOT classes
+    // and must not leak as bz-@click etc.
+    const SSR_CLASS_MAP = BZ_CLASS_MAP;
     const ssrSplitModifiers = (mods) => {
       const classes = [], attrs = [];
       (mods || []).forEach(raw => {
@@ -3164,7 +3488,7 @@
   // ═══════════════════════════════════════════════════════════════════════
 
   const BreezeAPI = {
-    version: '2.0.0',
+    version: '2.1.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},
@@ -3442,7 +3766,11 @@
       renderToString(source, state) { return renderToString(source, state); },
       parse(source, opts) { return Parser.parse(source, opts); },
       splitArgs(inner) { return Parser.splitArgs(inner); },
-      fireAction(action, event, el) { return Renderer.executeAction(action, event || {}, el || {}); }
+      fireAction(action, event, el) { return Renderer.executeAction(action, event || {}, el || {}); },
+      // Static-row HTML fast path helpers (pure, DOM-free — safe in node):
+      isStaticRowTemplate(children, itemVar) { return Renderer.isStaticRowTemplate(children, itemVar); },
+      itemNodeToHtml(node, itemVar, item, index, key) { return Renderer.itemNodeToHtml(node, itemVar, item, index, key); },
+      renderRowsHtml(children, itemVar, items, startIdx, keyProp) { return Renderer.renderRowsHtml(children, itemVar, items, startIdx, keyProp); }
     },
 
     parse(source, opts) { return Parser.parse(source, opts); }

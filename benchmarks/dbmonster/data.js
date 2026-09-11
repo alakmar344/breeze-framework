@@ -67,7 +67,10 @@ function startBenchmarkLoop(renderCallback) {
         avgFrameTime: parseFloat(avgFrameTime.toFixed(2)),
         fps: fps,
         droppedFrames: droppedFrames,
-        totalFrames: sampled.length
+        totalFrames: sampled.length,
+        // Per-frame samples (ms, 2dp) so runners can report distributions,
+        // not just aggregates. First (warmup) frame already excluded.
+        frameMs: sampled.map(d => parseFloat(d.toFixed(2)))
       };
 
       if (meter) {

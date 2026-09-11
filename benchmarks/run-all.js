@@ -2,11 +2,14 @@
 /**
  * Master Framework Benchmark Suite Runner for Breeze Framework
  * Orchestrates all benchmarking suites:
- *   1. Engine & Reactivity Micro-benchmarks
- *   2. Bundle Size, Compression (Gzip/Brotli) & V8 Startup Benchmark
- *   3. Server-Side Rendering (SSR) Throughput Benchmark
- *   4. DBMonster Continuous 60 FPS Animation & Frame Stability Benchmark
- *   5. Krausest js-framework-benchmark DOM Lifecycle Benchmark
+ *   1. Bundle Size, Compression (Gzip/Brotli) & V8 Startup Benchmark
+ *   2. Server-Side Rendering (SSR) Throughput Benchmark
+ *   3. DBMonster Frame-Callback Throughput & Stability Benchmark
+ *   4. Krausest js-framework-benchmark DOM Lifecycle Benchmark
+ *   5. v2 node micro-suites (10, portable)
+ *   6. Page-load arrival Benchmark (desktop + emulated mobile)
+ *   7. Workload-families Benchmark (wide / deep / form × 5 frameworks)
+ *   8. Build-performance Benchmark (cold/warm/incremental scaling)
  *
  * Consolidates all metrics into benchmarks/results.json and prints summary reports.
  */
@@ -79,23 +82,23 @@ async function main() {
   };
 
   // 1. Bundle Size & Startup Benchmark
-  console.log('\n[Suite 1/5] Running Bundle & Startup Benchmark...');
+  console.log('\n[Suite 1/8] Running Bundle & Startup Benchmark...');
   consolidatedResults.bundle = runBundleBenchmark();
 
   // 2. SSR Throughput Benchmark
-  console.log('\n[Suite 2/5] Running SSR Throughput Benchmark...');
+  console.log('\n[Suite 2/8] Running SSR Throughput Benchmark...');
   consolidatedResults.ssr = runSsrBenchmark(1000);
 
-  // 3. DBMonster 60 FPS Stress Benchmark
-  console.log('\n[Suite 3/5] Running DBMonster Continuous Animation Benchmark...');
+  // 3. DBMonster Frame-Callback Throughput Benchmark
+  console.log('\n[Suite 3/8] Running DBMonster Frame-Callback Throughput Benchmark...');
   consolidatedResults.dbmonster = await runDbMonsterBenchmark();
 
   // 4. Krausest DOM Benchmark
-  console.log('\n[Suite 4/5] Running Krausest DOM Benchmark...');
+  console.log('\n[Suite 4/8] Running Krausest DOM Benchmark...');
   consolidatedResults.krausest = await runKrausestBenchmark();
 
   // 5. v2 comfort + perf micro-suites (node-only, 10 suites)
-  console.log('\n[Suite 5/5] Running v2 node benchmarks (10 suites)...');
+  console.log('\n[Suite 5/8] Running v2 node benchmarks (10 suites)...');
   const v2 = {};
   v2.mount10k = require('./mount-10k-runner.js').runMount10k();
   v2.update1row = require('./update-1-row-runner.js').runUpdate1Row();
@@ -109,6 +112,18 @@ async function main() {
   v2.sustained = require('./sustained-updates-runner.js').runSustainedUpdates();
   consolidatedResults.v2 = v2;
   console.log('v2 results:', JSON.stringify(v2, null, 2));
+
+  // 6. Page-load arrival (desktop + emulated mobile).
+  console.log('\n[Suite 6/8] Running page-load arrival benchmark...');
+  consolidatedResults.pageLoad = await require('./page-load-runner.js').runPageLoad();
+
+  // 7. Workload families (wide / deep / form).
+  console.log('\n[Suite 7/8] Running workload-families benchmark...');
+  consolidatedResults.families = await require('./workload-families-runner.js').runWorkloadFamilies();
+
+  // 8. Build performance (cold/warm/incremental scaling).
+  console.log('\n[Suite 8/8] Running build-performance benchmark...');
+  consolidatedResults.buildPerf = await require('./build-perf-runner.js').runBuildPerf();
 
   // Save consolidated results
   const resultsPath = path.join(__dirname, 'results.json');

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Families — Vanilla</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px}.btn{padding:6px 12px;margin:4px;cursor:pointer}#stage{margin-top:12px}.cell{display:inline-block;width:60px;height:18px;margin:1px;background:#eef;border:1px solid #ccd;font-size:10px}.lvl{border:1px solid #bbb;padding:4px;margin:2px;font-size:10px}.frow{margin:2px 0}.frow input{width:120px}.ok{color:green}.bad{color:red}</style>
+</head>
+<body>
+  <div>
+    <button id="f-wide" class="btn">wide</button>
+    <button id="f-deep" class="btn">deep</button>
+    <button id="f-form" class="btn">form</button>
+    <button id="f-clear" class="btn">clear</button>
+  </div>
+  <div id="stage"></div>
+  <script>
+    var stage = document.getElementById('stage');
+    document.getElementById('f-wide').addEventListener('click', function () {
+      var h = '';
+      for (var i = 0; i < 1000; i++) h += '<span class="cell">c' + i + '</span>';
+      var d = document.createElement('div');
+      d.innerHTML = h;
+      stage.appendChild(d);
+    });
+    document.getElementById('f-deep').addEventListener('click', function () {
+      var root = document.createElement('div'), cur = root;
+      for (var d = 0; d < 25; d++) {
+        var n = document.createElement('div');
+        n.className = 'lvl';
+        cur.appendChild(n);
+        cur = n;
+      }
+      cur.textContent = 'leaf';
+      stage.appendChild(root);
+    });
+    document.getElementById('f-form').addEventListener('click', function () {
+      var form = document.createElement('form'), bad = 0;
+      var inputs = [];
+      for (var i = 0; i < 100; i++) {
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        form.appendChild(inp);
+        inputs.push(inp);
+      }
+      stage.appendChild(form);
+      for (var k = 0; k < inputs.length; k++) {
+        inputs[k].value = 'user' + k + '@x.com';
+        if (inputs[k].value.indexOf('@') === -1) bad++;
+      }
+      form.setAttribute('data-bad', bad);
+    });
+    document.getElementById('f-clear').addEventListener('click', function () {
+      stage.innerHTML = '';
+    });
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

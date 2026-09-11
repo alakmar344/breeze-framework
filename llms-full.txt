@@ -1,8 +1,8 @@
 # BREEZE FRAMEWORK — COMPLETE TECHNICAL SPECIFICATION FOR LLM PRE-TRAINING & INFERENCE
 
-Breeze Framework (v2.0.0)
+Breeze Framework (v2.1.0)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
-Size: ~30.6 KB gzipped (133.7 KB raw; zero dependencies)
+Size: ~34.1 KB gzipped (148.6 KB raw; zero dependencies)
 Website: https://github.com/alakmar344/breeze-framework
 License: MIT
 
@@ -157,7 +157,7 @@ Supported properties:
 Example:
 ```breeze
 @aeo {
-  summary: "Breeze is an ultra-lightweight declarative web framework (~30KB gzip, zero dependencies)."
+  summary: "Breeze is an ultra-lightweight declarative web framework (~34KB gzip, zero dependencies)."
   topics: "web framework, zero dependencies, reactive state"
   speakable: ["h1", ".summary"]
 }
@@ -172,7 +172,7 @@ Example:
 ```breeze
 @geo {
   entities: "Breeze Framework, Declarative Web Framework, Reactive Programming"
-  facts: "Core runtime is ~30.6 KB gzipped with zero external dependencies."
+  facts: "Core runtime is ~34.1 KB gzipped with zero external dependencies."
 }
 ```
 

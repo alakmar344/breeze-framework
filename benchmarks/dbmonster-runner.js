@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * DBMonster Benchmark Runner for Breeze Framework
- * Measures sustained 60 FPS animation loop performance, frame times, and dropped frames
- * across Breeze, Vanilla JS, Preact 10, Vue 3, and React 19 in headless Google Chrome.
+ * Measures frame-callback throughput (reported in FPS units), frame times, and
+ * dropped frames across Breeze, Vanilla JS, Preact 10, Vue 3, and React 19 in
+ * headless Google Chrome. Headless CDP has no vsync, so FPS here means
+ * processed frame callbacks per second — not display refresh rate.
  */
 
 'use strict';
@@ -57,7 +59,7 @@ const server = http.createServer((req, res) => {
 async function runDbMonsterBenchmark() {
   await new Promise(r => server.listen(PORT, r));
   console.log('\n================================================================');
-  console.log('👾 DBMONSTER 60 FPS ANIMATION & FRAME TIME BENCHMARK');
+  console.log('👾 DBMONSTER FRAME-CALLBACK THROUGHPUT BENCHMARK (FPS = callbacks/sec, headless — no vsync)');
   console.log('================================================================');
   console.log(`Test server running on http://127.0.0.1:${PORT}`);
 
@@ -102,6 +104,7 @@ async function runDbMonsterBenchmark() {
     '--disable-gpu',
     '--no-first-run',
     '--no-default-browser-check',
+    '--js-flags=--expose-gc',
     `--user-data-dir=${profileDir}`
   ]);
   chromeProc.on('error', (e) => console.error(`Chrome launch failed: ${e.message}`));
@@ -175,7 +178,17 @@ async function runDbMonsterBenchmark() {
         }
       }
 
-      // Memory
+      // Memory: post-GC retained heap (stable) + pre-GC (for the record).
+      // GC timing swings single-shot heap readings ~2×, so tables quote post-GC.
+      const perfPre = await send('Performance.getMetrics');
+      let heapPreGcKB = 0;
+      if (perfPre && perfPre.result && perfPre.result.metrics) {
+        for (const m of perfPre.result.metrics) {
+          if (m.name === 'JSHeapUsedSize') heapPreGcKB = parseFloat((m.value / 1024).toFixed(1));
+        }
+      }
+      await send('Runtime.evaluate', { expression: 'try { window.gc && window.gc(); } catch (e) {}' });
+      await new Promise(r => setTimeout(r, 300));
       const perf = await send('Performance.getMetrics');
       let jsHeapKB = 0;
       if (perf && perf.result && perf.result.metrics) {
@@ -187,14 +200,19 @@ async function runDbMonsterBenchmark() {
       ws.close();
 
       if (metric) {
+        const { summarize } = require('./stats.js');
+        const frames = summarize(metric.frameMs || []);
         results[fw] = {
           fps: metric.fps,
           avgFrameTimeMs: metric.avgFrameTime,
           droppedFrames: metric.droppedFrames,
           totalElapsedMs: metric.totalElapsed,
-          heapUsedKB: jsHeapKB
+          heapUsedKB: jsHeapKB,
+          heapPreGcKB: heapPreGcKB,
+          // Distribution over the 99 sampled frames (median/p95/min/max/sd).
+          frameMs: frames
         };
-        console.log(`  ✔ FPS: ${metric.fps} | Avg Frame: ${metric.avgFrameTime} ms | Dropped: ${metric.droppedFrames} | Heap: ${jsHeapKB} KB`);
+        console.log(`  ✔ ${metric.fps} callbacks/s | Avg frame: ${metric.avgFrameTime} ms (median ${frames.median}, p95 ${frames.p95}) | Dropped: ${metric.droppedFrames} | Heap post-GC: ${jsHeapKB} KB (pre-GC ${heapPreGcKB} KB)`);
       } else {
         console.warn(`  ⚠ Timed out waiting for DBMonster benchmark on ${fw}`);
       }
@@ -204,7 +222,7 @@ async function runDbMonsterBenchmark() {
     server.close();
   }
 
-  console.log('\n| Framework | Sustained FPS | Mean Frame Time (ms) | Dropped Frames (>16.6ms) | Heap (KB) |');
+  console.log('\n| Framework | Frame callbacks/s (FPS) | Mean Frame Time (ms) | Dropped Frames (>16.6ms) | Heap post-GC (KB) |');
   console.log('| :--- | :---: | :---: | :---: | :---: |');
   for (const fw of frameworks) {
     const d = results[fw];

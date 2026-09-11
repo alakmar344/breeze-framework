@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageLoad — Breeze</title>
+  <style>body{font-family:system-ui,sans-serif;margin:0 auto;max-width:720px;padding:16px}header{padding:24px 0}.card{border:1px solid #ddd;border-radius:8px;padding:12px;margin:8px 0}h2{margin:0 0 4px;font-size:1rem}p{margin:0;color:#444}</style>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    var items = [];
+    for (var i = 0; i < 50; i++) items.push({ id: i, title: 'Card number ' + (i + 1), text: 'Body text for card ' + (i + 1) + ' with some realistic content length to lay out.' });
+    Breeze.mount(
+      '@app "PageLoad"\n@state cards = ' + JSON.stringify(items) + '\n@section #page\n  header\n    h1 "Profile directory"\n    p "Fifty cards, one framework."\n  div\n    @each c in cards [key=id]\n      card\n        h2 "{c.title}"\n        p "{c.text}"\n',
+      '#app'
+    );
+    window.__PAGELOAD_READY__ = true;
+  </script>
+</body>
+</html>
