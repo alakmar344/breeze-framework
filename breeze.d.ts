@@ -241,7 +241,10 @@ export interface BreezeAPI {
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;
   parse(source: string, opts?: { noCache?: boolean }): AstNode[];
+  render(sourceOrAst: string | AstNode | AstNode[], root?: any): any;
+  calculateVirtualWindow(opts?: { scrollTop?: number; viewportHeight?: number; totalCount?: number; itemHeight?: number; overscan?: number }): { startIndex: number; endIndex: number; visibleCount: number; totalHeight: number; offsetY: number };
   testing: {
+    calculateVirtualWindow(opts?: { scrollTop?: number; viewportHeight?: number; totalCount?: number; itemHeight?: number; overscan?: number }): { startIndex: number; endIndex: number; visibleCount: number; totalHeight: number; offsetY: number };
     renderToString(source: string | AstNode[], state?: Record<string, any>): string;
     parse(source: string, opts?: { noCache?: boolean }): AstNode[];
     splitArgs(inner: string): string[];

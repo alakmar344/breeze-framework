@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breeze Framework — 1,000,000 Row Virtual List (60 FPS)</title>
+  <link rel="stylesheet" href="../../breeze.css">
+  <style>
+    :root {
+      --app-bg: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #4154f1;
+      --accent-glow: rgba(65, 84, 241, 0.35);
+      --success: #10b981;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--app-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      background: var(--panel-bg);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      background: var(--accent);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .stat-val {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .stat-val.fps-good { color: var(--success); }
+    .stat-val.fps-warn { color: #f59e0b; }
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    button.btn {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button.btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    main {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 80px 2fr 1.5fr 1fr 1fr;
+      padding: 0.75rem 1rem;
+      background: var(--panel-bg);
+      border-radius: 8px 8px 0 0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #list-container {
+      flex: 1;
+      background: var(--panel-bg);
+      border-radius: 0 0 8px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: none;
+      position: relative;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .list-row {
+      display: grid;
+      grid-template-columns: 80px 2fr 1.5fr 1fr 1fr;
+      align-items: center;
+      height: 44px;
+      padding: 0 1rem;
+      box-sizing: border-box;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.875rem;
+      transition: background 0.1s;
+    }
+
+    .list-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .row-id {
+      color: var(--text-muted);
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+    }
+
+    .status-tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .status-Active { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-Remote { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .status-Leave { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-Contract { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>🌊 Breeze Virtual List</h1>
+      <span class="badge">@virtual each</span>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">Virtual Dataset</span>
+        <span class="stat-val" id="stat-total">1,000,000 rows</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">DOM Node Count</span>
+        <span class="stat-val" id="stat-dom" style="color:#60a5fa">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Frame Rate</span>
+        <span class="stat-val fps-good" id="stat-fps">60 FPS</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Scroll Top</span>
+        <span class="stat-val" id="stat-pos">0 px</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" onclick="scrollToItem(0)">Top (0)</button>
+      <button class="btn" onclick="scrollToItem(250000)">25% (250k)</button>
+      <button class="btn" onclick="scrollToItem(500000)">50% (500k)</button>
+      <button class="btn" onclick="scrollToItem(750000)">75% (750k)</button>
+      <button class="btn" onclick="scrollToItem(1000000)">Bottom (1M)</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="table-header">
+      <div>Index</div>
+      <div>Employee Name</div>
+      <div>Department</div>
+      <div>Status</div>
+      <div>Compensation</div>
+    </div>
+    <div id="list-container"></div>
+  </main>
+
+  <script src="../../breeze.js"></script>
+  <script>
+    const TOTAL_ITEMS = 1000000;
+    const ROW_HEIGHT = 44;
+    const OVERSCAN = 6;
+
+    console.time('Generate 1,000,000 Items');
+    const depts = ['Infrastructure', 'Core Engine', 'UI Systems', 'Product Design', 'DevRel', 'Security'];
+    const statuses = ['Active', 'Remote', 'Leave', 'Contract'];
+    const names = ['Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Dakota', 'Reese', 'Quinn'];
+
+    const items = new Array(TOTAL_ITEMS);
+    for (let i = 0; i < TOTAL_ITEMS; i++) {
+      items[i] = {
+        id: i + 1,
+        name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+        dept: depts[i % depts.length],
+        status: statuses[i % statuses.length],
+        salary: '$' + (75000 + (i * 47) % 95000).toLocaleString()
+      };
+    }
+    console.timeEnd('Generate 1,000,000 Items');
+
+    // Initialize Breeze state
+    Breeze.state('employees', items);
+
+    // Breeze template using @virtual each
+    const template = `
+@virtual each emp in employees [height=44, overscan=6, key=id]
+  div.list-row
+    span.row-id "#{emp.id}"
+    strong "{emp.name}"
+    span "{emp.dept}"
+    span.status-tag.status-{emp.status} "{emp.status}"
+    span.salary "{emp.salary}"
+`;
+
+    // Mount virtual list
+    const container = document.getElementById('list-container');
+    const vnode = Breeze.parse(template)[0];
+    const virtualEl = Breeze.render(vnode);
+    container.appendChild(virtualEl);
+
+    // Style the virtual element to fill container
+    virtualEl.style.height = '100%';
+    virtualEl.style.width = '100%';
+
+    // Scroll helpers
+    window.scrollToItem = function(index) {
+      const targetTop = Math.max(0, Math.min(index * ROW_HEIGHT, (TOTAL_ITEMS * ROW_HEIGHT) - container.clientHeight));
+      virtualEl.scrollTo({ top: targetTop, behavior: 'smooth' });
+    };
+
+    // Live Performance & FPS Monitor
+    let frameCount = 0;
+    let lastTime = performance.now();
+    const fpsEl = document.getElementById('stat-fps');
+    const domEl = document.getElementById('stat-dom');
+    const posEl = document.getElementById('stat-pos');
+
+    function updatePerf() {
+      frameCount++;
+      const now = performance.now();
+      const elapsed = now - lastTime;
+
+      if (elapsed >= 500) {
+        const fps = Math.round((frameCount * 1000) / elapsed);
+        fpsEl.textContent = fps + ' FPS';
+        if (fps >= 55) {
+          fpsEl.className = 'stat-val fps-good';
+        } else {
+          fpsEl.className = 'stat-val fps-warn';
+        }
+        frameCount = 0;
+        lastTime = now;
+
+        // Count rendered DOM rows inside content slice
+        const contentSlice = virtualEl.querySelector('.bz-virtual-content');
+        if (contentSlice) {
+          domEl.textContent = contentSlice.children.length + ' elements';
+        }
+        posEl.textContent = Math.round(virtualEl.scrollTop).toLocaleString() + ' px';
+      }
+
+      requestAnimationFrame(updatePerf);
+    }
+
+    requestAnimationFrame(updatePerf);
+  </script>
+</body>
+</html>

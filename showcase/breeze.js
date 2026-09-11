@@ -482,21 +482,58 @@
       return out;
     },
 
+    _hashString(str) {
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      return (hash >>> 0).toString(36);
+    },
+
+    _getPersistedAST(hash) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = window.localStorage.getItem('bz_ast_' + hash);
+          if (raw) return JSON.parse(raw);
+        }
+      } catch (_) {}
+      return null;
+    },
+
+    _setPersistedAST(hash, ast) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('bz_ast_' + hash, JSON.stringify(ast));
+        }
+      } catch (_) {}
+    },
+
     /**
      * Parse a full .breeze source string into an array of AST nodes.
      * Indentation (2 spaces per level) determines parent-child nesting.
      * v2: LRU-caches small sources; pass { noCache: true } to bypass.
+     * v2.2: Persisted content-hash cache + zero-backtracking tokenizing.
      */
     parse(source, opts) {
       if (!source) return [];
       const useCache = !(opts && opts.noCache) && source.length < 500000;
-      if (useCache && this._cache.has(source)) {
-        const hit = this._cache.get(source);
-        // LRU refresh
-        this._cache.delete(source);
-        this._cache.set(source, hit);
-        return hit;
+      let hash = null;
+      if (useCache) {
+        if (this._cache.has(source)) {
+          const hit = this._cache.get(source);
+          this._cache.delete(source);
+          this._cache.set(source, hit);
+          return hit;
+        }
+        hash = this._hashString(source);
+        const persisted = this._getPersistedAST(hash);
+        if (persisted) {
+          this._cache.set(source, persisted);
+          return persisted;
+        }
       }
+
       // Normalize line endings (\r\n -> \n, \r -> \n)
       const normalized = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lines = normalized.split('\n');
@@ -506,72 +543,100 @@
 
       while (i < lines.length) {
         const rawLine = lines[i];
-        const trimmed = rawLine.trim();
+        let spaces = 0;
+        let j = 0;
+        let tabDetected = false;
+        const len = rawLine.length;
 
-        // Skip empty lines, line comments, and the shebang
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('##')) {
+        // Fast whitespace and indent scanner — eliminates per-line regex allocations
+        while (j < len) {
+          const ch = rawLine.charCodeAt(j);
+          if (ch === 32) {
+            spaces++;
+          } else if (ch === 9) {
+            spaces += 2;
+            tabDetected = true;
+          } else {
+            break;
+          }
+          j++;
+        }
+
+        if (j === len) {
           i++;
           continue;
         }
 
-        // Normalize tabs: each tab counts as one 2-space level.
-        // Warn (every occurrence) since mixed tabs/spaces misnest silently.
-        const expanded = rawLine.replace(/\t/g, '  ');
-        if (/\t/.test(rawLine)) {
+        const c0 = rawLine.charCodeAt(j);
+        const c1 = j + 1 < len ? rawLine.charCodeAt(j + 1) : 0;
+        if ((c0 === 47 && c1 === 47) || (c0 === 35 && c1 === 35)) {
+          i++;
+          continue;
+        }
+
+        if (tabDetected) {
           Parser._warn(
             `Line ${i + 1}: tab indentation detected. Breeze uses 2 spaces per ` +
             `level — tabs were expanded to 2 spaces; please convert to spaces.`
           );
         }
 
-        const rawIndent = expanded.search(/\S/);
-        if (rawIndent % 2 !== 0) {
+        if (spaces % 2 !== 0) {
           Parser._warn(
-            `Line ${i + 1}: odd indentation (${rawIndent} spaces). Breeze uses 2 spaces per ` +
-            `level — rounding down to level ${Math.floor(rawIndent / 2)}.`
+            `Line ${i + 1}: odd indentation (${spaces} spaces). Breeze uses 2 spaces per ` +
+            `level — rounding down to level ${Math.floor(spaces / 2)}.`
           );
         }
-        // Canonical level-based indent so 1sp vs 2sp vs 3sp can't create phantom levels
-        const indent = Math.floor(rawIndent / 2);
+        const indent = Math.floor(spaces / 2);
+        const trimmed = rawLine.slice(j).trimEnd();
+        const isDirective = c0 === 64; // '@'
 
         // ── Block directives: @theme, @seo, @schema, @aeo, @geo { key: value ... }
-        const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
-        if (blockMatch) {
-          const blockType = blockMatch[1];
-          if (!trimmed.includes('{')) {
-            Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
-          }
-          const blockNode = { type: blockType, props: {} };
-          const blockStart = i;
-          let closed = false;
-          i++;
-          while (i < lines.length) {
-            const tl = lines[i].trim();
-            if (tl === '}') { i++; closed = true; break; }
-            if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
-              const ci = tl.indexOf(':');
-              if (ci !== -1) {
-                const k = tl.substring(0, ci).trim();
-                let v = tl.substring(ci + 1).trim();
-                try {
-                  v = JSON.parse(v);
-                } catch (_) {
-                  v = v.replace(/^["']|["']$/g, '');
-                }
-                blockNode.props[k] = v;
-              }
+        if (isDirective && (
+          trimmed.startsWith('@theme') ||
+          trimmed.startsWith('@seo') ||
+          trimmed.startsWith('@schema') ||
+          trimmed.startsWith('@aeo') ||
+          trimmed.startsWith('@geo')
+        )) {
+          const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
+          if (blockMatch) {
+            const blockType = blockMatch[1];
+            if (!trimmed.includes('{')) {
+              Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
             }
+            const blockNode = { type: blockType, props: {} };
+            const blockStart = i;
+            let closed = false;
             i++;
+            while (i < lines.length) {
+              const tl = lines[i].trim();
+              if (tl === '}') { i++; closed = true; break; }
+              if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
+                const ci = tl.indexOf(':');
+                if (ci !== -1) {
+                  const k = tl.substring(0, ci).trim();
+                  let v = tl.substring(ci + 1).trim();
+                  try {
+                    v = JSON.parse(v);
+                  } catch (_) {
+                    v = v.replace(/^["']|["']$/g, '');
+                  }
+                  blockNode.props[k] = v;
+                }
+              }
+              i++;
+            }
+            if (!closed) {
+              Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
+            }
+            root.push(blockNode);
+            continue;
           }
-          if (!closed) {
-            Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
-          }
-          root.push(blockNode);
-          continue;
         }
 
         // ── Component Definition: @def ComponentName(prop1, prop2) ─────
-        if (trimmed.startsWith('@def') || trimmed.startsWith('@component')) {
+        if (isDirective && (trimmed.startsWith('@def') || trimmed.startsWith('@component'))) {
           const compM = trimmed.match(/@(def|component)\s+([A-Z]\w*)(?:\(([^)]*)\))?/);
           if (compM) {
             const compName = compM[2];
@@ -620,6 +685,9 @@
         if (this._cache.size > this._cacheLimit) {
           const oldest = this._cache.keys().next().value;
           this._cache.delete(oldest);
+        }
+        if (hash) {
+          this._setPersistedAST(hash, root);
         }
       }
       return root;
@@ -715,6 +783,47 @@
         };
       }
 
+      // @virtual each item in listKey [height=40, overscan=5, key=id]
+      if (content.startsWith('@virtual')) {
+        const m = content.match(/@virtual(?:-|\s+)(?:(?:each|for)\s+)?([\w$-]+)\s+in\s+([\w.$-]+)/);
+        if (m) {
+          const mods = Parser.extractModifiers(content);
+          let keyProp = 'id';
+          let itemHeight = 40;
+          let overscan = 3;
+          let containerHeight = null;
+          for (let k = 0; k < mods.length; k++) {
+            const mod = mods[k];
+            if (mod.startsWith('key=')) {
+              keyProp = mod.split('=').slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+            } else if (mod.startsWith('height=')) {
+              const hVal = parseFloat(mod.split('=')[1]);
+              if (!isNaN(hVal) && hVal > 0) itemHeight = hVal;
+            } else if (mod.startsWith('overscan=')) {
+              const oVal = parseInt(mod.split('=')[1], 10);
+              if (!isNaN(oVal) && oVal >= 0) overscan = oVal;
+            } else if (mod.startsWith('containerHeight=')) {
+              const chVal = parseFloat(mod.split('=')[1]);
+              if (!isNaN(chVal) && chVal > 0) containerHeight = chVal;
+            }
+          }
+          return {
+            type: 'virtual-each',
+            itemVar: m[1],
+            listKey: m[2],
+            keyProp,
+            itemHeight,
+            overscan,
+            containerHeight,
+            modifiers: mods,
+            children: [],
+            indent
+          };
+        }
+        Parser._warn(`Malformed @virtual each: "${content}". Expected: @virtual each item in listKey [height=40, overscan=3]`);
+        return null;
+      }
+
       // @each item in listKey [key=id]
       if (content.startsWith('@each') || content.startsWith('@for')) {
         const m = content.match(/@(each|for)\s+([\w$-]+)\s+in\s+([\w.$-]+)/);
@@ -807,7 +916,13 @@
       }
 
       // Check if starts with a capitalized Component name: Card [shadow] or Card("a", badge="b")
-      const firstWord = content.split(/[\s[(\"]/)[0];
+      let fwEnd = 0;
+      while (fwEnd < content.length) {
+        const c = content.charCodeAt(fwEnd);
+        if (c === 32 || c === 91 || c === 40 || c === 34) break;
+        fwEnd++;
+      }
+      const firstWord = fwEnd === content.length ? content : content.slice(0, fwEnd);
       if (/^[A-Z]\w*$/.test(firstWord)) {
         return {
           type: 'component',
@@ -840,7 +955,7 @@
         }
       }
 
-      const tagClean = tag.replace(/[^a-zA-Z0-9_-]/g, '') || 'div';
+      const tagClean = (tag && !/[^a-zA-Z0-9_-]/.test(tag)) ? tag : (tag.replace(/[^a-zA-Z0-9_-]/g, '') || 'div');
       const bracketMods = Parser.extractModifiers(content);
       const dotMods = dotClasses.map(c => `class="${typeof BZ_CLASS_MAP !== 'undefined' && BZ_CLASS_MAP[c] ? BZ_CLASS_MAP[c] : c}"`);
       const allMods = dotMods.length > 0 ? [...dotMods, ...bracketMods] : bracketMods;
@@ -859,18 +974,48 @@
 
     extractQuoted(str) {
       if (!str) return null;
-      // Double-quoted first (supports escapes), then single-quoted
-      let m = str.match(/"([^"\\]*(?:\\.[^"\\]*)*)"/);
-      if (m) return m[1];
-      m = str.match(/'([^'\\]*(?:\\.[^'\\]*)*)'/);
-      return m ? m[1] : null;
+      const len = str.length;
+      const q1 = str.indexOf('"');
+      const q2 = str.indexOf("'");
+      if (q1 === -1 && q2 === -1) return null;
+
+      let quoteChar = 34; // '"'
+      let startIdx = q1;
+      if (q1 === -1 || (q2 !== -1 && q2 < q1)) {
+        quoteChar = 39; // "'"
+        startIdx = q2;
+      }
+
+      let escaped = false;
+      for (let i = startIdx + 1; i < len; i++) {
+        const code = str.charCodeAt(i);
+        if (code === 92) {
+          escaped = !escaped;
+        } else if (code === quoteChar && !escaped) {
+          return str.slice(startIdx + 1, i);
+        } else {
+          escaped = false;
+        }
+      }
+      return null;
     },
 
     extractId(str) {
       if (!str) return null;
-      const before = str.split('[')[0];
-      const m = before.match(/#([\w-]+)/);
-      return m ? m[1] : null;
+      const bracket = str.indexOf('[');
+      const searchEnd = bracket === -1 ? str.length : bracket;
+      const hashIdx = str.indexOf('#');
+      if (hashIdx === -1 || hashIdx >= searchEnd) return null;
+      let end = hashIdx + 1;
+      while (end < searchEnd) {
+        const c = str.charCodeAt(end);
+        if ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95 || c === 45) {
+          end++;
+        } else {
+          break;
+        }
+      }
+      return end > hashIdx + 1 ? str.slice(hashIdx + 1, end) : null;
     },
 
     extractModifiers(str) {
@@ -1235,6 +1380,42 @@
   };
 
 
+  // ── Pure Virtual-List Math Helper (Safe in Node & Browser) ───────────
+  function calculateVirtualWindow(opts) {
+    const options = opts || {};
+    const scrollTop = Math.max(0, options.scrollTop || 0);
+    const viewportHeight = Math.max(0, options.viewportHeight != null ? options.viewportHeight : 400);
+    const totalCount = Math.max(0, options.totalCount || 0);
+    const itemHeight = Math.max(1, options.itemHeight || 40);
+    const overscan = Math.max(0, options.overscan != null ? options.overscan : 3);
+    const totalHeight = totalCount * itemHeight;
+
+    if (totalCount === 0) {
+      return {
+        startIndex: 0,
+        endIndex: 0,
+        visibleCount: 0,
+        totalHeight: 0,
+        offsetY: 0
+      };
+    }
+
+    const rawStart = Math.floor(scrollTop / itemHeight);
+    const startIndex = Math.max(0, rawStart - overscan);
+    const rawEnd = Math.ceil((scrollTop + viewportHeight) / itemHeight);
+    const endIndex = Math.min(totalCount, rawEnd + overscan);
+    const visibleCount = Math.max(0, endIndex - startIndex);
+    const offsetY = startIndex * itemHeight;
+
+    return {
+      startIndex,
+      endIndex,
+      visibleCount,
+      totalHeight,
+      offsetY
+    };
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // RENDERER — Converts AST into DOM with Keyed Reconciliation
   // ═══════════════════════════════════════════════════════════════════════
@@ -1299,7 +1480,8 @@
         case 'link':      return this.renderLink(node);
         case 'card':      return this.renderCard(node);
         case 'button':    return this.renderButton(node);
-        case 'each':      return this.renderEach(node);
+        case 'each':         return this.renderEach(node);
+        case 'virtual-each': return this.renderVirtualEach(node);
         case 'if':        return this.renderIfChain(node, chain);
         case 'elif':
           // Standalone elif (no parent if) — render as its own condition
@@ -1965,6 +2147,149 @@
       return container;
     },
 
+    renderVirtualEach(node) {
+      if (typeof document === 'undefined') return null;
+
+      const container = document.createElement('div');
+      container.className = 'bz-each bz-virtual-each';
+      if (node.id) container.id = node.id;
+      if (node.modifiers) {
+        const domMods = node.modifiers.filter(m => !m.startsWith('height=') && !m.startsWith('overscan=') && !m.startsWith('containerHeight=') && !m.startsWith('key='));
+        if (domMods.length > 0) this.applyModifiers(container, domMods);
+      }
+
+      container.style.position = 'relative';
+      container.style.overflowY = 'auto';
+      if (node.containerHeight) {
+        container.style.height = `${node.containerHeight}px`;
+      }
+
+      const phantom = document.createElement('div');
+      phantom.className = 'bz-virtual-phantom';
+      phantom.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:0px;pointer-events:none;z-index:-1;visibility:hidden;';
+      container.appendChild(phantom);
+
+      const content = document.createElement('div');
+      content.className = 'bz-virtual-content';
+      content.style.cssText = 'position:absolute;top:0;left:0;width:100%;transform:translateY(0px);will-change:transform;';
+      container.appendChild(content);
+
+      const itemVar = node.itemVar;
+      const listKey = node.listKey;
+      const keyProp = node.keyProp || 'id';
+      const itemHeight = node.itemHeight || 40;
+      const overscan = node.overscan !== undefined ? node.overscan : 3;
+
+      // Delegated event handling for massive lists (zero listener overhead)
+      container.addEventListener('click', (e) => {
+        let cur = e.target;
+        while (cur && cur !== container) {
+          if (cur._bzAction) {
+            Renderer.executeAction(cur._bzAction, e, cur);
+            return;
+          }
+          cur = cur.parentElement;
+        }
+      });
+
+      const getList = () => {
+        const v = State.getPath(listKey);
+        return Array.isArray(v) ? v : (v || []);
+      };
+      const baseWatchKey = String(listKey).split('.')[0];
+      const staticTemplate = () => {
+        if (node._bzStatic === undefined) {
+          try { node._bzStatic = Renderer.isStaticRowTemplate(node.children, itemVar); }
+          catch (_) { node._bzStatic = false; }
+        }
+        return node._bzStatic;
+      };
+
+      let lastStart = -1;
+      let lastEnd = -1;
+      let lastTotal = -1;
+
+      const renderSlice = (force) => {
+        Profiler.recordKeyedDiff();
+        const items = getList();
+        const totalCount = Array.isArray(items) ? items.length : 0;
+        const scrollTop = container.scrollTop || 0;
+        const viewportHeight = container.clientHeight || node.containerHeight || 400;
+
+        const win = calculateVirtualWindow({
+          scrollTop,
+          viewportHeight,
+          totalCount,
+          itemHeight,
+          overscan
+        });
+
+        if (!force && win.startIndex === lastStart && win.endIndex === lastEnd && totalCount === lastTotal) {
+          return;
+        }
+
+        lastStart = win.startIndex;
+        lastEnd = win.endIndex;
+        lastTotal = totalCount;
+
+        phantom.style.height = `${win.totalHeight}px`;
+        content.style.transform = `translateY(${win.offsetY}px)`;
+
+        if (totalCount === 0 || win.visibleCount === 0) {
+          content.textContent = '';
+          return;
+        }
+
+        const slice = items.slice(win.startIndex, win.endIndex);
+
+        if (staticTemplate()) {
+          const { html } = Renderer.renderRowsHtml(node.children, itemVar, slice, win.startIndex, keyProp);
+          content.innerHTML = html;
+          Profiler.recordDomOp('create');
+        } else {
+          const frag = document.createDocumentFragment();
+          for (let i = 0; i < slice.length; i++) {
+            const globalIdx = win.startIndex + i;
+            const rowEl = Renderer.renderItemChildren(node.children, itemVar, slice[i], globalIdx, keyProp);
+            if (rowEl) frag.appendChild(rowEl);
+          }
+          content.textContent = '';
+          content.appendChild(frag);
+          Profiler.recordDomOp('create');
+        }
+      };
+
+      let ticking = false;
+      const onScroll = () => {
+        if (!ticking) {
+          ticking = true;
+          const raf = (typeof requestAnimationFrame !== 'undefined') ? requestAnimationFrame : (cb => setTimeout(cb, 16));
+          raf(() => {
+            ticking = false;
+            renderSlice(false);
+          });
+        }
+      };
+
+      container.addEventListener('scroll', onScroll, { passive: true });
+
+      renderSlice(true);
+      State.watch(baseWatchKey, () => renderSlice(true));
+
+      container._bzVirtual = {
+        renderSlice: () => renderSlice(true),
+        getWindow: () => calculateVirtualWindow({
+          scrollTop: container.scrollTop || 0,
+          viewportHeight: container.clientHeight || node.containerHeight || 400,
+          totalCount: (getList() || []).length,
+          itemHeight,
+          overscan
+        })
+      };
+
+      return container;
+    },
+
     renderItemChildren(children, itemVar, item, index, keyProp, key) {
       if (!children || children.length === 0) return null;
       const tagKey = (key !== undefined) ? key : ((typeof item === 'object' && item !== null) ? item.id : index);
@@ -2025,7 +2350,7 @@
     // calls, no per-row clone objects. Falls back to the DOM path otherwise.
 
     _NON_STATIC_TYPES: new Set([
-      'slot', 'error', 'each', 'if', 'elif', 'else', 'component', 'def',
+      'slot', 'error', 'each', 'virtual-each', 'if', 'elif', 'else', 'component', 'def',
       'portal', 'link', 'style', 'theme', 'seo', 'schema', 'aeo', 'geo',
       'app', 'state', 'nav', 'section', 'footer', 'header', 'main'
     ]),
@@ -2431,7 +2756,7 @@
         const expectedTag = (interpolated.tag || interpolated.type || '').toLowerCase();
         const actualTag = (el.tagName || '').toLowerCase();
         if (expectedTag && actualTag && expectedTag !== actualTag &&
-            !['component', 'def', 'if', 'elif', 'else', 'each'].includes(interpolated.type)) {
+            !['component', 'def', 'if', 'elif', 'else', 'each', 'virtual-each'].includes(interpolated.type)) {
           return false;
         }
         if (interpolated.text != null && el.firstChild && el.firstChild.nodeType === 3) {
@@ -3659,6 +3984,34 @@
           const cls = ['bz-nav-link', ...sm.classes].join(' ');
           return `<a${idAttr} href="${escAttr(href)}" class="${cls}"${sm.attrs}>${escHtml(node.text || '')}</a>`;
         }
+        case 'virtual-each': {
+          const sm = ssrSplitModifiers(node.modifiers);
+          const idAttr = node.id ? ` id="${escAttr(node.id)}"` : '';
+          const cls = ['bz-each', 'bz-virtual-each', ...sm.classes].join(' ');
+          const rawItems = getPath(node.listKey) || [];
+          const itemHeight = node.itemHeight || 40;
+          const totalHeight = (Array.isArray(rawItems) ? rawItems.length : 0) * itemHeight;
+          const initialCount = Math.min(Array.isArray(rawItems) ? rawItems.length : 0, Math.ceil((node.containerHeight || 400) / itemHeight) + (node.overscan || 3));
+          const slice = Array.isArray(rawItems) ? rawItems.slice(0, initialCount) : [];
+          let h = `<div${idAttr} class="${cls}" style="position:relative;overflow-y:auto;"${sm.attrs}>`;
+          h += `<div class="bz-virtual-phantom" style="position:absolute;top:0;left:0;width:100%;height:${totalHeight}px;pointer-events:none;z-index:-1;visibility:hidden;"></div>`;
+          h += `<div class="bz-virtual-content" style="position:absolute;top:0;left:0;width:100%;transform:translateY(0px);will-change:transform;">`;
+          if (Array.isArray(slice) && slice.length > 0) {
+            if (Renderer.isStaticRowTemplate(node.children, node.itemVar)) {
+              const serializer = node._bzSsrSerializer || (node._bzSsrSerializer = Renderer.compileRowSerializer(node.children, node.itemVar, node.keyProp || 'id', { withKeys: false }));
+              h += serializer.render(slice, 0).html;
+            } else {
+              slice.forEach((item, idx) => {
+                (node.children || []).forEach(child => {
+                  const interp = Renderer.interpolateItemNode(child, node.itemVar, item, idx);
+                  h += renderNodeStr(interp);
+                });
+              });
+            }
+          }
+          h += `</div></div>`;
+          return h;
+        }
         case 'each': {
           const sm = ssrSplitModifiers(node.modifiers);
           const idAttr = node.id ? ` id="${escAttr(node.id)}"` : '';
@@ -3813,7 +4166,7 @@
           childIdx++;
           continue;
         }
-        if (node.type === 'each') {
+        if (node.type === 'each' || node.type === 'virtual-each') {
           // Lists are dynamic: watch list key and upgrade to full render on change
           const baseKey = String(node.listKey).split('.')[0];
           State.watch(baseKey, () => {
@@ -4036,6 +4389,23 @@
       return this;
     },
 
+    render(sourceOrAst, root) {
+      if (typeof sourceOrAst === 'string') {
+        const ast = Parser.parse(sourceOrAst);
+        if (root) { Renderer.render(ast, root); return root; }
+        return Renderer.renderNode(ast[0]);
+      }
+      if (Array.isArray(sourceOrAst)) {
+        if (root) { Renderer.render(sourceOrAst, root); return root; }
+        return Renderer.renderNode(sourceOrAst[0]);
+      }
+      if (typeof sourceOrAst === 'object' && sourceOrAst !== null) {
+        if (root) { Renderer.render([sourceOrAst], root); return root; }
+        return Renderer.renderNode(sourceOrAst);
+      }
+      return null;
+    },
+
     mount(source, rootSelector) {
       rootSelector = rootSelector || '#app';
       const root = typeof rootSelector === 'string'
@@ -4057,6 +4427,14 @@
 
     // ── State Store API ───────────────────────────────────────────────
     state(key, initialValue) {
+      if (typeof key === 'object' && key !== null && initialValue === undefined) {
+        Object.entries(key).forEach(([k, v]) => this.state(k, v));
+        return this;
+      }
+      if (key in State._store && initialValue !== undefined) {
+        State.set(key, initialValue);
+        return this;
+      }
       if (!(key in State._store) && initialValue !== undefined) {
         State._store[key] = initialValue;
       }
@@ -4210,7 +4588,9 @@
     sanitizeUrl(url) { return sanitizeUrl(url); },
     reportError(err, context) { return reportError(err, context); },
 
+    calculateVirtualWindow(opts) { return calculateVirtualWindow(opts); },
     testing: {
+      calculateVirtualWindow(opts) { return calculateVirtualWindow(opts); },
       // v2 headless helpers (node + jsdom-free): parse + SSR + action arg split
       renderToString(source, state) { return renderToString(source, state); },
       parse(source, opts) { return Parser.parse(source, opts); },

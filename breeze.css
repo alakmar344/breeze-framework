@@ -1072,3 +1072,31 @@ button.bz-btn-blueberry:hover {
   background: var(--bz-dark-bg);
   color: #93c5fd;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   VIRTUAL LIST (@virtual each)
+   ════════════════════════════════════════════════════════════════ */
+.bz-virtual-each {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+}
+.bz-virtual-phantom {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: -1;
+  visibility: hidden;
+}
+.bz-virtual-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}
+
