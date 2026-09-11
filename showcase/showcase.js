@@ -40,12 +40,12 @@
   // Shipped breeze.js v2 (LIS reorder, template precompile, DX kit, 10 new benches).
   // Regenerate with: node benchmarks/bundle-runner.js
   const SIZES = {
-    rawBytes: 136920,
-    rawKb: '133.71',
+    rawBytes: 152169,
+    rawKb: '148.60',
     minBytes: 23674,
     minKb: '23.12',
-    gzipBytes: 31375,
-    gzipKb: '30.64',
+    gzipBytes: 34871,
+    gzipKb: '34.05',
     cssGzipKb: '6.39',
     deps: 0,
     note: 'shipped v2 file (honest, not minified core-only)'

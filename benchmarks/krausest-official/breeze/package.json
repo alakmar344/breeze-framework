@@ -1,0 +1,19 @@
+{
+  "name": "js-framework-benchmark-breeze",
+  "version": "2.0.0",
+  "description": "Breeze Framework implementation for Krausest js-framework-benchmark (keyed). Zero-dependency, no build step.",
+  "license": "MIT",
+  "benchmarkDriver": {
+    "suite": "krausest/js-framework-benchmark",
+    "variant": "keyed",
+    "selectorContract": {
+      "buttons": ["#run", "#runlots", "#add", "#update", "#clear", "#swaprows"],
+      "rowLabel": ".lbl",
+      "rowRemove": ".remove",
+      "implementation": "../../breeze/index.html"
+    }
+  },
+  "scripts": {
+    "note": "echo 'No build step: serve this directory statically (see README.md)'"
+  }
+}

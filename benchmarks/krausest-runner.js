@@ -67,7 +67,11 @@ async function main() {
   console.log(`Local test server running on port ${PORT}`);
 
   const os = require('os');
-  const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '3', 10) || 3;
+  // Default 5 runs: on slow hardware each op costs seconds, so 10–30 runs
+  // (recommended on fast machines) is left to BZ_BENCH_RUNS. Distributions
+  // (median/p95/min/max/sd) are always reported — never a bare single shot.
+  const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '5', 10) || 5;
+  const { summarize } = require('./stats.js');
 
   function resolveChromePath() {
     if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -104,15 +108,16 @@ async function main() {
     try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (_) {}
   }
 
-  console.log(`Launching Google Chrome (${chromePath})…`);
   const chromeProc = spawn(chromePath, [
     '--headless=new',
     `--remote-debugging-port=${CDP_PORT}`,
     '--disable-gpu',
     '--no-first-run',
     '--no-default-browser-check',
+    '--js-flags=--expose-gc',
     `--user-data-dir=${profileDir}`
   ]);
+  console.log(`Launched Chrome (${chromePath}), waiting for CDP…`);
   chromeProc.on('error', (e) => console.error(`Chrome launch failed: ${e.message}`));
 
   // Poll CDP until Chrome is actually listening (fixed sleeps race on slow CPUs).
@@ -202,95 +207,109 @@ async function main() {
     await measureAction(`document.getElementById('run').click()`);
     await measureAction(`document.getElementById('clear').click()`);
 
-    const median = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      const mid = Math.floor(s.length / 2);
-      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-    };
-    const stddev = (arr) => {
-      if (arr.length < 2) return 0;
-      const m = arr.reduce((a, b) => a + b, 0) / arr.length;
-      return Math.sqrt(arr.reduce((a, b) => a + (b - m) * (b - m), 0) / (arr.length - 1));
-    };
-    // Median-of-RUNS with rAF+setTimeout paint timing (note: rAF callback ≠ guaranteed paint)
-    async function measureMedian(expr, { reset = null } = {}) {
+    // Full distributions per workload (median/p95/min/max/sd/n + samples).
+    // rAF callback ≠ guaranteed paint — identical timing method for every framework.
+    async function measureDist(expr, { reset = null } = {}) {
       const samples = [];
       for (let r = 0; r < RUNS; r++) {
         samples.push(await measureAction(expr));
         if (reset) await measureAction(reset);
       }
-      return { median: median(samples), sd: stddev(samples), samples };
+      return summarize(samples);
     }
+    const fmt = (d) => `${d.median.toFixed(2).padStart(8)} ms (p95 ${d.p95.toFixed(2)}, ${d.min.toFixed(2)}–${d.max.toFixed(2)}, sd ${d.sd.toFixed(2)}, n=${d.n})`;
 
     // Workload 1: Create 1,000 rows
-    const create1kR = await measureMedian(`document.getElementById('run').click()`, { reset: `document.getElementById('clear').click()` });
+    const create1kR = await measureDist(`document.getElementById('run').click()`, { reset: `document.getElementById('clear').click()` });
     const create1k = create1kR.median;
-    console.log(`  ✔ Create 1,000 rows:      ${create1k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${create1kR.sd.toFixed(2)})`);
+    console.log(`  ✔ Create 1,000 rows:      ${fmt(create1kR)}`);
 
     // Workload 2: Update every 10th row (needs rows present)
     await measureAction(`document.getElementById('run').click()`);
-    const update10thR = await measureMedian(`document.getElementById('update').click()`);
+    const update10thR = await measureDist(`document.getElementById('update').click()`);
     const update10th = update10thR.median;
-    console.log(`  ✔ Update every 10th row:  ${update10th.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${update10thR.sd.toFixed(2)})`);
+    console.log(`  ✔ Update every 10th row:  ${fmt(update10thR)}`);
 
     // Workload 3: Select a row (row 5)
-    const selectRowR = await measureMedian(`
+    const selectRowR = await measureDist(`
       const lbl = document.querySelectorAll('.lbl')[4];
       if (lbl) lbl.click();
     `);
     const selectRow = selectRowR.median;
-    console.log(`  ✔ Select row:             ${selectRow.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${selectRowR.sd.toFixed(2)})`);
+    console.log(`  ✔ Select row:             ${fmt(selectRowR)}`);
 
     // Workload 4: Swap rows (row 4 and 997)
-    const swapRowsR = await measureMedian(`document.getElementById('swaprows').click()`);
+    const swapRowsR = await measureDist(`document.getElementById('swaprows').click()`);
     const swapRows = swapRowsR.median;
-    console.log(`  ✔ Swap rows 4 & 997:      ${swapRows.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${swapRowsR.sd.toFixed(2)})`);
+    console.log(`  ✔ Swap rows 4 & 997:      ${fmt(swapRowsR)}`);
 
     // Workload 5: Delete row
-    const deleteRowR = await measureMedian(`
+    const deleteRowR = await measureDist(`
       const rm = document.querySelectorAll('.remove')[10];
       if (rm) rm.click();
     `);
     const deleteRow = deleteRowR.median;
-    console.log(`  ✔ Delete single row:      ${deleteRow.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${deleteRowR.sd.toFixed(2)})`);
+    console.log(`  ✔ Delete single row:      ${fmt(deleteRowR)}`);
 
     // Workload 6: Append 1,000 rows
-    const append1kR = await measureMedian(`document.getElementById('add').click()`);
+    const append1kR = await measureDist(`document.getElementById('add').click()`);
     const append1k = append1kR.median;
-    console.log(`  ✔ Append 1,000 rows:      ${append1k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${append1kR.sd.toFixed(2)})`);
+    console.log(`  ✔ Append 1,000 rows:      ${fmt(append1kR)}`);
 
     // Workload 7: Clear rows
-    const clearRowsR = await measureMedian(`document.getElementById('clear').click()`, { reset: `document.getElementById('run').click()` });
+    const clearRowsR = await measureDist(`document.getElementById('clear').click()`, { reset: `document.getElementById('run').click()` });
     const clearRows = clearRowsR.median;
-    console.log(`  ✔ Clear rows:             ${clearRows.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${clearRowsR.sd.toFixed(2)})`);
+    console.log(`  ✔ Clear rows:             ${fmt(clearRowsR)}`);
     await measureAction(`document.getElementById('clear').click()`);
 
     // Workload 8: Create 10,000 rows
-    const create10kR = await measureMedian(`document.getElementById('runlots').click()`, { reset: `document.getElementById('clear').click()` });
+    const create10kR = await measureDist(`document.getElementById('runlots').click()`, { reset: `document.getElementById('clear').click()` });
     const create10k = create10kR.median;
-    console.log(`  ✔ Create 10,000 rows:     ${create10k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${create10kR.sd.toFixed(2)})`);
+    console.log(`  ✔ Create 10,000 rows:     ${fmt(create10kR)}`);
 
-    // Memory metrics
+    // Memory: post-GC retained heap (exposed via --js-flags=--expose-gc).
+    // Pre-GC numbers swing 2× with collection timing; post-GC is the stable,
+    // comparable figure. Both are recorded; tables quote post-GC.
+    const perfPre = await send('Performance.getMetrics');
+    let heapPreGcKB = 0;
+    for (const m of perfPre.result.metrics) {
+      if (m.name === 'JSHeapUsedSize') heapPreGcKB = parseFloat((m.value / 1024).toFixed(1));
+    }
+    await send('Runtime.evaluate', { expression: 'try { window.gc && window.gc(); } catch (e) {}' });
+    await new Promise(r => setTimeout(r, 300));
     const perf = await send('Performance.getMetrics');
     let jsHeapKB = 0;
     for (const m of perf.result.metrics) {
       if (m.name === 'JSHeapUsedSize') jsHeapKB = (m.value / 1024).toFixed(1);
     }
-    console.log(`  ✔ Retained JS Heap:       ${jsHeapKB.padStart(6)} KB`);
+    console.log(`  ✔ Retained JS Heap (post-GC): ${String(jsHeapKB).padStart(6)} KB (pre-GC ${heapPreGcKB} KB)`);
 
     // Cleanup page
     await measureAction(`document.getElementById('clear').click()`);
 
     allResults[fw] = {
-      create1000: parseFloat(create1k.toFixed(2)),
-      update10th: parseFloat(update10th.toFixed(2)),
-      selectRow: parseFloat(selectRow.toFixed(2)),
-      swapRows: parseFloat(swapRows.toFixed(2)),
-      deleteRow: parseFloat(deleteRow.toFixed(2)),
-      append1000: parseFloat(append1k.toFixed(2)),
-      clearRows: parseFloat(clearRows.toFixed(2)),
-      create10000: parseFloat(create10k.toFixed(2)),
-      heapUsedKB: parseFloat(jsHeapKB)
+      create1000: create1k,
+      update10th: update10th,
+      selectRow: selectRow,
+      swapRows: swapRows,
+      deleteRow: deleteRow,
+      append1000: append1k,
+      clearRows: clearRows,
+      create10000: create10k,
+      heapUsedKB: parseFloat(jsHeapKB),
+      heapPreGcKB: heapPreGcKB,
+      // Full distributions (median/p95/min/max/sd/n + samples) — flat medians
+      // above stay backward-compatible; dist is the auditable record.
+      dist: {
+        create1000: create1kR,
+        update10th: update10thR,
+        selectRow: selectRowR,
+        swapRows: swapRowsR,
+        deleteRow: deleteRowR,
+        append1000: append1kR,
+        clearRows: clearRowsR,
+        create10000: create10kR
+      }
     };
 
     ws.close();

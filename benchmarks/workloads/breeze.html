@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Families — Breeze</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px}.btn{padding:6px 12px;margin:4px;cursor:pointer}#stage{margin-top:12px}.cell{display:inline-block;width:60px;height:18px;margin:1px;background:#eef;border:1px solid #ccd;font-size:10px}.lvl{border:1px solid #bbb;padding:4px;margin:2px;font-size:10px}.frow{margin:2px 0}.frow input{width:120px}.ok{color:green}.bad{color:red}</style>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // Wide: 1000 siblings via keyed list. Deep: 25 nested levels via generated source.
+    // Form: 100 two-way-bound inputs generated programmatically.
+    var deepSrc = '@app "F"\n@state deepv = "leaf"\n@section #s\n  div\n';
+    for (var d = 0; d < 25; d++) deepSrc += '  '.repeat(d + 2) + 'div [lvl]\n';
+    deepSrc += '  '.repeat(27) + 'p "{deepv}"\n';
+
+    var formStates = '', formInputs = '';
+    for (var f = 0; f < 100; f++) { formStates += '@state f' + f + ' = ""\n'; formInputs += '    input [type=text, bind=f' + f + ']\n'; }
+    var formSrc = '@app "F"\n' + formStates + '@section #s\n  form\n' + formInputs;
+
+    var wideItems = [];
+    for (var w = 0; w < 1000; w++) wideItems.push({ id: w, t: 'c' + w });
+    var wideSrc = '@app "F"\n@state cells = []\n@section #s\n  div\n    @each c in cells [key=id]\n      span "{c.t}" [cell]';
+
+    Breeze.mount('@app "F"\n@section #s\n  div\n    button "wide" #f-wide [btn]\n    button "deep" #f-deep [btn]\n    button "form" #f-form [btn]\n    button "clear" #f-clear [btn]\n  div #stage\n', '#app');
+
+    var stage = null;
+    function ensureStage() {
+      if (!stage || !stage.isConnected) stage = document.getElementById('stage');
+      return stage;
+    }
+    Breeze.method('__noop', function () {});
+    document.getElementById('f-wide').addEventListener('click', function () {
+      var host = ensureStage();
+      var tmp = document.createElement('div');
+      host.appendChild(tmp);
+      Breeze.mount(wideSrc, tmp);
+      Breeze.setState('cells', wideItems);
+    });
+    document.getElementById('f-deep').addEventListener('click', function () {
+      var host = ensureStage();
+      var tmp = document.createElement('div');
+      host.appendChild(tmp);
+      Breeze.mount(deepSrc, tmp);
+    });
+    document.getElementById('f-form').addEventListener('click', function () {
+      var host = ensureStage();
+      var tmp = document.createElement('div');
+      host.appendChild(tmp);
+      Breeze.mount(formSrc, tmp);
+      var inputs = tmp.querySelectorAll('input');
+      for (var i = 0; i < inputs.length; i++) {
+        inputs[i].value = 'user' + i + '@x.com';
+        inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    document.getElementById('f-clear').addEventListener('click', function () {
+      var host = ensureStage();
+      if (host) host.innerHTML = '';
+      stage = null;
+    });
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Families — React</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px}.btn{padding:6px 12px;margin:4px;cursor:pointer}#stage{margin-top:12px}.cell{display:inline-block;width:60px;height:18px;margin:1px;background:#eef;border:1px solid #ccd;font-size:10px}.lvl{border:1px solid #bbb;padding:4px;margin:2px;font-size:10px}.frow{margin:2px 0}.frow input{width:120px}.ok{color:green}.bad{color:red}</style>
+  <script src="/vendor/react-19-stack.js"></script>
+</head>
+<body>
+  <div>
+    <button id="f-wide" class="btn">wide</button>
+    <button id="f-deep" class="btn">deep</button>
+    <button id="f-form" class="btn">form</button>
+    <button id="f-clear" class="btn">clear</button>
+  </div>
+  <div id="stage"></div>
+  <script>
+    var e = React.createElement;
+    var stage = document.getElementById('stage');
+    function mount(node) {
+      var tmp = document.createElement('div');
+      stage.appendChild(tmp);
+      ReactDOM.createRoot(tmp).render(node);
+    }
+    document.getElementById('f-wide').addEventListener('click', function () {
+      var cells = [];
+      for (var i = 0; i < 1000; i++) cells.push(e('span', { className: 'cell', key: i }, 'c' + i));
+      mount(e('div', null, cells));
+    });
+    document.getElementById('f-deep').addEventListener('click', function () {
+      var node = e('div', { className: 'lvl' }, 'leaf');
+      for (var d = 0; d < 24; d++) node = e('div', { className: 'lvl' }, node);
+      mount(e('div', null, node));
+    });
+    document.getElementById('f-form').addEventListener('click', function () {
+      function Form() {
+        var st = React.useState(function () {
+          var o = {};
+          for (var i = 0; i < 100; i++) o['f' + i] = '';
+          return o;
+        });
+        var vals = st[0], setVals = st[1];
+        var inputs = [];
+        for (var i = 0; i < 100; i++) {
+          (function (k) {
+            inputs.push(e('input', { type: 'text', key: k, value: vals[k], onChange: function (ev) {
+              var n = Object.assign({}, vals);
+              n[k] = ev.target.value;
+              setVals(n);
+            } }));
+          })('f' + i);
+        }
+        return e('form', null, inputs);
+      }
+      mount(e(Form));
+      setTimeout(function () {
+        var dom = stage.querySelectorAll('input');
+        for (var k = 0; k < dom.length; k++) {
+          var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(dom[k], 'user' + k + '@x.com');
+          dom[k].dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 0);
+    });
+    document.getElementById('f-clear').addEventListener('click', function () {
+      stage.innerHTML = '';
+    });
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

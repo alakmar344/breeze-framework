@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Families — Preact</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px}.btn{padding:6px 12px;margin:4px;cursor:pointer}#stage{margin-top:12px}.cell{display:inline-block;width:60px;height:18px;margin:1px;background:#eef;border:1px solid #ccd;font-size:10px}.lvl{border:1px solid #bbb;padding:4px;margin:2px;font-size:10px}.frow{margin:2px 0}.frow input{width:120px}.ok{color:green}.bad{color:red}</style>
+  <script src="/vendor/preact.umd.js"></script>
+</head>
+<body>
+  <div>
+    <button id="f-wide" class="btn">wide</button>
+    <button id="f-deep" class="btn">deep</button>
+    <button id="f-form" class="btn">form</button>
+    <button id="f-clear" class="btn">clear</button>
+  </div>
+  <div id="stage"></div>
+  <script>
+    var h = preact.h, render = preact.render;
+    var stage = document.getElementById('stage');
+    function mount(node) {
+      var tmp = document.createElement('div');
+      stage.appendChild(tmp);
+      render(node, tmp);
+    }
+    document.getElementById('f-wide').addEventListener('click', function () {
+      var cells = [];
+      for (var i = 0; i < 1000; i++) cells.push(h('span', { class: 'cell', key: i }, 'c' + i));
+      mount(h('div', null, cells));
+    });
+    document.getElementById('f-deep').addEventListener('click', function () {
+      var node = h('div', { class: 'lvl' }, 'leaf');
+      for (var d = 0; d < 24; d++) node = h('div', { class: 'lvl' }, node);
+      mount(h('div', null, node));
+    });
+    document.getElementById('f-form').addEventListener('click', function () {
+      function Form() {}
+      Form.prototype = Object.create(preact.Component.prototype);
+      Form.prototype.constructor = Form;
+      Form.prototype.render = function (props, state) {
+        var self = this;
+        var inputs = [];
+        for (var i = 0; i < 100; i++) {
+          (function (k) {
+            inputs.push(h('input', { type: 'text', key: k, value: state[k] || '', onInput: function (e) {
+              var n = {};
+              n[k] = e.target.value;
+              self.setState(n);
+            } }));
+          })('f' + i);
+        }
+        return h('form', null, inputs);
+      };
+      var tmp = document.createElement('div');
+      stage.appendChild(tmp);
+      var inst = null;
+      preact.render(h(Form, { ref: function (c) { inst = c; } }), tmp);
+      var dom = tmp.querySelectorAll('input');
+      for (var k = 0; k < dom.length; k++) {
+        dom[k].value = 'user' + k + '@x.com';
+        dom[k].dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    document.getElementById('f-clear').addEventListener('click', function () {
+      stage.innerHTML = '';
+    });
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

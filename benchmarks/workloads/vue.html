@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Families — Vue</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px}.btn{padding:6px 12px;margin:4px;cursor:pointer}#stage{margin-top:12px}.cell{display:inline-block;width:60px;height:18px;margin:1px;background:#eef;border:1px solid #ccd;font-size:10px}.lvl{border:1px solid #bbb;padding:4px;margin:2px;font-size:10px}.frow{margin:2px 0}.frow input{width:120px}.ok{color:green}.bad{color:red}</style>
+  <script src="/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="ctrl">
+    <button id="f-wide" class="btn" @click="wide">wide</button>
+    <button id="f-deep" class="btn" @click="deep">deep</button>
+    <button id="f-form" class="btn" @click="form">form</button>
+    <button id="f-clear" class="btn" @click="clear">clear</button>
+  </div>
+  <div id="stage"></div>
+  <script>
+    var stage = document.getElementById('stage');
+    var app = Vue.createApp({
+      methods: {
+        wide: function () {
+          var cells = [];
+          for (var i = 0; i < 1000; i++) cells.push(i);
+          var tmp = document.createElement('div');
+          stage.appendChild(tmp);
+          Vue.createApp({
+            data: function () { return { cells: cells }; },
+            template: '<div><span class="cell" v-for="c in cells" :key="c">c{{ c }}</span></div>'
+          }).mount(tmp);
+        },
+        deep: function () {
+          var tpl = '<div class="lvl">leaf</div>';
+          for (var d = 0; d < 24; d++) tpl = '<div class="lvl">' + tpl + '</div>';
+          var tmp = document.createElement('div');
+          stage.appendChild(tmp);
+          Vue.createApp({ template: '<div>' + tpl + '</div>' }).mount(tmp);
+        },
+        form: function () {
+          var fields = {};
+          for (var i = 0; i < 100; i++) fields['f' + i] = '';
+          var tmp = document.createElement('div');
+          stage.appendChild(tmp);
+          var vm = Vue.createApp({
+            data: function () { return { fields: fields }; },
+            template: '<form><input type="text" v-for="(_, k) in fields" :key="k" v-model="fields[k]"></form>'
+          }).mount(tmp);
+          var dom = tmp.querySelectorAll('input');
+          for (var k = 0; k < dom.length; k++) {
+            dom[k].value = 'user' + k + '@x.com';
+            dom[k].dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        },
+        clear: function () { stage.innerHTML = ''; }
+      }
+    });
+    app.mount('#ctrl');
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

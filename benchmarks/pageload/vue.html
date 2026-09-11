@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageLoad — Vue</title>
+  <style>body{font-family:system-ui,sans-serif;margin:0 auto;max-width:720px;padding:16px}header{padding:24px 0}.card{border:1px solid #ddd;border-radius:8px;padding:12px;margin:8px 0}h2{margin:0 0 4px;font-size:1rem}p{margin:0;color:#444}</style>
+  <script src="/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header><h1>Profile directory</h1><p>Fifty cards, one framework.</p></header>
+    <div>
+      <div class="card" v-for="c in cards" :key="c.id"><h2>{{ c.title }}</h2><p>{{ c.text }}</p></div>
+    </div>
+  </div>
+  <script>
+    var items = [];
+    for (var i = 0; i < 50; i++) items.push({ id: i, title: 'Card number ' + (i + 1), text: 'Body text for card ' + (i + 1) + ' with some realistic content length to lay out.' });
+    Vue.createApp({ data: function () { return { cards: items }; } }).mount('#app');
+    window.__PAGELOAD_READY__ = true;
+  </script>
+</body>
+</html>

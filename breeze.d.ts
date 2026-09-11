@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v2.0.0 — TypeScript Definitions
+ * Breeze Framework v2.1.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 
@@ -240,6 +240,9 @@ export interface BreezeAPI {
     parse(source: string, opts?: { noCache?: boolean }): AstNode[];
     splitArgs(inner: string): string[];
     fireAction(action: string, event?: any, el?: any): void;
+    isStaticRowTemplate(children: AstNode[], itemVar: string): boolean;
+    itemNodeToHtml(node: AstNode, itemVar: string, item: any, index: number, key?: string | number | null): string;
+    renderRowsHtml(children: AstNode[], itemVar: string, items: any[], startIdx: number, keyProp: string): { html: string; keys: Array<string | number>; rootTag: string };
   };
 }
 

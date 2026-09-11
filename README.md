@@ -1,8 +1,8 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-2.0.0-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.1.0-6366f1?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
-[![Size](https://img.shields.io/badge/JS_size-~30.6KB-f59e0b?style=flat-square)](breeze.js)
+[![Size](https://img.shields.io/badge/JS_size-~34.1KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
 [![Demo](https://img.shields.io/badge/demo-live-22c55e?style=flat-square)](breeze-framework.vercel.app)
 
@@ -10,22 +10,23 @@
 
 ---
 
-## ✨ Features (v2.0.0)
+## ✨ Features (v2.1.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, ~30.6 KB gzipped (133.7 KB raw, 25.1 KB Brotli; full comfort kit, less than half of React 19's 66.5 KB)
+- 🚀 **Zero dependencies** — one `breeze.js` file, ~34.1 KB gzipped (148.6 KB raw, 28.2 KB Brotli; full comfort kit, roughly half of React 19's 66.5 KB)
 - 📝 **Declarative `.breeze` syntax** — indentation markup, `@def` params, `@slot`, `@each … [key=id]` keyed lists, `@show/@model/@ref/@cloak/@transition` comfort directives
 - ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, rAF `schedule()`/`tick()`, cycle-guarded store
-- 🔁 **LIS keyed reconciliation** — true longest-increasing-subsequence minimal moves (swap-2-in-1000 → ~2 moves), append `DocumentFragment` fast-path, `data-bz-key` select, duplicate warnings
+- 🔁 **LIS keyed reconciliation + static-row HTML path** — minimal moves for reorder; wiring-free row templates build as one HTML string (profiled bulk-append fix with DOM fallback)
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
-- 🖥️ **SSR + non-destructive hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, ~2.6k pg/s (5× v1.1)
+- 🖥️ **SSR + non-destructive hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, ~2.8k pg/s
 - 🧰 **Comfort kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
-- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check`, `build --min` (emits `breeze.min.js`), portable median-run benches
+- 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check`, `build --min` (emits `breeze.min.js`), portable distribution-reporting benches
 - 🎨 **Design system** — 50+ utilities + suspense/cloak/transition/form/invalid/keyed/outlet/stack/cluster, `color-mix` fallbacks, reduced-motion
-- 📊 **15 benchmark suites** — Krausest, DBMonster, SSR, bundle, micro + 10 new v2 node suites (mount-10k, update-1row, filter, sort, nested, forms, routes, hydrate, todo, sustained)
+- 📊 **Benchmark families (9)** — Krausest DOM ops, frame-callback throughput, page arrival (desktop + emulated mobile), workload families (wide/deep/form), bundle, SSR, build performance, engine micro, v2 node suites — latest releases, same CPU, distributions not single shots
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 
 > Measured 2026-09-11 (Pentium N3700, Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8):
-> 2.1× updates, 69× deletes, 6.3× swap, 60.1 FPS (3.3× React), 9.4× leaner heap — see `benchmark.md`.
+> fastest in 7 of 8 Krausest ops (append goes to Vue), 56.9 frame callbacks/s (3.0× React),
+> substantially leaner post-GC heap — see `benchmark.md`.
 
 ---
 
@@ -451,9 +452,9 @@ breeze serve dist 9000
 
 ## 🆚 Comparison
 
-| Feature | Breeze v2 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
+| Feature | Breeze v2.1 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size | ~30.6 KB gzip | ~66 KB gzip | ~10 KB | ~60 KB gzip | 0 |
+| Bundle size | ~34.1 KB gzip | ~66 KB gzip | ~10 KB | ~60 KB gzip | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
 | Reactive state | ✅ Signals + ref/memo/dispose/batch/schedule | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
 | Client routing | ✅ (hash/history, `:id`/`:id?`/`*`, outlet, async guards, regex cache) | ✅ | ❌ | ❌ | ❌ |
@@ -468,19 +469,19 @@ breeze serve dist 9000
 ## 📊 Public Multi-Suite Benchmarks
 
 Measured 2026-09-11 on an Intel Pentium N3700, headless Chrome 153 via CDP
-(median-of-3; latest releases: React 19.3.0, Vue 3.5.42, Preact 10.29.8).
+(median-of-5 with p95/min/max/sd; latest releases: React 19.3.0, Vue 3.5.42, Preact 10.29.8).
 Absolute ms are slow on this chip — ordering is the claim:
 
 | Benchmark Operation | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3.5 | React 19 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Create 1,000 rows** | 537.0 ms | 614.3 ms | 584.0 ms | 527.5 ms | 530.1 ms |
-| **Update every 10th row** | **18.1 ms** | 44.9 ms | 62.1 ms | 48.3 ms | 38.5 ms |
-| **Select active row** | **11.9 ms** | 14.2 ms | 17.9 ms | 14.2 ms | 14.0 ms |
-| **Delete single row** | **0.9 ms** | 65.8 ms | 67.9 ms | 71.9 ms | 62.5 ms |
-| **Swap rows 4 & 997** | 51.2 ms | 44.6 ms | 65.2 ms | 49.7 ms | 324.4 ms |
-| **DBMonster animation** | **60.1 FPS** | 18.5 FPS | 18.7 FPS | 15.2 FPS | 18.3 FPS |
-| **Create 10,000 rows** | **5,572.8 ms** | 5,787.7 ms | 5,962.0 ms | 5,866.6 ms | 7,535.3 ms |
-| **Retained Memory Heap** | 4,944 KB | 3,555 KB | 19,167 KB | 45,578 KB | 46,281 KB |
+| **Create 1,000 rows** | **435.8 ms** | 569.0 ms | 545.0 ms | 502.4 ms | 508.6 ms |
+| **Update every 10th row** | **8.8 ms** | 44.4 ms | 54.0 ms | 56.9 ms | 46.4 ms |
+| **Select active row** | **1.9 ms** | 13.3 ms | 22.3 ms | 14.1 ms | 7.6 ms |
+| **Delete single row** | **3.1 ms** | 53.9 ms | 73.0 ms | 63.8 ms | 58.0 ms |
+| **Swap rows 4 & 997** | 37.6 ms | 30.0 ms | 52.6 ms | 47.8 ms | 309.6 ms |
+| **DBMonster frame throughput** | **56.9 callbacks/s** | 13.7 | 17.0 | 17.1 | 18.9 |
+| **Create 10,000 rows** | **4,453.9 ms** | 5,319.2 ms | 5,836.2 ms | 5,433.7 ms | 6,257.3 ms |
+| **Retained Memory Heap (post-GC)** | 921.6 KB | 651.5 KB | 761.1 KB | 1,610.8 KB | 4,003.7 KB |
 
 *Full methodology, machine fingerprint, per-op variance, historical baselines and honest losses (row-append) in [benchmark.md](benchmark.md). Raw output: `benchmarks/results.json`.*
 
@@ -499,6 +500,11 @@ npm run bench:all
 | Firefox | 85+ |
 | Safari | 14+ |
 | iOS Safari | 14+ |
+
+> Compatibility targets, not benchmark evidence: performance in `benchmark.md` was measured
+> on Chrome 153 only. The matrix above follows from the web-platform features Breeze uses
+> (`fetch`, CSS custom properties, CSS Grid, `history.pushState`, `EventSource`) — a
+> dedicated older-browser verification matrix is future work, tracked in `benchmark.md` §8.
 
 Breeze uses: `fetch`, `CSS custom properties`, `CSS Grid`, `history.pushState`, `EventSource`.
 
