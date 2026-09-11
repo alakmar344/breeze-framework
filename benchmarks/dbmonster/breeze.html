@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DBMonster — Breeze Framework</title>
+  <link rel="stylesheet" href="/dbmonster/dbmonster.css">
+  <script src="/breeze.js"></script>
+  <script src="/dbmonster/data.js"></script>
+</head>
+<body>
+  <div id="fps-meter">FPS: ...</div>
+  <h1>DBMonster — Breeze Framework</h1>
+  <div id="app"></div>
+
+  <script>
+    Breeze.mount(`
+@app "DBMonster"
+@state databases = []
+@section #main
+  table.table
+    tbody
+      @each db in databases [key=id]
+        tr
+          td.dbname "{db.name}"
+          td.query-count
+            span.badge "{db.count}"
+          td.Query "{db.q0}"
+          td.Query "{db.q1}"
+          td.Query "{db.q2}"
+          td.Query "{db.q3}"
+          td.Query "{db.q4}"
+    `, '#app');
+
+    startBenchmarkLoop((data) => {
+      Breeze.setState('databases', data);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DBMonster — Vue 3</title>
+  <link rel="stylesheet" href="/dbmonster/dbmonster.css">
+  <script src="/vendor/vue.global.prod.js"></script>
+  <script src="/dbmonster/data.js"></script>
+</head>
+<body>
+  <div id="fps-meter">FPS: ...</div>
+  <h1>DBMonster — Vue 3</h1>
+  <div id="app"></div>
+
+  <script>
+    const { createApp, ref, h } = Vue;
+
+    const databasesRef = ref([]);
+
+    const App = {
+      setup() {
+        return () => h('table', { class: 'table' }, [
+          h('tbody', null, databasesRef.value.map(db =>
+            h('tr', { key: db.id }, [
+              h('td', { class: 'dbname' }, db.name),
+              h('td', { class: 'query-count' }, [
+                h('span', { class: 'badge' }, db.count)
+              ]),
+              ...db.queries.map((q, idx) =>
+                h('td', { key: idx, class: 'Query ' + q.warn }, q.elapsed)
+              )
+            ])
+          ))
+        ]);
+      }
+    };
+
+    createApp(App).mount('#app');
+
+    startBenchmarkLoop((data) => {
+      databasesRef.value = data;
+    });
+  </script>
+</body>
+</html>

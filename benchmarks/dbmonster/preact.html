@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DBMonster — Preact 10</title>
+  <link rel="stylesheet" href="/dbmonster/dbmonster.css">
+  <script src="/vendor/preact.umd.js"></script>
+  <script src="/dbmonster/data.js"></script>
+</head>
+<body>
+  <div id="fps-meter">FPS: ...</div>
+  <h1>DBMonster — Preact 10</h1>
+  <div id="app"></div>
+
+  <script>
+    const { h, render, Component } = preact;
+
+    class App extends Component {
+      render({ databases }) {
+        return h('table', { class: 'table' },
+          h('tbody', null,
+            databases.map(db =>
+              h('tr', { key: db.id },
+                h('td', { class: 'dbname' }, db.name),
+                h('td', { class: 'query-count' },
+                  h('span', { class: 'badge' }, db.count)
+                ),
+                db.queries.map((q, idx) =>
+                  h('td', { key: idx, class: 'Query ' + q.warn }, q.elapsed)
+                )
+              )
+            )
+          )
+        );
+      }
+    }
+
+    startBenchmarkLoop((data) => {
+      render(h(App, { databases: data }), document.getElementById('app'));
+    });
+  </script>
+</body>
+</html>

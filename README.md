@@ -20,8 +20,7 @@
 - 🖥️ **Zero-dependency SSR & Hydration** — `Breeze.renderToString()` and `Breeze.hydrate()`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 - 🎨 **Complete design system** — 50+ utility classes, dark mode, responsive layout primitives
-- 🔌 **Plugin & Event bus** — `Breeze.use()`, `Breeze.on()`, `Breeze.emit()`
-- 📊 **Krausest-benchmarked** — 54× faster row updates than React 18, 7.9× leaner memory heap
+- 📊 **Empirical Multi-Suite Benchmarks** — 4.6× faster updates than React 18, 64× faster row deletion, 58 FPS continuous DBMonster animations, 8.1× leaner memory heap
 
 ---
 
@@ -459,24 +458,25 @@ breeze serve dist 9000
 
 ---
 
-## 📊 Public Benchmarks (Krausest Workload)
+## 📊 Public Multi-Suite Benchmarks
 
-Automated headless Google Chrome runs via Chrome DevTools Protocol (CDP) measuring DOM manipulation latency and memory consumption:
+Automated headless Google Chrome runs via Chrome DevTools Protocol (CDP) and Node.js v24 measuring DOM manipulation latency, animation FPS, SSR throughput, and memory consumption:
 
 | Benchmark Operation | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3 | React 18 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Create 1,000 rows** | **794.9 ms** | 690.5 ms | 875.9 ms | 841.2 ms | 912.0 ms |
-| **Update every 10th row** | **10.3 ms** | 67.0 ms | 119.3 ms | 98.0 ms | 562.7 ms |
-| **Select active row** | **1.10 ms** | 18.7 ms | 65.7 ms | 40.1 ms | 20.8 ms |
-| **Delete single row** | **9.60 ms** | 92.8 ms | 98.5 ms | 98.1 ms | 103.5 ms |
-| **Create 10,000 rows** | **7,252 ms** | 9,668 ms | 8,444 ms | 9,587 ms | 11,534 ms |
-| **Retained Memory Heap** | **2,471 KB** | 1,812 KB | 15,474 KB | 17,242 KB | 19,611 KB |
+| **Create 1,000 rows** | **539.0 ms** | 893.9 ms | 794.3 ms | 573.2 ms | 580.4 ms |
+| **Update every 10th row** | **12.4 ms** | 48.3 ms | 116.1 ms | 72.6 ms | 56.7 ms |
+| **Select active row** | **12.7 ms** | 25.5 ms | 53.4 ms | 32.8 ms | 14.1 ms |
+| **Delete single row** | **1.10 ms** | 117.4 ms | 97.1 ms | 81.1 ms | 71.1 ms |
+| **DBMonster (Continuous 60 FPS)** | **58.3 FPS** | 20.8 FPS | 20.0 FPS | 18.3 FPS | 20.0 FPS |
+| **Create 10,000 rows** | **5,482 ms** | 6,596 ms | 7,271 ms | 5,814 ms | 6,735 ms |
+| **Retained Memory Heap** | **2,425 KB** | 1,813 KB | 15,475 KB | 17,240 KB | 19,622 KB |
 
 *Detailed methodology, hardware specifications, and reproduction instructions in [benchmark.md](benchmark.md).*
 
 ```bash
-# Run the public benchmark suite locally
-npm run bench:public
+# Run all framework benchmarks locally
+npm run bench:all
 ```
 
 ---

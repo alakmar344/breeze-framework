@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DBMonster — Vanilla JS</title>
+  <link rel="stylesheet" href="/dbmonster/dbmonster.css">
+  <script src="/dbmonster/data.js"></script>
+</head>
+<body>
+  <div id="fps-meter">FPS: ...</div>
+  <h1>DBMonster — Vanilla JS</h1>
+  <table class="table">
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const tbody = document.getElementById('tbody');
+    let rowsCache = [];
+
+    function renderVanilla(dbs) {
+      if (rowsCache.length === 0) {
+        // Initial build
+        tbody.innerHTML = '';
+        rowsCache = dbs.map(db => {
+          const tr = document.createElement('tr');
+          const tdName = document.createElement('td');
+          tdName.className = 'dbname';
+          tdName.textContent = db.name;
+
+          const tdCount = document.createElement('td');
+          tdCount.className = 'query-count';
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = db.count;
+          tdCount.appendChild(badge);
+
+          const queryTds = db.queries.map(q => {
+            const td = document.createElement('td');
+            td.className = 'Query ' + q.warn;
+            td.textContent = q.elapsed;
+            return td;
+          });
+
+          tr.appendChild(tdName);
+          tr.appendChild(tdCount);
+          queryTds.forEach(td => tr.appendChild(td));
+          tbody.appendChild(tr);
+
+          return { tr, badge, queryTds };
+        });
+      } else {
+        // Surgical in-place text mutations
+        for (let i = 0; i < dbs.length; i++) {
+          const db = dbs[i];
+          const cached = rowsCache[i];
+          for (let q = 0; q < 5; q++) {
+            const td = cached.queryTds[q];
+            td.textContent = db.queries[q].elapsed;
+            td.className = 'Query ' + db.queries[q].warn;
+          }
+        }
+      }
+    }
+
+    startBenchmarkLoop(renderVanilla);
+  </script>
+</body>
+</html>
