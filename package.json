@@ -16,6 +16,10 @@
     "test": "node --test",
     "bench": "node bench.js",
     "bench:public": "node benchmarks/krausest-runner.js",
+    "bench:bundle": "node benchmarks/bundle-runner.js",
+    "bench:ssr": "node benchmarks/ssr-runner.js",
+    "bench:dbmonster": "node benchmarks/dbmonster-runner.js",
+    "bench:all": "node benchmarks/run-all.js",
     "profile": "node breeze-cli.js profile"
   },
   "types": "breeze.d.ts",

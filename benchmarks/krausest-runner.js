@@ -86,7 +86,8 @@ async function main() {
 
   const allResults = {};
 
-  for (const fw of frameworks) {
+  try {
+    for (const fw of frameworks) {
     console.log(`\n----------------------------------------------------------------`);
     console.log(`Benchmarking Framework: [ ${fw.toUpperCase()} ]`);
     console.log(`----------------------------------------------------------------`);
@@ -212,9 +213,11 @@ async function main() {
     ws.close();
   }
 
-  // Cleanup Chrome & Server
-  chromeProc.kill();
-  server.close();
+  } finally {
+    // Cleanup Chrome & Server
+    try { chromeProc.kill(); } catch (_) {}
+    server.close();
+  }
 
   // Print comparison markdown table
   console.log(`\n================================================================`);
@@ -247,9 +250,16 @@ async function main() {
   const outJson = path.join(__dirname, 'results.json');
   fs.writeFileSync(outJson, JSON.stringify(allResults, null, 2), 'utf8');
   console.log(`\nRaw results saved to: ${outJson}\n`);
+
+  return allResults;
 }
 
-main().catch(err => {
-  console.error('Benchmark error:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Benchmark error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { runKrausestBenchmark: main };
+
