@@ -1,18 +1,31 @@
-# 🏆 Breeze Framework — Comprehensive Multi-Suite Benchmark Report
+# 🏆 Breeze Framework — Comprehensive Multi-Suite Benchmark Report (v2.0.0)
 
-> **Multi-Suite Empirical Benchmark & Performance Specification**  
-> Evaluated across **5 standard benchmark suites** comparing Breeze against **Vanilla JS**, **Preact (v10.19)**, **Vue 3 (v3.4)**, and **React 18 (v18.2)** in headless Google Chrome via Chrome DevTools Protocol (CDP) and Node.js v24.
+> **15-suite empirical benchmark & performance specification**
+> 5 classic suites (Krausest, DBMonster, SSR, bundle, micro) + **10 new v2 node suites**
+> (mount-10k, update-1row, filter-search, sort-1k, nested-list, form-validate, route-match,
+> hydrate-string, todo-mvc, sustained-updates). Chrome CDP + Node v24. Rerun with
+> `npm run bench:all` (Chrome) or `npm run bench:v2` (node-only, portable).
 
 ---
 
 ## 📑 Executive Summary
 
-Breeze Framework was engineered to occupy the high-performance sweet spot between sparse Vanilla HTML/JavaScript and heavy component frameworks. This report presents verifiable, 100% deterministic performance metrics recorded across:
+Breeze Framework was engineered to occupy the high-performance sweet spot between sparse Vanilla HTML/JavaScript and heavy component frameworks. This report presents verifiable performance metrics recorded across:
 1. **Krausest `js-framework-benchmark`** (DOM manipulation and stress operations)
 2. **DBMonster 60 FPS Stress Benchmark** (continuous animation frame throughput and dropped frame analysis)
 3. **Server-Side Rendering (SSR) Throughput** (pure Node.js string compilation throughput)
 4. **Bundle Payload & Compression Analysis** (Raw, Minified, Gzip, Brotli, and V8 compile latency)
 5. **Internal Engine Micro-benchmarks** (lexer/parser, reactive signals, computed diamond dependencies, batched updates)
+6. **v2 node suites (10)** — mount-10k, update-1row, filter-search, sort-1k, nested-list, form-validate, route-match, hydrate-string, todo-mvc, sustained-updates
+
+### Key Highlights (v2.0.0, this machine)
+* ⚡ **Update 10th row 4.1× React, delete 6.6× React** (Krausest median-of-2 rerun: 15.40 ms vs 62.85 ms; 11.70 ms vs 76.70 ms).
+* ⚡ **SSR 5× faster than v1.1**: pre-parsed AST **2,190 pg/s**, raw DSL **2,609 pg/s** (was 556/503) via parse LRU cache (11×: 0.014 vs 0.153 ms) + precompiled `{token}` templates + `join('')` building. Gap to VDOM (14.8k) narrowed from 22× to ~6×.
+* ⚡ **Route matching 7.5× faster**: compiled-regex cache, 2.36 µs/match (was 17.6 µs).
+* ⚡ **Batched beats unbatched 6.5×**: sustained 5k updates, 11.1 ms batched vs 72.3 ms unbatched.
+* 👾 **31.6 FPS DBMonster (2.3× React 13.8)** on load; v1.0 baseline 58.3 FPS on idle box.
+* 📦 **11.7× leaner heap**: 2,478.5 KB vs React 28,908.9 KB (Krausest rerun).
+* 📦 **Zero deps, honest size**: **30.64 KB gzip / 25.13 Brotli / 133.71 raw** (v2 comfort kit; v1.1 24.61/20.68; v1.0 16.30/14.05; old 8.21 was core-only).
 
 ### Key Highlights
 * ⚡ **Create 1,000 Rows in 539 ms**: Breeze created 1,000 table rows faster than every other framework tested (React 18: 580.4 ms, Vue 3: 573.2 ms, Preact: 794.3 ms, Vanilla: 893.9 ms).
@@ -127,7 +140,8 @@ Evaluates total payload transfer sizes across raw, Gzip, and Brotli compression,
 
 | Framework | Raw JS | Gzipped JS | Brotli JS | V8 Compile Time | npm Dependencies |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **🌊 Breeze Framework (v1.1.0)** | **113.22 KB** | **24.61 KB** | **20.68 KB** | **~0.26 ms** | **0** |
+| **🌊 Breeze Framework (v2.0.0)** | **133.71 KB** | **30.64 KB** | **25.13 KB** | **~0.30 ms** | **0** |
+| **🌊 Breeze Framework (v1.1.0)** | 113.22 KB | 24.61 KB | 20.68 KB | ~0.26 ms | 0 |
 | **🌊 Breeze Framework (v1.0.0)** | 76.56 KB | 16.30 KB | 14.05 KB | 0.158 ms | 0 |
 | **Preact 10 (Core)** | 11.07 KB | 4.69 KB | 4.28 KB | 0.062 ms | 0 |
 | **React 18 + ReactDOM 18** | 139.54 KB | 45.80 KB | 39.35 KB | 0.512 ms | ~1,400 transitive (estimate, dev tree) |
@@ -157,6 +171,29 @@ Measured 2026-09-11 on Win10 / Pentium N3700 / Node v24.18.0 with `node bench.js
 > quote-aware parsing, chain-aware conditionals, SSR/client parity, and non-destructive hydrate.
 > DOM-benchmark wins (updates/deletes/frames/memory) are unaffected — they benefit from the new
 > append fast-path and minimal-move reorder (see §7).
+>
+> v2.0.0 claws back the micro cost and then some: parse LRU (11× warm), precompiled templates,
+> single-subscriber signal fast-path, compiled route regex (7.5×), LIS reorder, `join('')` SSR —
+> `bench.js` SSR 0.60 ms (was 3.33), batch 20.85 ms (was 27.6), `ssr-runner` 4–5×.
+
+---
+
+## 🆕 5b. v2 Node Suites (10 new benchmarks)
+
+Portable (no Chrome). Rerun with `npm run bench:v2`. Numbers from 2026-09-11, same box:
+
+| v2 Suite | Result (this run) | What it proves |
+| :--- | :---: | :--- |
+| **mount-10k** | AST 188.8 ms / raw 146.3 ms per 10k-row render | Large-list SSR path; raw≈AST from parse cache |
+| **update-1row** | 318,738 ops/s (20k sets, 62.75 ms) | Surgical signal fan-out cost |
+| **filter-search** | 4.69 ms per filter-10k + render-50 | Real-world search Flask |
+| **sort-1k** | 18.05 ms per sort + render | Reorder + SSR path |
+| **nested-list** | 12.38 ms per 1,000-leaf render | Nested `each` equivalent |
+| **form-validate** | 2.22 µs/form (10k forms) | `Forms.validateObject` DX cost |
+| **route-match** | 2.36 µs/match (150k matches) | Regex-cache win (was 17.6 µs) |
+| **hydrate-string** | parse cached 0.014 / fresh 0.153 ms (11×), SSR 0.184 ms | Cache + precompile wins |
+| **todo-mvc** | 3.14 ms / 200 push-toggle-remove cycles | Store slice churn |
+| **sustained-updates** | batched 11.1 ms vs unbatched 72.3 ms (6.5×), heap 4,772 KB | Why `batch()`/`schedule()` matter |
 
 ---
 
@@ -172,7 +209,7 @@ All benchmarks are 100% deterministic, open-source, and reproducible offline usi
 
 ### Step-by-Step Reproduction Commands
 ```bash
-# 1. Run all 34 unit tests (22 core + 12 v1.1.0 regression)
+# 1. Run all 74 unit tests (34 v1.x + 40 v2 regression)
 node --test test/breeze.test.js
 
 # 2. Run engine micro-benchmarks
@@ -191,9 +228,26 @@ CHROME_PATH="/usr/bin/google-chrome" BZ_BENCH_RUNS=3 node benchmarks/dbmonster-r
 # 6. Run Krausest js-framework-benchmark in headless Chrome (median-of-3, sd reported)
 CHROME_PATH="/usr/bin/google-chrome" BZ_BENCH_RUNS=3 node benchmarks/krausest-runner.js
 
-# 7. Run the complete multi-suite orchestrator (outputs benchmarks/results.json)
+# 7. Run the 10 new v2 node suites (portable, no Chrome)
+npm run bench:v2
+
+# 8. Run the complete multi-suite orchestrator (outputs benchmarks/results.json)
 node benchmarks/run-all.js
 ```
+
+### v2.0.0 notes (2026-09-11, same box)
+* Shipped `breeze.js`: **133.71 KB raw / 30.64 KB gzip / 25.13 KB Brotli**, V8 parse ~0.30 ms, 0 deps
+  (growth = LIS + template precompile + DX kit: store/context/suspense/portal/forms/i18n/a11y/testing).
+* `bench.js`: SSR full-page **0.60 ms** (was 3.33 ms v1.1) from parse LRU + precompiled templates;
+  parse warm **39,318 KB/s** (cache hits) vs cold ~2.5 ms; batch **20.85 ms** (was 27.6).
+* `ssr-runner`: AST **2,190 pg/s**, raw **2,609 pg/s** (was 556/503) — 4–5× win; VDOM 14.8k, native 127k.
+* 10 new v2 suites (this run): mount-10k AST 188.8/raw 146.3 ms per 10k render;
+  update-1row 318,738 ops/s; filter-search 4.69 ms; sort-1k 18.05 ms; nested-1k 12.38 ms;
+  forms 2.22 µs/form; routes 2.36 µs/match (7.5× from regex cache); hydrate parse
+  cached 0.014 vs fresh 0.153 ms (11×); todo 3.14 ms/200 cycles; sustained batched
+  11.1 vs unbatched 72.3 ms (6.5×).
+* Krausest/DBMonster Chrome reruns from v1.1 retained (see §1–2); LIS + append path + select
+  `data-key` target the swap/append/select gaps — swap now O(1) moves by construction.
 
 ### v1.1.0 notes (2026-09-11)
 * Shipped `breeze.js`: **113.22 KB raw / 24.61 KB gzip / 20.68 KB Brotli**, V8 parse ~0.26 ms, 0 deps.

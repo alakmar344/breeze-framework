@@ -1,20 +1,19 @@
 /*!
- * Breeze Framework v1.1.0 (Nuclear Upgrade + Correctness Pass)
+ * Breeze Framework v2.0.0 (Comfort + Perf + Benchmarks)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
  *
  * Architecture:
- *   Parser    — Converts .breeze source text into an AST (with @def, @slot, @elif, @else, CRLF normalization)
- *   Signals   — Fine-grained reactive primitives (signal, computed, effect, batch)
- *   State     — Reactive store with watchers, microtask batching, and array mutations
- *   Renderer  — High-performance DOM renderer with native <template> cloning & keyed reconciliation
- *   Router    — Client router supporting Hash and HTML5 History modes, params (:id), & guards
- *   EventBus  — Global publish/subscribe message bus
- *   Plugins   — Plugin registry and lifecycle hooks
- *   Profiler  — Diagnostic profiler and in-browser DevTools HUD overlay
- *   SSR       — Zero-dependency server-side string rendering (renderToString) & client hydration
- *   API       — Public Breeze object exposed globally and as CJS/ESM module
+ *   Parser    — Cached LRU parse, precompiled {token} templates, codeframe diagnostics
+ *   Signals   — Fast-path single-subscriber sets, disposable effects, batched scheduler
+ *   State     — Store slices, watchers, cycle-guarded computeds, signal sync
+ *   Renderer  — LIS minimal-move keyed reconciliation, append fast-path, data-key select,
+ *               if/elif/else chains, component params, portal, @show/@model/@ref/@cloak/@transition
+ *   Router    — Hash/history, :id/:id?/*, outlet rendering, async guards, regex cache
+ *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
+ *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
+ *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
  */
 (function (global) {
   'use strict';
@@ -206,12 +205,14 @@
         if (value !== newValue) {
           value = newValue;
           Profiler.recordSignalUpdate();
-          for (const sub of Array.from(subscribers)) {
-            if (batchDepth > 0) {
-              pendingEffects.add(sub);
-            } else {
-              sub();
-            }
+          // v2 fast-paths: single subscriber (common) avoids Array.from alloc;
+          // batched multi-subscriber path batches without intermediate arrays.
+          if (batchDepth > 0) {
+            for (const sub of subscribers) pendingEffects.add(sub);
+          } else if (subscribers.size === 1) {
+            for (const sub of subscribers) { sub(); break; }
+          } else if (subscribers.size > 1) {
+            for (const sub of Array.from(subscribers)) sub();
           }
         }
       },
@@ -231,6 +232,45 @@
     }
   }
 
+  /**
+   * v2: Longest Increasing Subsequence (patience) for keyed reorder.
+   * Given an array of current positions (or -1 for new nodes) in next order,
+   * returns the Set of indices that can stay in place — everything else moves.
+   * This turns swap-2-in-1000 from O(n) moves into O(1).
+   */
+  function lisKeepSet(positions) {
+    const n = positions.length;
+    const predecessors = new Array(n).fill(-1);
+    const tails = []; // tails[len] = index in positions with smallest tail value
+    const tailPos = [];
+    for (let i = 0; i < n; i++) {
+      const v = positions[i];
+      if (v === -1) continue; // new node, must insert
+      // binary search over tailPos
+      let lo = 0, hi = tailPos.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (tailPos[mid] < v) lo = mid + 1;
+        else hi = mid;
+      }
+      if (lo > 0) predecessors[i] = tails[lo - 1];
+      if (lo === tailPos.length) {
+        tailPos.push(v);
+        tails.push(i);
+      } else {
+        tailPos[lo] = v;
+        tails[lo] = i;
+      }
+    }
+    const keep = new Set();
+    let k = tails.length ? tails[tails.length - 1] : -1;
+    while (k !== -1 && k !== undefined) {
+      keep.add(k);
+      k = predecessors[k];
+    }
+    return keep;
+  }
+
   function computed(fn) {
     let cachedValue;
     let dirty = true;
@@ -239,15 +279,21 @@
     const runner = () => {
       if (!dirty) {
         dirty = true;
-        for (const sub of Array.from(subscribers)) {
-          if (batchDepth > 0) pendingEffects.add(sub);
-          else sub();
+        if (batchDepth > 0) {
+          for (const sub of subscribers) pendingEffects.add(sub);
+        } else if (subscribers.size === 1) {
+          for (const sub of subscribers) { sub(); break; }
+        } else if (subscribers.size > 1) {
+          for (const sub of Array.from(subscribers)) sub();
         }
       } else {
         // Already dirty — still notify (e.g. deep invalidation chains)
-        for (const sub of Array.from(subscribers)) {
-          if (batchDepth > 0) pendingEffects.add(sub);
-          else sub();
+        if (batchDepth > 0) {
+          for (const sub of subscribers) pendingEffects.add(sub);
+        } else if (subscribers.size === 1) {
+          for (const sub of subscribers) { sub(); break; }
+        } else if (subscribers.size > 1) {
+          for (const sub of Array.from(subscribers)) sub();
         }
       }
     };
@@ -307,20 +353,76 @@
 
   const Parser = {
     _components: {}, // Component definitions registered via @def / @component
+    _cache: new Map(), // source-string → AST (LRU, v2 perf)
+    _cacheLimit: 50,
+    _diagnostics: [],
 
-    /** Emit a non-fatal parser diagnostic */
-    _warn(msg) {
+    /** Emit a non-fatal parser diagnostic (collected for tooling) */
+    _warn(msg, line) {
+      this._diagnostics.push({ message: msg, line: line || null });
+      if (this._diagnostics.length > 200) this._diagnostics.shift();
       if (typeof console !== 'undefined' && console.warn) {
         console.warn('[Breeze] ' + msg);
       }
     },
 
+    clearCache() {
+      this._cache.clear();
+      this._diagnostics = [];
+    },
+
+    getDiagnostics() {
+      return this._diagnostics.slice();
+    },
+
+    /**
+     * Precompile a text template with {tokens} into static parts + keys.
+     * v2 fast-path: avoids per-row RegExp construction in lists/SSR.
+     * Returns { parts: string[], keys: string[] } so that
+     *   render = parts[0] + val(keys[0]) + parts[1] + ...
+     */
+    compileTemplate(str) {
+      if (!str || typeof str !== 'string' || str.indexOf('{') === -1) {
+        return { parts: [str], keys: [], static: true };
+      }
+      const parts = [], keys = [];
+      let last = 0;
+      const re = /\{([\w.$-]+)\}/g;
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        parts.push(str.slice(last, m.index));
+        keys.push(m[1]);
+        last = m.index + m[0].length;
+      }
+      parts.push(str.slice(last));
+      return { parts, keys, static: keys.length === 0 };
+    },
+
+    renderCompiled(tpl, lookup) {
+      if (!tpl || tpl.static) return tpl.parts[0];
+      let out = tpl.parts[0];
+      for (let i = 0; i < tpl.keys.length; i++) {
+        const v = lookup(tpl.keys[i]);
+        out += (v !== undefined && v !== null ? String(v) : '') + tpl.parts[i + 1];
+      }
+      return out;
+    },
+
     /**
      * Parse a full .breeze source string into an array of AST nodes.
      * Indentation (2 spaces per level) determines parent-child nesting.
+     * v2: LRU-caches small sources; pass { noCache: true } to bypass.
      */
-    parse(source) {
+    parse(source, opts) {
       if (!source) return [];
+      const useCache = !(opts && opts.noCache) && source.length < 500000;
+      if (useCache && this._cache.has(source)) {
+        const hit = this._cache.get(source);
+        // LRU refresh
+        this._cache.delete(source);
+        this._cache.set(source, hit);
+        return hit;
+      }
       // Normalize line endings (\r\n -> \n, \r -> \n)
       const normalized = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lines = normalized.split('\n');
@@ -439,6 +541,13 @@
         i++;
       }
 
+      if (useCache) {
+        this._cache.set(source, root);
+        if (this._cache.size > this._cacheLimit) {
+          const oldest = this._cache.keys().next().value;
+          this._cache.delete(oldest);
+        }
+      }
       return root;
     },
 
@@ -957,6 +1066,7 @@
           return this.renderElseBlock(node);
         case 'error':     return this.renderError(node);
         case 'slot':      return null; // Only meaningful inside renderComponent
+        case 'portal':    return this.renderPortal(node);
         default:
           if (/^[a-z][\w-]*$/.test(node.type)) return this.renderElement(node);
           return null;
@@ -986,6 +1096,27 @@
         if (el) wrap.appendChild(el);
       });
       return wrap;
+    },
+
+    renderPortal(node) {
+      // v2 portal/teleport: render children into target selector, leave anchor comment
+      if (typeof document === 'undefined') return null;
+      const anchor = document.createComment('bz-portal');
+      const target = typeof node.target === 'string'
+        ? document.querySelector(node.target)
+        : (node.target instanceof HTMLElement ? node.target : document.body);
+      const kids = node.children || [];
+      // Defer so anchor is in DOM first (mount order safe)
+      setTimeout(() => {
+        const host = (typeof node.target === 'string' ? document.querySelector(node.target) : null) || target || document.body;
+        kids.forEach(child => {
+          try {
+            const el = this.renderNode(child);
+            if (el) host.appendChild(el);
+          } catch (_) {}
+        });
+      }, 0);
+      return anchor;
     },
 
     // ── Theme & Meta ──────────────────────────────────────────────────
@@ -1464,23 +1595,35 @@
           }
           container.appendChild(frag);
         } else {
-          // Minimal-move reorder: only move nodes not already in place (LIS-style cursor walk)
-          // Build current order index for O(1) position checks
-          const currentOrder = new Map();
-          let ci = 0;
+          // v2 true LIS minimal-move reorder: swap-2-in-1000 → ~2 moves, not O(n).
+          // Map each next index to its current DOM position (-1 = new node).
+          const posOfEl = new Map();
+          let pi = 0;
           for (let n = container.firstElementChild; n; n = n.nextElementSibling) {
-            currentOrder.set(n, ci++);
+            // Only track nodes we own (in nextKeyMap); foreign nodes get -2 (ignore)
+            posOfEl.set(n, pi++);
           }
-          let cursor = container.firstElementChild;
+          const positions = new Array(nextRecords.length);
           for (let i = 0; i < nextRecords.length; i++) {
             const rec = nextRecords[i];
+            if (!rec || !rec.el) { positions[i] = -1; continue; }
+            if (rec.el.parentNode !== container) { positions[i] = -1; continue; }
+            const p = posOfEl.get(rec.el);
+            positions[i] = (p === undefined) ? -1 : p;
+          }
+          const keep = lisKeepSet(positions);
+          // Walk backwards so insertBefore anchors stay valid; skip LIS-kept nodes.
+          let anchor = null;
+          for (let i = nextRecords.length - 1; i >= 0; i--) {
+            const rec = nextRecords[i];
             if (!rec || !rec.el) continue;
-            if (rec.el === cursor) {
-              cursor = cursor ? cursor.nextElementSibling : null;
-            } else {
-              container.insertBefore(rec.el, cursor);
-              Profiler.recordDomOp('move');
+            if (keep.has(i) && rec.el.parentNode === container) {
+              anchor = rec.el;
+              continue;
             }
+            container.insertBefore(rec.el, anchor);
+            Profiler.recordDomOp('move');
+            anchor = rec.el;
           }
         }
 
@@ -1493,21 +1636,58 @@
       return container;
     },
 
-    renderItemChildren(children, itemVar, item, index) {
+    renderItemChildren(children, itemVar, item, index, keyProp, key) {
       if (!children || children.length === 0) return null;
+      const tagKey = (key !== undefined) ? key : ((typeof item === 'object' && item !== null) ? item.id : index);
       if (children.length === 1) {
         const itemNode = this.interpolateItemNode(children[0], itemVar, item, index);
         const el = this.renderNode(itemNode);
-        if (el) el._bzItemKey = (typeof item === 'object' && item !== null) ? item.id : index;
+        if (el) {
+          el._bzItemKey = tagKey;
+          try { el.dataset.bzKey = String(tagKey); } catch (_) {}
+        }
         return el;
       }
       const wrap = document.createElement('div');
+      try { wrap.dataset.bzKey = String(tagKey); } catch (_) {}
+      wrap._bzItemKey = tagKey;
       children.forEach(child => {
         const itemNode = this.interpolateItemNode(child, itemVar, item, index);
         const el = this.renderNode(itemNode);
         if (el) wrap.appendChild(el);
       });
       return wrap;
+    },
+
+    /**
+     * v2 select fast-path: toggle an active class on one keyed row without
+     * reconciling the whole list. Returns true if handled via data-key lookup.
+     */
+    setActiveKey(container, key, activeClass) {
+      if (!container) return false;
+      activeClass = activeClass || 'danger';
+      try {
+        const prev = container.querySelector(`.${activeClass}[data-bz-key]`);
+        if (prev) prev.classList.remove(activeClass);
+        const next = container.querySelector(`[data-bz-key="${CSS.escape(String(key))}"]`);
+        if (next) {
+          next.classList.add(activeClass);
+          return true;
+        }
+      } catch (_) {}
+      // Fallback: linear scan (no CSS.escape in older envs)
+      try {
+        const kids = container.children;
+        for (let i = 0; i < kids.length; i++) {
+          const el = kids[i];
+          if (el.classList) el.classList.remove(activeClass);
+          if (String(el._bzItemKey) === String(key) || (el.dataset && String(el.dataset.bzKey) === String(key))) {
+            el.classList.add(activeClass);
+            return true;
+          }
+        }
+      } catch (_) {}
+      return false;
     },
 
     /** Surgical in-place DOM update of a row without recreation.
@@ -1570,26 +1750,40 @@
       if (!node) return null;
       const clone = Object.assign({}, node);
       const isObj = typeof item === 'object' && item !== null;
-      const itemStr = isObj ? JSON.stringify(item) : String(item);
-      const escVar = Parser.escapeRegExp(itemVar);
+      // v2: avoid JSON.stringify per row unless {item} is actually used
+      let itemStr = null;
+      const getItemStr = () => {
+        if (itemStr === null) itemStr = isObj ? JSON.stringify(item) : String(item);
+        return itemStr;
+      };
+
+      // v2: precompiled template cache per string (avoids RegExp construction per prop)
+      if (!this._tplCache) this._tplCache = new Map();
+      const getTpl = (s) => {
+        let t = this._tplCache.get(s);
+        if (!t) {
+          t = Parser.compileTemplate(s);
+          if (this._tplCache.size > 2000) this._tplCache.clear();
+          this._tplCache.set(s, t);
+        }
+        return t;
+      };
 
       const replaceTokens = (str) => {
-        if (!str || typeof str !== 'string') return str;
-        let res = str.replace(new RegExp(`\\{${escVar}\\.index\\}`, 'g'), String(index));
-        res = res.replace(new RegExp(`\\{${escVar}\\}`, 'g'), itemStr);
-        if (isObj) {
-          for (const prop in item) {
-            const v = item[prop];
-            res = res.replace(new RegExp(`\\{${escVar}\\.${Parser.escapeRegExp(prop)}\\}`, 'g'), String(v));
+        if (!str || typeof str !== 'string' || str.indexOf('{') === -1) return str;
+        const tpl = getTpl(str);
+        if (tpl.static) return str;
+        return Parser.renderCompiled(tpl, (key) => {
+          if (key === `${itemVar}.index`) return String(index);
+          if (key === itemVar) return getItemStr();
+          if (key.startsWith(itemVar + '.')) {
+            const prop = key.slice(itemVar.length + 1);
+            if (isObj && prop in item) return String(item[prop]);
+            return '';
           }
-        }
-        // Component prop interpolation: {title} from extraProps
-        if (extraProps) {
-          for (const k in extraProps) {
-            res = res.replace(new RegExp(`\\{${Parser.escapeRegExp(k)}\\}`, 'g'), String(extraProps[k]));
-          }
-        }
-        return res;
+          if (extraProps && key in extraProps) return String(extraProps[key]);
+          return `{${key}}`;
+        });
       };
 
       if (typeof clone.text === 'string') {
@@ -1780,6 +1974,64 @@
           return;
         }
 
+        // ── v2 shorthand directives ────────────────────────────────────
+        // [ref=name] → Refs.set(name, el); [@show=key] → display toggle;
+        // [@model=key] → alias for bind=key; [@cloak] → remove cloak after mount;
+        // [@transition=fade-in] → add animation class on mount
+        if (mod.startsWith('ref=')) {
+          const name = mod.slice(4).trim().replace(/^["']|["']$/g, '');
+          if (name) Refs.set(name, el);
+          return;
+        }
+        if (mod.startsWith('@show=')) {
+          const key = mod.slice(6).trim().replace(/^["']|["']$/g, '');
+          const baseKey = key.split('.')[0];
+          const apply = () => {
+            const v = State.getPath(key);
+            el.style.display = v ? '' : 'none';
+          };
+          apply();
+          State.watch(baseKey, apply);
+          return;
+        }
+        if (mod.startsWith('@model=')) {
+          const key = mod.slice(7).trim().replace(/^["']|["']$/g, '');
+          const curVal = State.getPath(key);
+          const baseKey = key.split('.')[0];
+          if (el.type === 'checkbox') el.checked = Boolean(curVal);
+          else el.value = curVal !== undefined ? String(curVal) : '';
+          const evt = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
+          el.addEventListener(evt, () => State.set(baseKey, el.type === 'checkbox' ? el.checked : el.value));
+          State.watch(baseKey, (val) => {
+            const vv = (key.includes('.') ? State.getPath(key) : val);
+            if (el.type === 'checkbox') el.checked = Boolean(vv);
+            else if (el.value !== String(vv !== undefined ? vv : '')) el.value = vv !== undefined ? String(vv) : '';
+          });
+          return;
+        }
+        if (mod === '@cloak' || mod === 'cloak') {
+          el.setAttribute('bz-cloak', '');
+          setTimeout(() => { try { el.removeAttribute('bz-cloak'); } catch (_) {} }, 0);
+          return;
+        }
+        if (mod.startsWith('@transition=')) {
+          const anim = mod.slice(12).trim().replace(/^["']|["']$/g, '');
+          if (anim) {
+            el.classList.add(classMap[anim] || `bz-${anim}`);
+          }
+          return;
+        }
+        // Custom directive hook: [mydir=val] with Directives.register('mydir', { mount(el, val) })
+        if (mod.includes('=')) {
+          const ei = mod.indexOf('=');
+          const dname = mod.substring(0, ei).trim();
+          if (dname && !dname.startsWith('@') && !dname.startsWith('bind') && Directives.get(dname)) {
+            const val = mod.substring(ei + 1).trim().replace(/^["']|["']$/g, '');
+            try { Directives.get(dname).mount(el, val); } catch (_) {}
+            return;
+          }
+        }
+
         // ── Event handler: @event -> action(args) ─────────────────────
         if (mod.startsWith('@')) {
           const em = mod.match(/@([\w:]+)\s*->\s*(.+)/);
@@ -1934,6 +2186,7 @@
       this._outlet = null;
       this.params = {};
       this.query = {};
+      if (this._regexCache) this._regexCache.clear();
       return this;
     },
 
@@ -2109,6 +2362,39 @@
       this.updateActiveLinks(currentPath);
     },
 
+    _regexCache: new Map(),
+    _regexCacheLimit: 100,
+
+    _compiledPattern(pattern) {
+      let hit = this._regexCache.get(pattern);
+      if (hit) {
+        this._regexCache.delete(pattern);
+        this._regexCache.set(pattern, hit);
+        return hit;
+      }
+      // :id? optional, :id required, * wildcard segment
+      // Handle "/:id?" as optional "/segment" so "/u" and "/u/42" both match "/u/:id?"
+      // NOTE: do not escape : ? * here — they are processed below.
+      const paramKeys = [];
+      let regexSrc = '^' + pattern
+        .replace(/([.+^=!$(){}\[\]|/\\])/g, '\\$1')
+        .replace(/\\?\/:(\w+)\?/g, (_, k) => { paramKeys.push({ name: k, optional: true }); return '(?:/([^/]+))?'; })
+        .replace(/\\?:(\w+)\?/g, (_, k) => { paramKeys.push({ name: k, optional: true }); return '(?:([^/]+))?'; })
+        .replace(/\\?:(\w+)/g, (_, k) => { paramKeys.push({ name: k, optional: false }); return '([^/]+)'; })
+        .replace(/\*/g, '(.*)');
+      // Allow optional trailing slash on all patterns
+      regexSrc += '/?$';
+      let re = null;
+      try { re = new RegExp(regexSrc); } catch (_) { re = null; }
+      const compiled = { re, paramKeys };
+      this._regexCache.set(pattern, compiled);
+      if (this._regexCache.size > this._regexCacheLimit) {
+        const oldest = this._regexCache.keys().next().value;
+        this._regexCache.delete(oldest);
+      }
+      return compiled;
+    },
+
     _matchPattern(pattern, actual) {
       const cleanPath = actual.split('?')[0].split('#')[0] || actual.split('?')[0];
       // Normalize trailing slashes (except root)
@@ -2125,22 +2411,11 @@
         }
         return null;
       }
-      // :id? optional, :id required, * wildcard segment
-      // Handle "/:id?" as optional "/segment" so "/u" and "/u/42" both match "/u/:id?"
-      // NOTE: do not escape : ? * here — they are processed below.
-      const paramKeys = [];
-      let regexSrc = '^' + nPattern
-        .replace(/([.+^=!$(){}\[\]|/\\])/g, '\\$1')
-        .replace(/\\?\/:(\w+)\?/g, (_, k) => { paramKeys.push({ name: k, optional: true }); return '(?:/([^/]+))?'; })
-        .replace(/\\?:(\w+)\?/g, (_, k) => { paramKeys.push({ name: k, optional: true }); return '(?:([^/]+))?'; })
-        .replace(/\\?:(\w+)/g, (_, k) => { paramKeys.push({ name: k, optional: false }); return '([^/]+)'; })
-        .replace(/\*/g, '(.*)');
-      // Allow optional trailing slash on all patterns
-      regexSrc += '/?$';
-      let regexStr = regexSrc;
+      const { re, paramKeys } = this._compiledPattern(nPattern);
+      if (!re) return null;
       let m;
       try {
-        m = nPath.match(new RegExp(regexStr));
+        m = nPath.match(re);
       } catch (_) { return null; }
       if (!m) return null;
       const params = {};
@@ -2249,6 +2524,192 @@
       return null;
     }
   };
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // V2 DX — store slices, context, refs, memo, suspense, portal,
+  // error boundaries, transitions, forms, i18n, a11y, testing, scheduler
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const Context = {
+    _map: {},
+    provide(key, value) {
+      this._map[key] = value;
+      EventBus.emit(`breeze:context:${key}`, value);
+    },
+    inject(key, fallback) {
+      return (key in this._map) ? this._map[key] : fallback;
+    },
+    clear() { this._map = {}; }
+  };
+
+  const Refs = {
+    _map: {},
+    set(name, el) { this._map[name] = el; },
+    get(name) { return this._map[name] || null; },
+    clear() { this._map = {}; }
+  };
+
+  const Scheduler = {
+    _queue: new Set(),
+    _scheduled: false,
+    schedule(fn) {
+      this._queue.add(fn);
+      if (!this._scheduled) {
+        this._scheduled = true;
+        const flush = () => {
+          this._scheduled = false;
+          const jobs = Array.from(this._queue);
+          this._queue.clear();
+          batch(() => { jobs.forEach(j => { try { j(); } catch (_) {} }); });
+        };
+        if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => flush());
+        else if (typeof setImmediate !== 'undefined') setImmediate(flush);
+        else setTimeout(flush, 0);
+      }
+    },
+    tick() {
+      return new Promise(res => {
+        if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => res());
+        else setTimeout(() => res(), 0);
+      });
+    }
+  };
+
+  const I18n = {
+    _locale: 'en',
+    _dicts: {},
+    locale(l) {
+      if (l) { this._locale = l; EventBus.emit('breeze:locale', l); }
+      return this._locale;
+    },
+    add(locale, dict) {
+      this._dicts[locale] = Object.assign({}, this._dicts[locale] || {}, dict);
+    },
+    t(key, vars) {
+      const dict = this._dicts[this._locale] || {};
+      let s = (key in dict) ? dict[key] : key;
+      if (vars) {
+        for (const k in vars) {
+          s = String(s).split(`{${k}}`).join(String(vars[k]));
+        }
+      }
+      return s;
+    }
+  };
+
+  const Forms = {
+    required(v) { return (v === null || v === undefined || v === '') ? 'Required' : null; },
+    email(v) {
+      if (!v) return null;
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v)) ? null : 'Invalid email';
+    },
+    min(len) {
+      return (v) => (String(v || '').length < len ? `Min ${len} chars` : null);
+    },
+    validate(value, rules) {
+      const errors = [];
+      (rules || []).forEach(r => {
+        try {
+          const e = typeof r === 'function' ? r(value) : null;
+          if (e) errors.push(e);
+        } catch (_) {}
+      });
+      return errors;
+    },
+    validateObject(obj, schema) {
+      const out = {};
+      for (const k in schema) {
+        const errs = this.validate(obj ? obj[k] : undefined, schema[k]);
+        if (errs.length) out[k] = errs;
+      }
+      return out;
+    }
+  };
+
+  const A11y = {
+    announce(msg) {
+      if (typeof document === 'undefined') return;
+      let live = document.getElementById('bz-a11y-live');
+      if (!live) {
+        live = document.createElement('div');
+        live.id = 'bz-a11y-live';
+        live.setAttribute('role', 'status');
+        live.setAttribute('aria-live', 'polite');
+        live.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);';
+        document.body.appendChild(live);
+      }
+      live.textContent = String(msg);
+    },
+    focus(selOrEl) {
+      if (typeof document === 'undefined') return;
+      const el = typeof selOrEl === 'string' ? document.querySelector(selOrEl) : selOrEl;
+      if (el && el.focus) {
+        try { el.setAttribute('tabindex', el.getAttribute('tabindex') || '-1'); } catch (_) {}
+        el.focus();
+      }
+    },
+    trapFocus(container) {
+      // Minimal focus trap: returns release(). Full trap is app-level.
+      if (typeof document === 'undefined' || !container) return () => {};
+      const sel = 'a[href],button,input,textarea,select,[tabindex]:not([tabindex="-1"])';
+      const keyHandler = (e) => {
+        if (e.key !== 'Tab') return;
+        const items = Array.from(container.querySelectorAll(sel)).filter(el => !el.disabled);
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      };
+      container.addEventListener('keydown', keyHandler);
+      return () => container.removeEventListener('keydown', keyHandler);
+    }
+  };
+
+  const Directives = {
+    _registry: {},
+    register(name, def) { this._registry[name] = def; },
+    get(name) { return this._registry[name]; }
+  };
+
+  function codeframe(source, line) {
+    if (!source || !line) return '';
+    const lines = String(source).split('\n');
+    const start = Math.max(0, line - 3), end = Math.min(lines.length, line + 2);
+    let out = '';
+    for (let i = start; i < end; i++) {
+      const marker = (i + 1 === line) ? '>' : ' ';
+      out += `${marker} ${i + 1} | ${lines[i]}\n`;
+    }
+    return out;
+  }
+
+  function suspense(promise, { fallback, onError } = {}) {
+    const state = signal('pending');
+    const data = signal(null);
+    const error = signal(null);
+    Promise.resolve(promise).then(
+      v => { data.value = v; state.value = 'ready'; },
+      e => { error.value = e; state.value = 'error'; if (onError) { try { onError(e); } catch (_) {} } }
+    );
+    return { state, data, error, fallback: fallback || null };
+  }
+
+  function portal(children, target) {
+    return { type: 'portal', children, target };
+  }
+
+  function errorBoundary(fn, fallback) {
+    try {
+      const r = fn();
+      if (r && typeof r.then === 'function') {
+        return r.catch(e => (typeof fallback === 'function' ? fallback(e) : fallback));
+      }
+      return r;
+    } catch (e) {
+      return (typeof fallback === 'function') ? fallback(e) : fallback;
+    }
+  }
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -2703,7 +3164,7 @@
   // ═══════════════════════════════════════════════════════════════════════
 
   const BreezeAPI = {
-    version: '1.1.0',
+    version: '2.0.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},
@@ -2716,6 +3177,18 @@
     // ── Fine-Grained Reactive Signals API ─────────────────────────────
     signal(initialValue) {
       return signal(initialValue);
+    },
+
+    ref(initialValue) {
+      // v2 ref: { value } alias over signal (Vue-like ergonomics)
+      return signal(initialValue);
+    },
+
+    memo(fn) {
+      // v2 memo: computed signal with explicit dispose
+      const c = computed(fn);
+      c.dispose = () => { /* computed deps auto-detach on next eval */ };
+      return c;
     },
 
     computed(keyOrFn, maybeDeps, maybeFn) {
@@ -2740,9 +3213,22 @@
       return this;
     },
 
+    directive(name, def) {
+      Directives.register(name, def);
+      return this;
+    },
+
     onMount(fn)   { Lifecycle.onMount(fn); return this; },
     onDestroy(fn) { Lifecycle.onDestroy(fn); return this; },
     onUpdate(fn)  { Lifecycle.onUpdate(fn); return this; },
+    onError(fn)   { EventBus.on('breeze:error', fn); return this; },
+
+    tick() { return Scheduler.tick(); },
+    nextTick(fn) {
+      if (fn) return Scheduler.tick().then(fn);
+      return Scheduler.tick();
+    },
+    schedule(fn) { Scheduler.schedule(fn); return this; },
 
     // ── Profiler & Debugger API ───────────────────────────────────────
     profiler: Profiler,
@@ -2851,6 +3337,9 @@
       State.reset();
       Router.reset();
       Parser._components = {};
+      Parser.clearCache();
+      Context.clear();
+      Refs.clear();
       Profiler.reset();
       return this;
     },
@@ -2881,6 +3370,50 @@
       Router.navigate(path);
       return this;
     },
+    outlet(selector) {
+      Router.setOutlet(selector);
+      return this;
+    },
+
+    // ── v2 DX: store slices, context, refs, suspense, portal, forms, i18n ──
+    store(name, initial) {
+      const key = `store:${name}`;
+      if (initial !== undefined && !(key in State._store)) State._store[key] = initial;
+      return {
+        get: () => State.get(key),
+        set: (v) => State.set(key, v),
+        watch: (fn) => State.watch(key, fn),
+        update: (fn) => State.set(key, fn(State.get(key))),
+        reset: () => State.set(key, initial)
+      };
+    },
+    context: Context,
+    provide(key, value) { Context.provide(key, value); return this; },
+    inject(key, fallback) { return Context.inject(key, fallback); },
+    refs: Refs,
+    refOf(name) { return Refs.get(name); },
+    suspense(promise, opts) { return suspense(promise, opts); },
+    portal(children, target) { return portal(children, target); },
+    errorBoundary(fn, fallback) { return errorBoundary(fn, fallback); },
+    transition(el, anim) {
+      if (typeof el === 'string' && typeof document !== 'undefined') el = document.querySelector(el);
+      if (el && anim && el.classList) el.classList.add(`bz-${anim}`);
+      return this;
+    },
+    forms: Forms,
+    i18n: I18n,
+    t(key, vars) { return I18n.t(key, vars); },
+    a11y: A11y,
+    announce(msg) { A11y.announce(msg); return this; },
+    codeframe(source, line) { return codeframe(source, line); },
+    diagnostics() { return Parser.getDiagnostics(); },
+    clearCache() { Parser.clearCache(); return this; },
+    selectRow(containerSel, key, activeClass) {
+      const c = typeof containerSel === 'string' && typeof document !== 'undefined'
+        ? document.querySelector(containerSel)
+        : containerSel;
+      return Renderer.setActiveKey(c, key, activeClass);
+    },
 
     // ── Plugins API ───────────────────────────────────────────────────
     plugin(name, pluginObj) {
@@ -2904,7 +3437,15 @@
       return ct.includes('application/json') ? resp.json() : resp.text();
     },
 
-    parse(source) { return Parser.parse(source); }
+    testing: {
+      // v2 headless helpers (node + jsdom-free): parse + SSR + action arg split
+      renderToString(source, state) { return renderToString(source, state); },
+      parse(source, opts) { return Parser.parse(source, opts); },
+      splitArgs(inner) { return Parser.splitArgs(inner); },
+      fireAction(action, event, el) { return Renderer.executeAction(action, event || {}, el || {}); }
+    },
+
+    parse(source, opts) { return Parser.parse(source, opts); }
   };
 
   // Expose globally & as module

@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v1.1.0 — TypeScript Definitions
+ * Breeze Framework v2.0.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 
@@ -14,6 +14,21 @@ export interface BreezeStateController<T> {
   set(value: T): void;
   watch(callback: (next: T, prev: T) => void): void;
   signal: BreezeSignal<T>;
+}
+
+export interface BreezeStore<T> {
+  get(): T;
+  set(value: T): void;
+  watch(callback: (next: T, prev: T) => void): void;
+  update(fn: (prev: T) => T): void;
+  reset(): void;
+}
+
+export interface SuspenseHandle<T> {
+  state: BreezeSignal<'pending' | 'ready' | 'error'>;
+  data: BreezeSignal<T | null>;
+  error: BreezeSignal<any>;
+  fallback: unknown;
 }
 
 export interface AstNode {
@@ -121,16 +136,23 @@ export interface BreezeAPI {
 
   // Reactivity & Signals
   signal<T>(initialValue: T): BreezeSignal<T>;
+  ref<T>(initialValue: T): BreezeSignal<T>;
+  memo<T>(fn: () => T): BreezeSignal<T>;
   computed<T>(fn: () => T): BreezeSignal<T>;
   computed<T>(key: string, deps: string[], fn: (...args: any[]) => T): BreezeAPI;
   effect(fn: () => void): () => void;
   batch<T>(fn: () => T): T;
+  schedule(fn: () => void): BreezeAPI;
+  tick(): Promise<void>;
+  nextTick(fn?: () => void): Promise<void>;
 
-  // Components & Lifecycle
+  // Components, Directives & Lifecycle
   component(name: string, def: ComponentDefinition): BreezeAPI;
+  directive(name: string, def: { mount(el: Element, value: string): void }): BreezeAPI;
   onMount(fn: (root: Element) => void): BreezeAPI;
   onDestroy(fn: () => void): BreezeAPI;
   onUpdate(fn: (state: Record<string, any>) => void): BreezeAPI;
+  onError(fn: (data: any) => void): BreezeAPI;
 
   // Profiler & Debugger
   profiler: Profiler;
@@ -162,6 +184,41 @@ export interface BreezeAPI {
   router: Router;
   route(pattern: string, handler: (path: string, params: Record<string, string>, query?: Record<string, string>) => void | string | AstNode[] | Promise<any>): BreezeAPI;
   navigate(path: string): BreezeAPI;
+  outlet(selector: string | null): BreezeAPI;
+
+  // v2 DX: store, context, suspense, portal, forms, i18n, a11y
+  store<T = any>(name: string, initial?: T): BreezeStore<T>;
+  provide(key: string, value: any): BreezeAPI;
+  inject<T = any>(key: string, fallback?: T): T;
+  refs: { set(name: string, el: Element | null): void; get(name: string): Element | null; clear(): void };
+  refOf(name: string): Element | null;
+  suspense<T = any>(promise: Promise<T>, opts?: { fallback?: unknown; onError?: (e: any) => void }): SuspenseHandle<T>;
+  portal(children: AstNode[], target: string | Element): { type: 'portal'; children: AstNode[]; target: string | Element };
+  errorBoundary<T>(fn: () => T | Promise<T>, fallback: T | ((e: any) => T)): T | Promise<T>;
+  transition(el: string | Element, anim: string): BreezeAPI;
+  forms: {
+    required(v: any): string | null;
+    email(v: any): string | null;
+    min(len: number): (v: any) => string | null;
+    validate(value: any, rules: Array<(v: any) => string | null>): string[];
+    validateObject(obj: any, schema: Record<string, Array<(v: any) => string | null>>): Record<string, string[]>;
+  };
+  i18n: {
+    locale(l?: string): string;
+    add(locale: string, dict: Record<string, string>): void;
+    t(key: string, vars?: Record<string, any>): string;
+  };
+  t(key: string, vars?: Record<string, any>): string;
+  a11y: {
+    announce(msg: string): void;
+    focus(selOrEl: string | Element): void;
+    trapFocus(container: Element): () => void;
+  };
+  announce(msg: string): BreezeAPI;
+  codeframe(source: string, line: number): string;
+  diagnostics(): Array<{ message: string; line: number | null }>;
+  clearCache(): BreezeAPI;
+  selectRow(container: string | Element, key: string | number, activeClass?: string): boolean;
 
   // Plugins
   plugin(name: string, pluginObj: { install?: (api: BreezeAPI) => void; actions?: Record<string, Function> }): BreezeAPI;
@@ -177,7 +234,13 @@ export interface BreezeAPI {
 
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;
-  parse(source: string): AstNode[];
+  parse(source: string, opts?: { noCache?: boolean }): AstNode[];
+  testing: {
+    renderToString(source: string | AstNode[], state?: Record<string, any>): string;
+    parse(source: string, opts?: { noCache?: boolean }): AstNode[];
+    splitArgs(inner: string): string[];
+    fireAction(action: string, event?: any, el?: any): void;
+  };
 }
 
 export const Breeze: BreezeAPI;

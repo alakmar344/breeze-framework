@@ -37,22 +37,37 @@
   }
 
   // ── Real Repository Size Verification ────────────────────────────────────
-  // Shipped breeze.js (v1.1.0, with if/elif/else chains, component params,
-  // SSR parity, portable router, non-destructive hydrate). Regenerate with:
-  // node -e "const fs=require('fs'),z=require('zlib');const b=fs.readFileSync('breeze.js');console.log((z.gzipSync(b,{level:9}).length/1024).toFixed(2))"
+  // Shipped breeze.js v2 (LIS reorder, template precompile, DX kit, 10 new benches).
+  // Regenerate with: node benchmarks/bundle-runner.js
   const SIZES = {
-    rawBytes: 115937,
-    rawKb: '113.22',
+    rawBytes: 136920,
+    rawKb: '133.71',
     minBytes: 23674,
     minKb: '23.12',
-    gzipBytes: 25200,
-    gzipKb: '24.61',
-    cssGzipKb: '5.90',
+    gzipBytes: 31375,
+    gzipKb: '30.64',
+    cssGzipKb: '6.39',
     deps: 0,
-    note: 'shipped file (not minified core-only)'
+    note: 'shipped v2 file (honest, not minified core-only)'
   };
 
+  // ── v2 comfort demo: focusEmail custom action (used by app.breeze #v2) ──
+  function registerV2Methods() {
+    if (typeof window === 'undefined' || !window.Breeze) return;
+    try {
+      window.Breeze.method('focusEmail', () => {
+        const input = document.querySelector('#v2 input[type="email"]') ||
+          document.querySelector('input[type="email"]');
+        if (input) {
+          input.focus();
+          if (window.Breeze.announce) window.Breeze.announce('Email field focused');
+        }
+      });
+    } catch (_) {}
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    registerV2Methods();
     // Populate dynamic size elements if present
     const liveSizeEl = document.getElementById('live-size-val');
     if (liveSizeEl) {

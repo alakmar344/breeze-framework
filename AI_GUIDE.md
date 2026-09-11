@@ -9,18 +9,19 @@ This guide provides instructions and system prompt templates for AI models (Clau
 If you are using Cursor, Claude, or ChatGPT to generate Breeze code, add this snippet to your `.cursorrules`, custom instructions, or prompt:
 
 ```markdown
-You are an expert in Breeze Framework (v1.1.0).
-Breeze is an ultra-lightweight (~8 KB, zero dependencies) declarative web framework.
+You are an expert in Breeze Framework (v2.0.0).
+Breeze is an ultra-lightweight (~30.6 KB gzip, zero dependencies) declarative web framework.
 
 CRITICAL SYNTAX RULES FOR .breeze FILES:
 1. NEVER emit closing tags (no </div>, </section>, </p>, </button>). Indentation establishes hierarchy.
-2. ALWAYS use exactly 2 spaces per indentation level.
-3. Directives begin with @ (@app, @theme, @state, @nav, @section, @footer, @each, @if).
+2. ALWAYS use exactly 2 spaces per indentation level (tabs are expanded with a warning).
+3. Directives begin with @ (@app, @theme, @state, @nav, @section, @footer, @each, @if/@elif/@else, @def, @slot, @error).
 4. Elements follow: tag "text with {stateBinding}" [modifiers] #id
-5. Modifiers in brackets: [primary, hero, center, pad-lg, grid-2, shadow, hover-lift].
+5. Modifiers in brackets: [primary, hero, center, pad-lg, grid-2, shadow, hover-lift, ref=name, @show=key, @model=key, @cloak, @transition=fade-in].
 6. Event actions in brackets: [@click -> increment(key)], [@click -> navigate(#id)], [@click -> push(arrayKey, value)].
-7. Loops: @each item in listKey (use {item} and {item.index} in children).
-8. Conditionals: @if key or @if !key.
+7. Loops: @each item in listKey [key=id] (use {item}, {item.prop} and {item.index} in children).
+8. Conditionals: @if key / @if !key with @elif / @else chains (first-truthy wins, dotted keys ok).
+9. Components: @def Card(title, badge) + Card("Hi", badge="New") + @slot for children.
 ```
 
 ---

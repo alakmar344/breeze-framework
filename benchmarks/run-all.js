@@ -55,8 +55,24 @@ async function main() {
   consolidatedResults.dbmonster = await runDbMonsterBenchmark();
 
   // 4. Krausest DOM Benchmark
-  console.log('\n[Suite 4/4] Running Krausest DOM Benchmark...');
+  console.log('\n[Suite 4/5] Running Krausest DOM Benchmark...');
   consolidatedResults.krausest = await runKrausestBenchmark();
+
+  // 5. v2 comfort + perf micro-suites (node-only, 10 suites)
+  console.log('\n[Suite 5/5] Running v2 node benchmarks (10 suites)...');
+  const v2 = {};
+  v2.mount10k = require('./mount-10k-runner.js').runMount10k();
+  v2.update1row = require('./update-1-row-runner.js').runUpdate1Row();
+  v2.filterSearch = require('./filter-search-runner.js').runFilterSearch();
+  v2.sort1k = require('./sort-1k-runner.js').runSort1k();
+  v2.nestedList = require('./nested-list-runner.js').runNestedList();
+  v2.formValidate = require('./form-validate-runner.js').runFormValidate(3);
+  v2.routeMatch = require('./route-match-runner.js').runRouteMatch(20000);
+  v2.hydrateString = require('./hydrate-string-runner.js').runHydrateString();
+  v2.todoMvc = require('./todo-mvc-runner.js').runTodoMvc();
+  v2.sustained = require('./sustained-updates-runner.js').runSustainedUpdates();
+  consolidatedResults.v2 = v2;
+  console.log('v2 results:', JSON.stringify(v2, null, 2));
 
   // Save consolidated results
   const resultsPath = path.join(__dirname, 'results.json');

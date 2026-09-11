@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /*!
- * Breeze CLI v1.0.0
+ * Breeze CLI v2.0.0
  * Zero-dependency build tool and dev server for the Breeze Framework
  * MIT License
  *
  * Commands:
- *   breeze init [name]    — Scaffold a new project
- *   breeze dev  [port]    — Dev server with live reload (SSE)
- *   breeze build [file]   — Build to dist/
- *   breeze serve [dir]    — Serve a static directory
+ *   breeze init [name]            — Scaffold a new project
+ *   breeze dev  [port]            — Dev server with live reload (SSE)
+ *   breeze build [file]           — Build to dist/
+ *   breeze serve [dir]            — Serve a static directory
+ *   breeze generate <kind> <name> — Scaffold component/route/store/page (alias: g)
+ *   breeze lint [file]            — Check .breeze diagnostics (tabs, indent, directives)
+ *   breeze format [file]          — Normalize indentation/tabs in .breeze files
+ *   breeze check [file]           — Strict parse + SSR smoke test (CI-friendly)
  */
 
 'use strict';
@@ -47,7 +51,7 @@ const err  = (...a) => console.error(col('red', '  ✖'), ...a);
 
 function banner() {
   console.log('');
-  console.log(col('cyan', bold('  🌊 Breeze Framework CLI v1.0.0')));
+  console.log(col('cyan', bold('  🌊 Breeze Framework CLI v2.0.0')));
   console.log(dim('  Ultra-lightweight declarative web framework'));
   console.log('');
 }
@@ -366,10 +370,11 @@ function cmdBuild(args) {
   const breezeSrc = nonFlag[0] || 'app.breeze';
   const doSpa     = flags.includes('--spa');
   const doMinify  = flags.includes('--minify');
+  const doMin     = flags.includes('--min');
   const cwd       = process.cwd();
   const distDir   = path.join(cwd, 'dist');
 
-  log(`Building ${bold(breezeSrc)}${doSpa ? ' [SPA mode]' : ''}${doMinify ? ' [minify]' : ''} …`);
+  log(`Building ${bold(breezeSrc)}${doSpa ? ' [SPA mode]' : ''}${doMinify ? ' [minify]' : ''}${doMin ? ' [min runtime]' : ''} …`);
 
   // Read source files
   const breezeFile = path.join(cwd, breezeSrc);
@@ -493,6 +498,24 @@ Sitemap: ${baseUrl}/sitemap.xml
     ok(`Generated ${bold('dist/robots.txt')}   ${dim('[GEO & AEO]')}`);
   } catch (err) {
     warn(`Sitemap/Robots generation skipped: ${err.message}`);
+  }
+
+  // ── v2: optional minified runtime (comment-stripped, zero-dep safe) ──
+  if (doMin) {
+    try {
+      const jsFile = path.join(cwd, 'breeze.js');
+      if (fs.existsSync(jsFile)) {
+        const raw = fs.readFileSync(jsFile, 'utf8');
+        const min = minifyJS(raw);
+        const minFile = path.join(distDir, 'breeze.min.js');
+        fs.writeFileSync(minFile, min, 'utf8');
+        const gz = zlib.gzipSync(Buffer.from(min, 'utf8'), { level: 9 });
+        fs.writeFileSync(minFile + '.gz', gz);
+        ok(`Min runtime ${bold('dist/breeze.min.js')} ${dim(formatSize(Buffer.byteLength(min, 'utf8')) + ' / gzip ' + formatSize(gz.length))}`);
+      }
+    } catch (e) {
+      warn(`Min runtime skipped: ${e.message}`);
+    }
   }
 
   console.log('');
@@ -859,6 +882,121 @@ function cmdBench() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// COMMANDS v2: generate, lint, format, check
+// ═══════════════════════════════════════════════════════════════════════
+function cmdGenerate(args) {
+  banner();
+  const kind = (args[0] || 'component').toLowerCase();
+  const name = args[1] || 'MyWidget';
+  const capName = name.charAt(0).toUpperCase() + name.slice(1);
+  const outDir = path.resolve(args[2] || '.');
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+  const templates = {
+    component: `@def ${capName}(title)\n  card [shadow, pad-md]\n    h3 "{title}"\n    @slot\n`,
+    route: `@section #${name.toLowerCase()} [pad-xl]\n  h2 "${capName}"\n  p "New route — wire with Breeze.route('#${name.toLowerCase()}', handler) and Breeze.outlet('#app')."\n`,
+    store: `// ${name} store — zero-dep slice via Breeze.store\nconst ${name} = Breeze.store('${name}', { items: [] });\n${name}.watch(v => console.log('${name}:', v));\n`,
+    page: `@app "${capName}"\n\n@theme {\n  primary: #6366f1\n}\n\n@section #main [pad-xl, center]\n  h1 "${capName}"\n  p "Built with Breeze v2."\n`
+  };
+  const ext = (kind === 'store') ? 'js' : 'breeze';
+  const fileName = kind === 'component' ? `${capName}.breeze`
+    : kind === 'route' ? `${name.toLowerCase()}.route.breeze`
+    : kind === 'store' ? `${name.toLowerCase()}.store.js`
+    : `${name.toLowerCase()}.page.breeze`;
+  const fp = path.join(outDir, fileName);
+  if (fs.existsSync(fp)) {
+    err(`File already exists: ${fp}`);
+    process.exit(1);
+  }
+  fs.writeFileSync(fp, templates[kind] || templates.component);
+  ok(`Generated ${bold(kind)} ${bold(fileName)} → ${dim(fp)}`);
+  console.log('');
+}
+
+function collectDiagnostics(source) {
+  const diags = [];
+  const lines = String(source).split('\n');
+  lines.forEach((raw, idx) => {
+    const lineNo = idx + 1;
+    if (/\t/.test(raw)) diags.push({ line: lineNo, level: 'warn', message: 'tab indentation — use 2 spaces' });
+    const m = raw.match(/^(\s*)\S/);
+    if (m && m[1].length % 2 === 1 && !raw.trim().startsWith('//')) {
+      diags.push({ line: lineNo, level: 'warn', message: `odd indentation (${m[1].length} spaces)` });
+    }
+    if (/^\s*@(state|each|if)\b/.test(raw)) {
+      if (/^\s*@state\s+\w+\s*$/.test(raw)) diags.push({ line: lineNo, level: 'error', message: 'malformed @state — expected @state name = value' });
+      if (/^\s*@each\s+\S+\s*$/.test(raw)) diags.push({ line: lineNo, level: 'error', message: 'malformed @each — expected @each item in list' });
+    }
+  });
+  return diags;
+}
+
+function cmdLint(args) {
+  banner();
+  const file = args[0] || 'app.breeze';
+  const fp = path.resolve(file);
+  if (!fs.existsSync(fp)) { err(`File not found: ${file}`); process.exit(1); }
+  const src = fs.readFileSync(fp, 'utf8');
+  const diags = collectDiagnostics(src);
+  // Plus parser warnings
+  const warns = [];
+  const orig = console.warn;
+  console.warn = (...a) => warns.push(a.join(' '));
+  try { require('./breeze.js').Breeze.parse(src, { noCache: true }); } catch (_) {}
+  console.warn = orig;
+  warns.forEach(w => diags.push({ line: null, level: 'warn', message: w }));
+  if (!diags.length) { ok(`Clean: ${bold(file)} (0 diagnostics)`); return; }
+  diags.forEach(d => {
+    const tag = d.level === 'error' ? col('red', 'error') : col('yellow', 'warn');
+    console.log(`  ${tag}${d.line ? ` line ${d.line}` : ''}: ${d.message}`);
+  });
+  console.log('');
+  if (diags.some(d => d.level === 'error')) process.exit(1);
+}
+
+function cmdFormat(args) {
+  banner();
+  const files = args.length ? args : ['app.breeze'];
+  let fixed = 0;
+  files.forEach(f => {
+    const fp = path.resolve(f);
+    if (!fs.existsSync(fp)) { warn(`Skip missing: ${f}`); return; }
+    const src = fs.readFileSync(fp, 'utf8');
+    const out = src.replace(/\t/g, '  ').split('\n').map(line => {
+      // Normalize trailing whitespace; keep content intact
+      return line.replace(/[ \t]+$/g, '');
+    }).join('\n');
+    if (out !== src) { fs.writeFileSync(fp, out); fixed++; ok(`Formatted ${bold(f)}`); }
+    else log(`No changes: ${dim(f)}`);
+  });
+  console.log('');
+  if (!fixed) log('Nothing to format.');
+}
+
+function cmdCheck(args) {
+  banner();
+  const file = args[0] || 'app.breeze';
+  const fp = path.resolve(file);
+  if (!fs.existsSync(fp)) { err(`File not found: ${file}`); process.exit(1); }
+  const src = fs.readFileSync(fp, 'utf8');
+  const diags = collectDiagnostics(src);
+  const errors = diags.filter(d => d.level === 'error');
+  const { Breeze } = require('./breeze.js');
+  let ssrOk = true, ssrErr = '';
+  try {
+    const html = Breeze.renderToString(src);
+    if (typeof html !== 'string') throw new Error('SSR returned non-string');
+  } catch (e) { ssrOk = false; ssrErr = e.message; }
+  if (errors.length || !ssrOk) {
+    errors.forEach(d => console.log(`  ${col('red', 'error')} line ${d.line}: ${d.message}`));
+    if (!ssrOk) err(`SSR failed: ${ssrErr}`);
+    process.exit(1);
+  }
+  ok(`Check passed: ${bold(file)} (${diags.length} warnings, SSR ok)`);
+  console.log('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // HELP
 // ═══════════════════════════════════════════════════════════════════════
 function showHelp() {
@@ -871,10 +1009,15 @@ function showHelp() {
   console.log(`    ${col('cyan', 'serve')}   [dir]  [port]     Serve a static directory (default: dist, port: 8080)`);
   console.log(`    ${col('cyan', 'profile')} [file]            Profile parser, SSR throughput, and memory`);
   console.log(`    ${col('cyan', 'bench')}                     Run the framework benchmark suite`);
+  console.log(`    ${col('cyan', 'generate')} <kind> <name> [dir]  Scaffold component|route|store|page (alias: g)`);
+  console.log(`    ${col('cyan', 'lint')}    [file]            Check diagnostics (default: app.breeze)`);
+  console.log(`    ${col('cyan', 'format')}  [files...]        Normalize tabs/trailing spaces`);
+  console.log(`    ${col('cyan', 'check')}   [file]            Strict parse + SSR smoke test (CI-friendly)`);
   console.log('');
   console.log(`  ${bold('Build flags:')}`);
   console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML (single self-contained file)`);
   console.log(`    ${col('yellow', '--minify')}                Minify HTML, CSS and JS output`);
+  console.log(`    ${col('yellow', '--min')}                   Also emit dist/breeze.min.js (stripped comments)`);
   console.log('');
   console.log(`  ${bold('Global flags:')}`);
   console.log(`    ${col('yellow', '--help, -h')}              Show this help`);
@@ -883,8 +1026,10 @@ function showHelp() {
   console.log(`  ${bold('Examples:')}`);
   console.log(`    breeze init my-app          ${dim('# scaffold + copy the runtime, ready to run')}`);
   console.log(`    breeze dev 4000`);
+  console.log(`    breeze generate component Card ui`);
+  console.log(`    breeze lint app.breeze && breeze check app.breeze`);
   console.log(`    breeze profile app.breeze`);
-  console.log(`    breeze build app.breeze --spa --minify`);
+  console.log(`    breeze build app.breeze --spa --minify --min`);
   console.log(`    breeze serve dist 9000`);
   console.log('');
 }
@@ -899,7 +1044,8 @@ if (typeof module !== 'undefined' && module.exports) {
     buildHTML,
     minifyHTML,
     minifyCSS,
-    minifyJS
+    minifyJS,
+    collectDiagnostics
   };
 }
 
@@ -925,6 +1071,12 @@ if (typeof require !== 'undefined' && require.main === module) {
     case 'serve':   cmdServe(args);   break;
     case 'profile': cmdProfile(args); break;
     case 'bench':   cmdBench();       break;
+    case 'generate':
+    case 'g':       cmdGenerate(args); break;
+    case 'lint':    cmdLint(args);    break;
+    case 'format':
+    case 'fmt':     cmdFormat(args);  break;
+    case 'check':   cmdCheck(args);   break;
     default:
       err(`Unknown command: ${bold(command)}`);
       console.log(`  Run ${col('cyan', 'breeze --help')} to see available commands.\n`);

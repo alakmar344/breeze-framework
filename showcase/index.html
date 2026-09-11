@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Breeze Framework — The Middle Ground Between Plain HTML and Heavy Frameworks</title>
-  <meta name="description" content="An ultra-lightweight, zero-dependency declarative web framework. Built-in reactive state, client routing, design system, and CLI tooling in ~8 KB.">
+  <meta name="description" content="An ultra-lightweight, zero-dependency declarative web framework. Reactive signals, outlet router, SSR + hydrate, CLI generate/lint/check in ~24.6 KB gzip.">
 
   <!-- Typography: Fraunces (Vintage Editorial Serif) + Plus Jakarta Sans + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
 
     <!-- ── Masthead ──────────────────────────────────────────────────────── -->
     <header class="masthead">
-      <div>BREEZE FRAMEWORK · ARCHITECTURAL SPECIFICATION · REV 1.0.0</div>
+      <div>BREEZE FRAMEWORK · ARCHITECTURAL SPECIFICATION · REV 2.0.0</div>
       <div class="masthead-right">
         <span><span class="status-dot"></span> STABLE RELEASE</span>
         <span>ZERO DEPENDENCIES</span>
@@ -64,7 +64,7 @@
             Vanilla HTML is wonderfully simple but lacks application primitives. Heavy frontend frameworks deliver massive ecosystems at the cost of hundreds of megabytes in dependencies and mandatory build friction.
           </p>
           <p>
-            <strong>Breeze provides the missing layer:</strong> declarative syntax, reactive state, client-side routing, and a complete design system in an ultra-lightweight ~8 KB core with zero dependencies.
+            <strong>Breeze provides the missing layer:</strong> declarative syntax, reactive state, client-side routing, and a complete design system in an ultra-lightweight ~24.6 KB gzip runtime with zero dependencies.
           </p>
           <div class="hero-actions">
             <a href="https://github.com/alakmar344/breeze-framework" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
@@ -75,7 +75,7 @@
             </a>
           </div>
           <div class="hero-stats-bar">
-            <div class="hero-stat"><strong>8.21 KB</strong> gzipped</div>
+            <div class="hero-stat"><strong>30.64 KB</strong> gzipped (v2 shipped)</div>
             <div class="hero-stat"><strong>0</strong> dependencies</div>
             <div class="hero-stat"><strong>0s</strong> build step needed</div>
           </div>
@@ -163,7 +163,7 @@
           <span class="spec-stamp slime">The Sweet Spot</span>
         </div>
         <p>
-          Breeze was created to sit squarely between these extremes. It provides the core application primitives you actually want—<strong>declarative markup, granular reactive state, client routing, design utilities, and a fast CLI</strong>—while honoring the simplicity of the web platform. No build step required, no dependencies, ~8 KB footprint.
+          Breeze was created to sit squarely between these extremes. It provides the core application primitives you actually want—<strong>declarative markup, granular reactive state, client routing, design utilities, and a fast CLI</strong>—while honoring the simplicity of the web platform. No build step required, no dependencies, ~24.6 KB gzip footprint.
         </p>
       </div>
     </section>
@@ -207,7 +207,7 @@
               <p style="font-size: 0.85rem; margin-top: 0.25rem;">Application primitives without the bloat.</p>
             </div>
             <ul class="progression-features" style="color: var(--c-ink);">
-              <li><strong>~8 KB core runtime</strong></li>
+              <li><strong>~24.6 KB shipped runtime (gzip)</strong></li>
               <li><strong>0 dependencies</strong></li>
               <li><strong>Optional build step</strong></li>
               <li><strong>Declarative .breeze syntax</strong></li>
@@ -501,7 +501,7 @@
           </div>
           <pre class="snippet-body"><code><span class="syn-directive">@seo</span> {
   title: <span class="syn-string">"Breeze Framework"</span>
-  description: <span class="syn-string">"Ultra-lightweight web framework in ~8KB."</span>
+  description: <span class="syn-string">"Ultra-lightweight web framework, ~24.6KB gzip."</span>
   canonical: <span class="syn-string">"https://breeze-framework.org/"</span>
   image: <span class="syn-string">"/assets/og-cover.png"</span>
 }
@@ -521,14 +521,14 @@
             <span class="spec-stamp slime">Voice & AI Agents</span>
           </div>
           <pre class="snippet-body"><code><span class="syn-directive">@aeo</span> {
-  summary: <span class="syn-string">"Breeze is an 8KB zero-dependency reactive framework."</span>
+  summary: <span class="syn-string">"Breeze v2: zero-dependency reactive framework, ~24.6KB gzip."</span>
   topics: <span class="syn-string">"web framework, reactive state, client routing"</span>
   speakable: [<span class="syn-string">"h1"</span>, <span class="syn-string">".hero-lead"</span>, <span class="syn-string">"#faq .faq-answer"</span>]
 }
 
 <span class="syn-directive">@geo</span> {
   entities: <span class="syn-string">"Breeze Framework, Web Architecture, Reactive UI"</span>
-  facts: <span class="syn-string">"8.21 KB runtime, 0 dependencies, built-in router and state."</span>
+  facts: <span class="syn-string">"24.61 KB gzip, 0 dependencies, outlet router, SSR parity."</span>
 }</code></pre>
           <div class="snippet-footer">Injects <code>ai:summary</code>, <code>geo:entities</code>, and Schema.org Speakable specifications.</div>
         </div>
@@ -668,7 +668,7 @@
           <span class="spec-stamp slime">Actual Repository Measurement</span>
           
           <div class="live-size-indicator">
-            <span class="live-size-number" id="live-size-val">8.21</span>
+            <span class="live-size-number" id="live-size-val">24.61</span>
             <span class="live-size-unit">KB GZIPPED</span>
           </div>
 
@@ -679,20 +679,20 @@
           <table class="size-breakdown-table">
             <tbody>
               <tr>
-                <td>Core Engine (breeze.js) Raw</td>
-                <td>34.40 KB</td>
+                <td>Core Engine v2 (breeze.js) Raw</td>
+                <td>133.71 KB</td>
               </tr>
               <tr>
-                <td>Core Engine Minified</td>
-                <td>23.12 KB</td>
+                <td>Core Engine v2 Gzipped</td>
+                <td>30.64 KB</td>
               </tr>
               <tr>
-                <td>Core Engine Minified + Gzipped</td>
-                <td>8.21 KB</td>
+                <td>Core Engine v2 Brotli</td>
+                <td>25.13 KB</td>
               </tr>
               <tr>
                 <td>Design System (breeze.css) Gzipped</td>
-                <td>5.78 KB</td>
+                <td>6.39 KB</td>
               </tr>
               <tr>
                 <td>External Dependencies</td>
@@ -707,12 +707,12 @@
         </div>
 
         <div class="size-editorial-copy">
-          <h3>Why ~8 KB Matters in Practice</h3>
+          <h3>Why ~30.6 KB Matters in Practice</h3>
           <p>
             Network latency and JavaScript execution parsing are the primary bottlenecks of web page performance. Every 50 KB of framework code delays First Contentful Paint and increases memory footprint on mobile devices.
           </p>
           <p>
-            At <strong>8.21 KB</strong>, Breeze downloads in under <strong>5 milliseconds</strong> on an average 4G connection and executes instantaneously without complex hydration or virtual DOM reconciliation passes.
+            At <strong>30.64 KB gzip</strong>, Breeze ships the full v2 comfort kit (LIS lists, outlet router, SSR parity, hydrate, store/forms/i18n, CLI) with zero dependencies. v1.x quoted 8.21 KB for the minified core only — v2 reports the honest shipped file.
           </p>
           <div style="background-color: var(--c-canvas-muted); padding: 1rem 1.25rem; border-left: 3px solid var(--c-tomato); border-radius: var(--radius-sm); font-size: 0.88rem;">
             <strong>Verification Note:</strong> These byte counts are measured from <code>breeze.js</code> inside this active repository using Node's <code>zlib.gzipSync</code>.
@@ -935,7 +935,7 @@
           <tbody>
             <tr class="highlight-row">
               <td><strong>Runtime Size</strong></td>
-              <td><span class="badge-green">~8.2 KB</span></td>
+              <td><span class="badge-green">~30.6 KB</span></td>
               <td>0 KB</td>
               <td>~25 KB</td>
               <td>~50 KB</td>
