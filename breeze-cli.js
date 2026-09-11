@@ -164,10 +164,17 @@ function cmdInit(args) {
     }
   }, null, 2) + '\n';
 
+  const gitignore = `dist/
+node_modules/
+.DS_Store
+*.log
+`;
+
   const files = {
     'index.html': indexHtml,
     'app.breeze': appBreeze,
     'package.json': pkg,
+    '.gitignore': gitignore,
   };
 
   for (const [fname, content] of Object.entries(files)) {
@@ -175,13 +182,28 @@ function cmdInit(args) {
     ok(`Created ${bold(fname)}`);
   }
 
+  // ── Copy the runtime so the project runs immediately ──────────────
+  // Previously users had to manually copy breeze.js/breeze.css, which
+  // meant a freshly-scaffolded project was broken out of the box.
+  let runtimeOk = true;
+  for (const runtime of ['breeze.js', 'breeze.css']) {
+    const srcPath = path.join(__dirname, runtime);
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, path.join(dir, runtime));
+      ok(`Added ${bold(runtime)} ${dim('(runtime)')}`);
+    } else {
+      runtimeOk = false;
+      warn(`Could not find ${runtime} next to the CLI — copy it in manually.`);
+    }
+  }
+
   console.log('');
   ok(col('green', bold(`Project "${name}" created successfully!`)));
   console.log('');
   console.log('  Next steps:');
   log(`cd ${name}`);
-  log('Copy breeze.js and breeze.css into the folder, then:');
-  log('npx breeze-framework dev');
+  if (!runtimeOk) log('Copy breeze.js and breeze.css into the folder');
+  log(`npx breeze-framework dev   ${dim('# start the dev server with live reload')}`);
   console.log('');
 }
 
@@ -740,17 +762,21 @@ function showHelp() {
   banner();
   console.log(`  ${bold('Usage:')}  breeze <command> [options]\n`);
   console.log(`  ${bold('Commands:')}`);
-  console.log(`    ${col('cyan', 'init')}  [name]              Scaffold a new project`);
+  console.log(`    ${col('cyan', 'init')}  [name]              Scaffold a new project (alias: create)`);
   console.log(`    ${col('cyan', 'dev')}   [port]              Start dev server with live reload (default: 3000)`);
   console.log(`    ${col('cyan', 'build')} [file] [flags]      Build to dist/`);
   console.log(`    ${col('cyan', 'serve')} [dir]  [port]       Serve a static directory (default: dist, port: 8080)`);
   console.log('');
   console.log(`  ${bold('Build flags:')}`);
-  console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML`);
+  console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML (single self-contained file)`);
   console.log(`    ${col('yellow', '--minify')}                Minify HTML, CSS and JS output`);
   console.log('');
+  console.log(`  ${bold('Global flags:')}`);
+  console.log(`    ${col('yellow', '--help, -h')}              Show this help`);
+  console.log(`    ${col('yellow', '--version, -v')}           Print the installed version`);
+  console.log('');
   console.log(`  ${bold('Examples:')}`);
-  console.log(`    breeze init my-app`);
+  console.log(`    breeze init my-app          ${dim('# scaffold + copy the runtime, ready to run')}`);
   console.log(`    breeze dev 4000`);
   console.log(`    breeze build app.breeze --spa --minify`);
   console.log(`    breeze serve dist 9000`);
@@ -774,11 +800,26 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof require !== 'undefined' && require.main === module) {
   const [,, command, ...args] = process.argv;
 
+  // Global flags work in any position: `breeze --version`, `breeze dev -h`
+  const allArgs = [command, ...args];
+  if (allArgs.includes('--version') || allArgs.includes('-v')) {
+    console.log(require('./package.json').version);
+    process.exit(0);
+  }
+  if (command === undefined || allArgs.includes('--help') || allArgs.includes('-h')) {
+    showHelp();
+    process.exit(0);
+  }
+
   switch (command) {
-    case 'init':  cmdInit(args);  break;
-    case 'dev':   cmdDev(args);   break;
-    case 'build': cmdBuild(args); break;
-    case 'serve': cmdServe(args); break;
-    default:      showHelp();     break;
+    case 'init':
+    case 'create': cmdInit(args);  break;
+    case 'dev':    cmdDev(args);   break;
+    case 'build':  cmdBuild(args); break;
+    case 'serve':  cmdServe(args); break;
+    default:
+      err(`Unknown command: ${bold(command)}`);
+      console.log(`  Run ${col('cyan', 'breeze --help')} to see available commands.\n`);
+      process.exit(1);
   }
 }
