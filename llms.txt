@@ -25,8 +25,9 @@ Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. 
   - `@footer [modifiers]` — Footer container
   - `@each item in listKey` — Iterates state array and renders child template
   - `@if conditionKey` / `@if !conditionKey` — Conditionally mounts child template
-- **Elements**: `tag "text with {stateBinding}" [modifiers] #id`
+- **Elements**: `tag "text with {stateBinding}" [modifiers] #id` or shorthand `tag.class1.class2#id "text"`
 - **Modifiers**:
-  - CSS Classes: `[primary, secondary, outline, hero, center, pad-lg, grid-2, grid-3, shadow, hover-lift]`
+  - CSS Classes: `[primary, secondary, outline, hero, center, pad-lg, grid-2, grid-3, shadow, hover-lift, card-glass, switch, badge-blueberry, btn-glow]`
   - HTML Attributes: `[type=text, placeholder="Search..."]`
   - Event Actions: `[@click -> increment(count)]`, `[@click -> navigate(#target)]`, `[@click -> push(todos, "New Task")]`
+- **Web Components**: `Breeze.defineElement('tag-name', template, options)` for drop-in zero-build adoption in React, Vue, Angular, or raw HTML.

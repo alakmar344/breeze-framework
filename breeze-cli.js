@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*!
- * Breeze CLI v2.0.0
+ * Breeze CLI v2.1.0
  * Zero-dependency build tool and dev server for the Breeze Framework
  * MIT License
  *
@@ -51,7 +51,7 @@ const err  = (...a) => console.error(col('red', '  ✖'), ...a);
 
 function banner() {
   console.log('');
-  console.log(col('cyan', bold('  🌊 Breeze Framework CLI v2.0.0')));
+  console.log(col('cyan', bold('  🌊 Breeze Framework CLI v2.1.0')));
   console.log(dim('  Ultra-lightweight declarative web framework'));
   console.log('');
 }

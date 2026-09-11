@@ -54,6 +54,7 @@
   link "Studio"          -> #studio
   link "Why Breeze"      -> #why
   link "Components"      -> #components
+  link "Modern UI"       -> #modern-ui
   link "Reactivity"      -> #reactivity
   link "Plugins"         -> #plugins
   link "CLI Station"     -> #cli
@@ -62,7 +63,7 @@
 @section #hero [hero, center, pad-xl]
   div [center, pad-md]
     div [fade-in]
-      span "✨ Breeze Framework v2.0.0 — Zero Dependencies • Comfy DX • Honest Benchmarks" [rounded, primary, pad-sm]
+      span "✨ Breeze Framework v2.1.0 — Zero Dependencies • Blueberry Blue • High-Speed Core" [rounded, primary, pad-sm]
     h1 "Build the Web with 🌊 Breeze" [fade-in, mt-md]
     p "The ultra-lightweight declarative framework. Zero build tools. Zero node_modules. Pure reactive joy in a single file." [fade-in]
     div [flex, gap-md, mt-lg]
@@ -202,9 +203,37 @@
     p "Cloaked until wired:" [small, muted]
     p "v2 suspense / portal / outlet ready" [@cloak, small]
 
+// ── Modern UI & Blueberry Blue Suite ──────────────────────────────────────
+@section #modern-ui [pad-xl, center]
+  span.badge-blueberry "V2.1 Aesthetic Upgrade"
+  h2 "Blueberry Blue Palette & Modern UI Suite"
+  p "Fresh modern UI components with crisp glassmorphism, responsive toggle switches, glowing buttons, and native Web Component custom element export."
+  div [grid-3, gap-lg, mt-lg]
+    card.card-glass.shadow
+      span.badge-blueberry "Glassmorphism"
+      h3 "Glassmorphic Cards" [mt-sm]
+      p "Backdrop filter blur with translucent luminous highlights and crisp contrast text."
+      div [mt-md]
+        button.btn-blueberry.btn-glow "Blueberry Glow" [@click -> toast("Blueberry Glow Button Clicked!")]
+    card.shadow
+      span.badge-blueberry "Reactive Switch"
+      h3 "Accessible Toggle" [mt-sm]
+      p "State-bound switches with zero external dependencies."
+      div [mt-md, flex, align-center, gap-md]
+        label.switch
+          input [type="checkbox", bind=showStudio]
+          span.switch-slider
+        span "Studio visible: {showStudio}" [small]
+    card.shadow
+      span.badge-blueberry "Zero-Build Adoption"
+      h3 "Native Web Components" [mt-sm]
+      p "Embed Breeze anywhere (React, Vue, HTML) with Breeze.defineElement()."
+      div [mt-md]
+        button.btn.primary "Breeze.defineElement()" [@click -> toast("Breeze elements can be dropped into any HTML or framework!")]
+
 // ── Footer ────────────────────────────────────────────────────────────────
 @footer [dark]
-  p "🌊 Breeze Framework v2.0.0 — Crafted for Speed, Simplicity, and Elegance"
+  p "🌊 Breeze Framework v2.1.0 — Crafted for Speed, Simplicity, and Elegance"
   p "MIT License • Created by Breeze Framework Contributors"
   div [flex, gap-md, center, mt-sm]
     button "Star on GitHub ⭐️" [outline, @click -> toast("Opening GitHub repository!")]

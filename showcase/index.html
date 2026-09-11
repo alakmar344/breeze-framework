@@ -299,6 +299,12 @@
           <p>Composed 100% of modern native browser standards: <code>fetch</code>, CSS custom properties, <code>pushState</code>, and <code>EventSource</code>.</p>
         </div>
 
+        <div class="capability-card">
+          <div class="capability-num">SPEC 09</div>
+          <h4>Web Components & Blueberry Suite</h4>
+          <p>Universal interop via <code>Breeze.defineElement()</code> for React/Vue/HTML drop-in. Features the <strong>Blueberry Blue</strong> palette, glassmorphism, switches, and precompiled chunk serializers.</p>
+        </div>
+
       </div>
     </section>
 
@@ -438,6 +444,23 @@
     <span class="syn-tag">h3</span> <span class="syn-string">"Zero Setup"</span>
     <span class="syn-tag">p</span> <span class="syn-string">"Zero configuration files."</span></code></pre>
           <div class="snippet-footer">Modifiers apply grid columns, elevation, and hover interactions.</div>
+        </div>
+
+        <!-- Example 5: Web Components & Blueberry Modern UI -->
+        <div class="spec-snippet">
+          <div class="snippet-header">
+            <span class="snippet-title">05 · Web Components & Modern UI</span>
+            <span class="spec-stamp">Universal</span>
+          </div>
+          <pre class="snippet-body"><code><span class="syn-comment">// Define custom element anywhere</span>
+<span class="syn-tag">Breeze</span>.<span class="syn-directive">defineElement</span>(<span class="syn-string">'breeze-counter'</span>, <span class="syn-string">`
+@state count = 0
+div.card-glass.shadow
+  span.badge-blueberry "Blueberry UI"
+  h3 "Count: {count}"
+  button.btn-blueberry.btn-glow "+1" [@click -&gt; count++]
+`</span>, { observedAttributes: [<span class="syn-string">'count'</span>] });</code></pre>
+          <div class="snippet-footer">Drop <code>&lt;breeze-counter&gt;</code> directly into React, Vue, Angular, or standard HTML.</div>
         </div>
 
       </div>

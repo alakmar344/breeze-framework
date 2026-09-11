@@ -24,6 +24,10 @@
   --c-slime:        #22C55E;
   --c-slime-dark:   #16A34A;
   --c-slime-light:  #DCFCE7;
+  --c-blueberry:       #3B82F6;
+  --c-blueberry-dark:  #1D4ED8;
+  --c-blueberry-light: #EFF6FF;
+  --c-blueberry-glow:  rgba(59, 130, 246, 0.35);
   --c-border:       #E2DBD2;
   --c-border-strong:#1E293B;
 
@@ -1145,4 +1149,99 @@ code, kbd, samp, pre {
   .size-spec-grid { grid-template-columns: 1fr; }
   .nav-links { display: none; }
   .manifesto-box { padding: 2.5rem 1.5rem; }
+}
+
+/* ── Modern UI & Blueberry Blue Showcase Components ────────────────────── */
+.blueberry-badge {
+  background: var(--c-blueberry-light);
+  color: var(--c-blueberry-dark);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-blueberry {
+  background: linear-gradient(135deg, var(--c-blueberry), var(--c-blueberry-dark));
+  color: #FFFFFF;
+  border: 1.5px solid var(--c-blueberry-dark);
+  box-shadow: 2px 2px 0px var(--c-ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-blueberry:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--c-ink);
+  opacity: 0.95;
+}
+.btn-blueberry:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--c-ink);
+}
+
+.card-glass-showcase {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--c-ink);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-press-lg);
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-ui-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.stat-metric-card {
+  background: var(--c-card);
+  border: 1.5px solid var(--c-ink);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-press);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.stat-metric-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--c-ink-muted);
+  font-weight: 600;
+}
+.stat-metric-value {
+  font-family: var(--font-serif);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--c-blueberry);
+  line-height: 1;
+}
+
+.switch-demo-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--c-canvas-muted);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
 }

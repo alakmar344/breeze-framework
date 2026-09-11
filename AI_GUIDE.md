@@ -22,6 +22,9 @@ CRITICAL SYNTAX RULES FOR .breeze FILES:
 7. Loops: @each item in listKey [key=id] (use {item}, {item.prop} and {item.index} in children).
 8. Conditionals: @if key / @if !key with @elif / @else chains (first-truthy wins, dotted keys ok).
 9. Components: @def Card(title, badge) + Card("Hi", badge="New") + @slot for children.
+10. Shorthand: tag.class1.class2#id supported directly (e.g. td.col-md-1, button.btn.primary#run).
+11. Modern UI: use Blueberry Blue tokens (--bz-blueberry), card-glass, switch, badge-blueberry, btn-glow.
+12. Web Components: export native custom elements via Breeze.defineElement('tag-name', template, opts).
 ```
 
 ---

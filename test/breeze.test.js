@@ -1076,4 +1076,79 @@ describe('Breeze Framework Core', () => {
     assert.ok(out2.html.startsWith('<div data-bz-key="5">'));
     assert.ok(out2.html.includes('<p>x</p><p>y</p>'));
   });
+
+  it('v2.1: dot-class and ID shorthand syntax parses correctly with standard CSS classes', () => {
+    Breeze._resetForTests();
+    const ast = Breeze.parse('button.btn.primary#run-btn "Click Me"');
+    assert.equal(ast[0].type, 'button');
+    assert.equal(ast[0].id, 'run-btn');
+    assert.deepEqual(ast[0].classes, ['btn', 'primary']);
+    // Standard classes should be preserved in modifiers
+    assert.ok(ast[0].modifiers.some(m => m.includes('class="btn"')));
+    assert.ok(ast[0].modifiers.some(m => m.includes('class="bz-primary"')));
+
+    // Benchmark selectors test: a.lbl and a.remove
+    const rowAst = Breeze.parse('a.lbl "{row.label}"\na.remove "✖"');
+    assert.deepEqual(rowAst[0].classes, ['lbl']);
+    assert.ok(rowAst[0].modifiers.some(m => m.includes('class="lbl"')));
+    assert.deepEqual(rowAst[1].classes, ['remove']);
+    assert.ok(rowAst[1].modifiers.some(m => m.includes('class="remove"')));
+  });
+
+  it('v2.1: sanitizeUrl blocks dangerous javascript: and data: URLs', () => {
+    assert.equal(Breeze.sanitizeUrl('javascript:alert(1)'), 'about:blank');
+    assert.equal(Breeze.sanitizeUrl('JAVASCRIPT:alert(1)'), 'about:blank');
+    assert.equal(Breeze.sanitizeUrl('  javascript:void(0)  '), 'about:blank');
+    assert.equal(Breeze.sanitizeUrl('vbscript:msgbox(1)'), 'about:blank');
+    assert.equal(Breeze.sanitizeUrl('data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='), 'about:blank');
+    assert.equal(Breeze.sanitizeUrl('https://example.com'), 'https://example.com');
+    assert.equal(Breeze.sanitizeUrl('/path/to/page'), '/path/to/page');
+    assert.equal(Breeze.sanitizeUrl('#section'), '#section');
+  });
+
+  it('v2.1: MAX_UPDATE_DEPTH halts infinite reactivity cascades', () => {
+    Breeze._resetForTests();
+    let caughtError = null;
+    const unsub = Breeze.on('breeze:error', (data) => {
+      caughtError = data.error;
+    });
+
+    const s = Breeze.signal(0);
+    Breeze.effect(() => {
+      // Infinite loop trigger
+      const val = s.value;
+      if (val < 200) {
+        s.value = val + 1;
+      }
+    });
+
+    assert.ok(caughtError !== null, 'Should have reported an error');
+    assert.ok(caughtError.message.includes('Infinite loop detected') || caughtError.message.includes('Maximum recursive update depth'), caughtError.message);
+  });
+
+  it('v2.1: defineElement is exported and safe in non-DOM environments', () => {
+    assert.equal(typeof Breeze.defineElement, 'function');
+    // In Node.js without customElements, it returns gracefully without throwing
+    const res = Breeze.defineElement('breeze-test-widget', 'button "Click"');
+    assert.equal(res, undefined);
+  });
+
+  it('v2.1: compileRowSerializer produces chunked fast output without DOM', () => {
+    const kids = Breeze.parse('@section #s\n  @each row in rows [key=id]\n    tr\n      td.col-md-1 "{row.id}"\n      td.col-md-4\n        a.lbl "{row.label}"')
+      .find(n => n.type === 'section').children[0].children;
+
+    const serializer = Breeze.testing.compileRowSerializer(kids, 'row', 'id');
+    assert.equal(serializer.rootTag, 'tr');
+    const items = [
+      { id: 101, label: 'First' },
+      { id: 102, label: 'Second' }
+    ];
+    const res = serializer.render(items, 0);
+    assert.deepEqual(res.keys, [101, 102]);
+    assert.ok(res.html.includes('data-bz-key="101"'));
+    assert.ok(res.html.includes('class="lbl"'));
+    assert.ok(res.html.includes('First'));
+    assert.ok(res.html.includes('data-bz-key="102"'));
+    assert.ok(res.html.includes('Second'));
+  });
 });
