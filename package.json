@@ -13,7 +13,8 @@
     "showcase:dev": "node breeze-cli.js dev showcase",
     "showcase:build": "node build-showcase.js",
     "start": "node breeze-cli.js serve dist",
-    "test": "node --test"
+    "test": "node --test",
+    "bench": "node bench.js"
   },
   "keywords": [
     "framework",

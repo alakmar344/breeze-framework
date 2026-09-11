@@ -164,10 +164,17 @@ function cmdInit(args) {
     }
   }, null, 2) + '\n';
 
+  const gitignore = `dist/
+node_modules/
+.DS_Store
+*.log
+`;
+
   const files = {
     'index.html': indexHtml,
     'app.breeze': appBreeze,
     'package.json': pkg,
+    '.gitignore': gitignore,
   };
 
   for (const [fname, content] of Object.entries(files)) {
@@ -175,13 +182,28 @@ function cmdInit(args) {
     ok(`Created ${bold(fname)}`);
   }
 
+  // ── Copy the runtime so the project runs immediately ──────────────
+  // Previously users had to manually copy breeze.js/breeze.css, which
+  // meant a freshly-scaffolded project was broken out of the box.
+  let runtimeOk = true;
+  for (const runtime of ['breeze.js', 'breeze.css']) {
+    const srcPath = path.join(__dirname, runtime);
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, path.join(dir, runtime));
+      ok(`Added ${bold(runtime)} ${dim('(runtime)')}`);
+    } else {
+      runtimeOk = false;
+      warn(`Could not find ${runtime} next to the CLI — copy it in manually.`);
+    }
+  }
+
   console.log('');
   ok(col('green', bold(`Project "${name}" created successfully!`)));
   console.log('');
   console.log('  Next steps:');
   log(`cd ${name}`);
-  log('Copy breeze.js and breeze.css into the folder, then:');
-  log('npx breeze-framework dev');
+  if (!runtimeOk) log('Copy breeze.js and breeze.css into the folder');
+  log(`npx breeze-framework dev   ${dim('# start the dev server with live reload')}`);
   console.log('');
 }
 
@@ -191,8 +213,20 @@ function cmdInit(args) {
 // ═══════════════════════════════════════════════════════════════════════
 function cmdDev(args) {
   banner();
-  const port  = parseInt(args[0]) || 3000;
-  const cwd   = process.cwd();
+  // Accept `dev [dir] [port]` in any order: a numeric arg is the port,
+  // a non-numeric arg is the root directory to serve.
+  let port = 3000;
+  let root = process.cwd();
+  for (const a of args) {
+    if (/^\d+$/.test(a)) port = parseInt(a, 10);
+    else root = path.resolve(a);
+  }
+  const cwd = root;
+
+  if (!fs.existsSync(cwd)) {
+    err(`Directory not found: ${cwd}`);
+    process.exit(1);
+  }
 
   // SSE client list — each entry is a ServerResponse
   const sseClients = [];
@@ -467,6 +501,15 @@ Sitemap: ${baseUrl}/sitemap.xml
   console.log('');
 }
 
+/** Escape a string for safe interpolation into an HTML attribute value. */
+function escAttr(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /** Extract SEO, AEO, GEO, and Schema from .breeze source for static head pre-rendering */
 function extractSeoAndHead(breezeSource) {
   let title = 'Breeze App';
@@ -504,35 +547,35 @@ function extractSeoAndHead(breezeSource) {
 
       if (type === 'seo') {
         if (props.title) title = props.title;
-        if (props.description) metaTags.push(`<meta name="description" content="${props.description}">`);
-        if (props.keywords) metaTags.push(`<meta name="keywords" content="${props.keywords}">`);
-        if (props.author) metaTags.push(`<meta name="author" content="${props.author}">`);
-        metaTags.push(`<meta name="robots" content="${props.robots || 'index, follow'}">`);
+        if (props.description) metaTags.push(`<meta name="description" content="${escAttr(props.description)}">`);
+        if (props.keywords) metaTags.push(`<meta name="keywords" content="${escAttr(props.keywords)}">`);
+        if (props.author) metaTags.push(`<meta name="author" content="${escAttr(props.author)}">`);
+        metaTags.push(`<meta name="robots" content="${escAttr(props.robots || 'index, follow')}">`);
 
         if (props.canonical) {
           canonicalUrl = props.canonical;
-          metaTags.push(`<link rel="canonical" href="${props.canonical}">`);
+          metaTags.push(`<link rel="canonical" href="${escAttr(props.canonical)}">`);
         }
-        metaTags.push(`<meta property="og:title" content="${props.ogTitle || props.title || title}">`);
-        if (props.description) metaTags.push(`<meta property="og:description" content="${props.ogDescription || props.description}">`);
-        if (props.image) metaTags.push(`<meta property="og:image" content="${props.image}">`);
-        if (props.canonical) metaTags.push(`<meta property="og:url" content="${props.canonical}">`);
-        metaTags.push(`<meta property="og:type" content="${props.type || 'website'}">`);
+        metaTags.push(`<meta property="og:title" content="${escAttr(props.ogTitle || props.title || title)}">`);
+        if (props.description) metaTags.push(`<meta property="og:description" content="${escAttr(props.ogDescription || props.description)}">`);
+        if (props.image) metaTags.push(`<meta property="og:image" content="${escAttr(props.image)}">`);
+        if (props.canonical) metaTags.push(`<meta property="og:url" content="${escAttr(props.canonical)}">`);
+        metaTags.push(`<meta property="og:type" content="${escAttr(props.type || 'website')}">`);
 
-        metaTags.push(`<meta name="twitter:card" content="${props.twitterCard || 'summary_large_image'}">`);
-        metaTags.push(`<meta name="twitter:title" content="${props.twitterTitle || props.title || title}">`);
-        if (props.description) metaTags.push(`<meta name="twitter:description" content="${props.twitterDescription || props.description}">`);
-        if (props.image) metaTags.push(`<meta name="twitter:image" content="${props.image}">`);
+        metaTags.push(`<meta name="twitter:card" content="${escAttr(props.twitterCard || 'summary_large_image')}">`);
+        metaTags.push(`<meta name="twitter:title" content="${escAttr(props.twitterTitle || props.title || title)}">`);
+        if (props.description) metaTags.push(`<meta name="twitter:description" content="${escAttr(props.twitterDescription || props.description)}">`);
+        if (props.image) metaTags.push(`<meta name="twitter:image" content="${escAttr(props.image)}">`);
       }
 
       if (type === 'aeo') {
-        if (props.summary) metaTags.push(`<meta name="ai:summary" content="${props.summary}">`);
-        if (props.topics) metaTags.push(`<meta name="ai:key_points" content="${props.topics}">`);
+        if (props.summary) metaTags.push(`<meta name="ai:summary" content="${escAttr(props.summary)}">`);
+        if (props.topics) metaTags.push(`<meta name="ai:key_points" content="${escAttr(props.topics)}">`);
       }
 
       if (type === 'geo') {
-        if (props.entities) metaTags.push(`<meta name="geo:entities" content="${props.entities}">`);
-        if (props.facts) metaTags.push(`<meta name="geo:facts" content="${props.facts}">`);
+        if (props.entities) metaTags.push(`<meta name="geo:entities" content="${escAttr(props.entities)}">`);
+        if (props.facts) metaTags.push(`<meta name="geo:facts" content="${escAttr(props.facts)}">`);
       }
 
       if (type === 'schema') {
@@ -548,7 +591,9 @@ function extractSeoAndHead(breezeSource) {
 
 /** Assemble the final HTML document */
 function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
-  const jsonSource = JSON.stringify(breezeSource);
+  // Escape "<" so a "</script>" inside .breeze text can't terminate the
+  // embedding <script> tag early. JSON.stringify does not escape "/".
+  const jsonSource = JSON.stringify(breezeSource).replace(/</g, '\\u003c');
   const { title, metaTags, jsonLd } = extractSeoAndHead(breezeSource);
 
   let styleTag = '';
@@ -573,8 +618,13 @@ function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
   }
 
   const headMetaHtml = metaTags.length ? '  ' + metaTags.join('\n  ') + '\n' : '';
+  // Escape "<" in JSON-LD so a malicious/typo'd "</script>" in the data can't
+  // terminate the surrounding <script> element early.
+  const jsonLdSafe = jsonLd
+    ? JSON.stringify(jsonLd, null, 2).replace(/</g, '\\u003c')
+    : '';
   const schemaScript = jsonLd
-    ? `  <script type="application/ld+json" data-breeze-schema>\n${JSON.stringify(jsonLd, null, 2)}\n  </script>\n`
+    ? `  <script type="application/ld+json" data-breeze-schema>\n${jsonLdSafe}\n  </script>\n`
     : '';
 
   let html = `<!DOCTYPE html>
@@ -582,7 +632,7 @@ function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escAttr(title)}</title>
 ${headMetaHtml}${schemaScript}${css ? styleTag : '  <link rel="stylesheet" href="breeze.css">'}
 </head>
 <body>
@@ -608,20 +658,32 @@ function minifyCSS(css) {
 }
 
 function minifyHTML(html) {
-  // Our generated template contains no HTML comments, so only collapse
-  // whitespace. The .breeze source is safe via JSON.stringify embedding.
-  return html
+  // Collapse whitespace ONLY in the markup — never inside <script>/<style>,
+  // where newlines are load-bearing (a trailing `// comment` would swallow the
+  // next line, and template literals/regex can carry significant whitespace).
+  // We slice out those blocks, minify the surrounding markup, then restore.
+  const blocks = [];
+  const stash = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, m => {
+    blocks.push(m);
+    return ` BZBLOCK${blocks.length - 1} `;
+  });
+
+  const minified = stash
+    .replace(/<!--[\s\S]*?-->/g, '')   // strip HTML comments
     .replace(/\s{2,}/g, ' ')
     .replace(/>\s+</g, '><')
     .trim();
+
+  return minified.replace(/ BZBLOCK(\d+) /g, (_, n) => blocks[Number(n)]);
 }
 
 function minifyJS(js) {
-  // Very basic: remove block comments and collapse blank lines.
-  // A real tool would use Terser — this avoids external deps.
+  // Conservative and safe without a real parser: strip block comments and
+  // collapse runs of blank lines. We deliberately do NOT strip `//` line
+  // comments (they may appear inside strings/regex/URLs) nor collapse
+  // significant whitespace — gzip/brotli reclaim the rest at build time.
   return js
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -712,17 +774,21 @@ function showHelp() {
   banner();
   console.log(`  ${bold('Usage:')}  breeze <command> [options]\n`);
   console.log(`  ${bold('Commands:')}`);
-  console.log(`    ${col('cyan', 'init')}  [name]              Scaffold a new project`);
+  console.log(`    ${col('cyan', 'init')}  [name]              Scaffold a new project (alias: create)`);
   console.log(`    ${col('cyan', 'dev')}   [port]              Start dev server with live reload (default: 3000)`);
   console.log(`    ${col('cyan', 'build')} [file] [flags]      Build to dist/`);
   console.log(`    ${col('cyan', 'serve')} [dir]  [port]       Serve a static directory (default: dist, port: 8080)`);
   console.log('');
   console.log(`  ${bold('Build flags:')}`);
-  console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML`);
+  console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML (single self-contained file)`);
   console.log(`    ${col('yellow', '--minify')}                Minify HTML, CSS and JS output`);
   console.log('');
+  console.log(`  ${bold('Global flags:')}`);
+  console.log(`    ${col('yellow', '--help, -h')}              Show this help`);
+  console.log(`    ${col('yellow', '--version, -v')}           Print the installed version`);
+  console.log('');
   console.log(`  ${bold('Examples:')}`);
-  console.log(`    breeze init my-app`);
+  console.log(`    breeze init my-app          ${dim('# scaffold + copy the runtime, ready to run')}`);
   console.log(`    breeze dev 4000`);
   console.log(`    breeze build app.breeze --spa --minify`);
   console.log(`    breeze serve dist 9000`);
@@ -746,11 +812,26 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof require !== 'undefined' && require.main === module) {
   const [,, command, ...args] = process.argv;
 
+  // Global flags work in any position: `breeze --version`, `breeze dev -h`
+  const allArgs = [command, ...args];
+  if (allArgs.includes('--version') || allArgs.includes('-v')) {
+    console.log(require('./package.json').version);
+    process.exit(0);
+  }
+  if (command === undefined || allArgs.includes('--help') || allArgs.includes('-h')) {
+    showHelp();
+    process.exit(0);
+  }
+
   switch (command) {
-    case 'init':  cmdInit(args);  break;
-    case 'dev':   cmdDev(args);   break;
-    case 'build': cmdBuild(args); break;
-    case 'serve': cmdServe(args); break;
-    default:      showHelp();     break;
+    case 'init':
+    case 'create': cmdInit(args);  break;
+    case 'dev':    cmdDev(args);   break;
+    case 'build':  cmdBuild(args); break;
+    case 'serve':  cmdServe(args); break;
+    default:
+      err(`Unknown command: ${bold(command)}`);
+      console.log(`  Run ${col('cyan', 'breeze --help')} to see available commands.\n`);
+      process.exit(1);
   }
 }

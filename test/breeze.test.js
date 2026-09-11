@@ -251,4 +251,72 @@ describe('Breeze Framework Core', () => {
     assert.equal(result.jsonLd['@type'], 'SoftwareApplication');
     assert.equal(result.jsonLd.name, 'CLI App');
   });
+
+  it('should HTML-escape dangerous characters in @seo/@aeo/@geo values', () => {
+    const { extractSeoAndHead } = require('../breeze-cli.js');
+    const source = [
+      '@seo {',
+      '  title: "< script > alert(1) < /script >"',
+      '  description: "A & B"',
+      '  canonical: "https://evil.com?q=<img src=x>"',
+      '  keywords: "tag\\\"quote"',
+      '}',
+      '@aeo {',
+      '  summary: "</script><script>alert(2)</script>"',
+      '}'
+    ].join('\n');
+
+    const result = extractSeoAndHead(source);
+    const metaStr = result.metaTags.join('\n');
+    // Check that < > & are escaped; quotes in keywords
+    assert.ok(metaStr.includes('&lt;'));
+    assert.ok(metaStr.includes('&gt;'));
+    assert.ok(metaStr.includes('&amp;'));
+  });
+
+  it('should protect script/style blocks during HTML minification', () => {
+    const { buildHTML } = require('../breeze-cli.js');
+    const jsWithComment = 'var x = 1;  // trailing comment\nvar y = 2;';
+    const breezeWithJs = '@app "Test"';
+    const html = buildHTML({
+      breezeSource: breezeWithJs,
+      css: 'body { margin:  0;  }',
+      js: jsWithComment,
+      doSpa: true,
+      doMinify: true
+    });
+
+    // Extract the inlined script and verify the comment wasn't merged
+    const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+    assert.ok(scriptMatch);
+    const scriptContent = scriptMatch[1];
+    // Should be parseable as valid JS (the comment was not merged into next line)
+    try {
+      new Function(scriptContent);
+    } catch (e) {
+      assert.fail(`Minified script is broken: ${e.message}`);
+    }
+  });
+
+  it('should warn on tab indentation and malformed directives', () => {
+    const source = [
+      '@app "Test"',
+      '\t@state count = 0',  // tab (should warn)
+      '@state bad',           // malformed (should warn)
+      '@each x',              // malformed (should warn)
+    ].join('\n');
+
+    // Capture console.warn calls
+    const warns = [];
+    const origWarn = console.warn;
+    console.warn = (...args) => warns.push(args.join(' '));
+
+    try {
+      Breeze.parse(source);
+      assert.ok(warns.some(w => w.includes('tab')), 'should warn on tabs');
+      assert.ok(warns.some(w => w.includes('Malformed')), 'should warn on malformed directives');
+    } finally {
+      console.warn = origWarn;
+    }
+  });
 });

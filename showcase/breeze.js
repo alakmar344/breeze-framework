@@ -22,6 +22,13 @@
 
   const Parser = {
 
+    /** Emit a non-fatal parser diagnostic (kept quiet-friendly for tooling). */
+    _warn(msg) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[Breeze] ' + msg);
+      }
+    },
+
     /**
      * Parse a full .breeze source string into an array of AST nodes.
      * Indentation (2 spaces per level) determines parent-child nesting.
@@ -36,6 +43,7 @@
       // The "indent" here is the indent of the node that OWNS those children.
       const stack = [{ children: root, indent: -1 }];
       let i = 0;
+      let warnedTabs = false;
 
       while (i < lines.length) {
         const rawLine = lines[i];
@@ -47,27 +55,52 @@
           continue;
         }
 
+        // Breeze indentation is space-based. Tabs are the #1 cause of
+        // silently-misnested output, so surface it clearly (once).
+        if (!warnedTabs && /^\t/.test(rawLine)) {
+          warnedTabs = true;
+          Parser._warn(
+            `Line ${i + 1}: tab indentation detected. Breeze uses 2 spaces per ` +
+            `level — mixing tabs will misnest elements.`
+          );
+        }
+
         // Indentation level = number of leading spaces
         const indent = rawLine.search(/\S/);
 
-        // ── Special block: @theme { key: value ... } ───────────────────
-        if (trimmed.startsWith('@theme')) {
-          const themeNode = { type: 'theme', props: {} };
+        // ── Special block directives: @theme, @seo, @schema, @aeo, @geo { key: value ... }
+        const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
+        if (blockMatch) {
+          const blockType = blockMatch[1];
+          if (!trimmed.includes('{')) {
+            Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
+          }
+          const blockNode = { type: blockType, props: {} };
+          const blockStart = i;
+          let closed = false;
           i++;
           while (i < lines.length) {
             const tl = lines[i].trim();
-            if (tl === '}') { i++; break; }
-            if (tl && !tl.startsWith('//')) {
+            if (tl === '}') { i++; closed = true; break; }
+            if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
               const ci = tl.indexOf(':');
               if (ci !== -1) {
                 const k = tl.substring(0, ci).trim();
-                const v = tl.substring(ci + 1).trim().replace(/^["']|["']$/g, '');
-                themeNode.props[k] = v;
+                let v = tl.substring(ci + 1).trim();
+                try {
+                  v = JSON.parse(v);
+                } catch (_) {
+                  v = v.replace(/^["']|["']$/g, '');
+                }
+                blockNode.props[k] = v;
               }
             }
             i++;
           }
-          root.push(themeNode);
+          if (!closed) {
+            Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
+          }
+          root.push(blockNode);
           continue;
         }
 
@@ -166,11 +199,45 @@
           }
           return { type: 'state', key: m[1], value: val, indent };
         }
+        Parser._warn(`Malformed @state: "${content}". Expected: @state name = value`);
+        return null;
       }
 
       // @style "raw css string"
       if (content.startsWith('@style')) {
         return { type: 'style', text: Parser.extractQuoted(content), indent };
+      }
+
+      // @each item in listKey  or  @for item in listKey
+      if (content.startsWith('@each') || content.startsWith('@for')) {
+        const m = content.match(/@(each|for)\s+(\w+)\s+in\s+(\w+)/);
+        if (m) {
+          return {
+            type: 'each',
+            itemVar: m[2],
+            listKey: m[3],
+            children: [],
+            indent
+          };
+        }
+        Parser._warn(`Malformed @each: "${content}". Expected: @each item in listKey`);
+        return null;
+      }
+
+      // @if conditionKey  or  @if !conditionKey
+      if (content.startsWith('@if')) {
+        const m = content.match(/@if\s+(!?)([\w.]+)/);
+        if (m) {
+          return {
+            type: 'if',
+            negate: m[1] === '!',
+            conditionKey: m[2],
+            children: [],
+            indent
+          };
+        }
+        Parser._warn(`Malformed @if: "${content}". Expected: @if conditionKey or @if !conditionKey`);
+        return null;
       }
 
       // Generic directive fallback — treat as custom tag
@@ -313,6 +380,19 @@
       this._computed[key] = { deps, fn };
       // Compute initial value immediately
       this._store[key] = fn(...deps.map(d => this._store[d]));
+    },
+
+    push(key, item) {
+      const arr = Array.isArray(this._store[key]) ? [...this._store[key]] : [];
+      arr.push(item);
+      this.set(key, arr);
+    },
+
+    remove(key, index) {
+      if (!Array.isArray(this._store[key])) return;
+      const arr = [...this._store[key]];
+      arr.splice(index, 1);
+      this.set(key, arr);
     }
   };
 
@@ -341,6 +421,10 @@
       if (!node) return null;
       switch (node.type) {
         case 'theme':   this.applyTheme(node.props);                   return null;
+        case 'seo':     this.applySEO(node.props);                     return null;
+        case 'schema':  this.applySchema(node.props);                  return null;
+        case 'aeo':     this.applyAEO(node.props);                     return null;
+        case 'geo':     this.applyGEO(node.props);                     return null;
         case 'app':     document.title = node.text || 'Breeze App';    return null;
         case 'state':   State.set(node.key, node.value);               return null;
         case 'style':   this.injectStyle(node.text);                   return null;
@@ -352,6 +436,8 @@
         case 'link':    return this.renderLink(node);
         case 'card':    return this.renderCard(node);
         case 'button':  return this.renderButton(node);
+        case 'each':    return this.renderEach(node);
+        case 'if':      return this.renderIf(node);
         default:
           if (/^[a-z][\w-]*$/.test(node.type)) return this.renderElement(node);
           return null;
@@ -381,6 +467,113 @@
       const s = document.createElement('style');
       s.textContent = css;
       document.head.appendChild(s);
+    },
+
+    // ── Native SEO, AEO, and GEO ──────────────────────────────────────
+
+    applySEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      if (props.title) document.title = props.title;
+
+      const setMeta = (attrName, attrVal, content) => {
+        if (!content) return;
+        let el = document.querySelector(`meta[${attrName}="${attrVal}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute(attrName, attrVal);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', content);
+      };
+
+      setMeta('name', 'description', props.description);
+      setMeta('name', 'keywords', props.keywords);
+      setMeta('name', 'author', props.author);
+      setMeta('name', 'robots', props.robots || 'index, follow');
+
+      if (props.canonical) {
+        let canon = document.querySelector('link[rel="canonical"]');
+        if (!canon) {
+          canon = document.createElement('link');
+          canon.setAttribute('rel', 'canonical');
+          document.head.appendChild(canon);
+        }
+        canon.setAttribute('href', props.canonical);
+      }
+
+      // OpenGraph
+      setMeta('property', 'og:title', props.ogTitle || props.title);
+      setMeta('property', 'og:description', props.ogDescription || props.description);
+      setMeta('property', 'og:image', props.image || props.ogImage);
+      setMeta('property', 'og:url', props.canonical || props.ogUrl);
+      setMeta('property', 'og:type', props.type || 'website');
+
+      // Twitter Cards
+      setMeta('name', 'twitter:card', props.twitterCard || 'summary_large_image');
+      setMeta('name', 'twitter:title', props.twitterTitle || props.title);
+      setMeta('name', 'twitter:description', props.twitterDescription || props.description);
+      setMeta('name', 'twitter:image', props.image || props.twitterImage);
+    },
+
+    applySchema(props) {
+      if (!props || typeof document === 'undefined') return;
+      let script = document.querySelector('script[data-breeze-schema]');
+      if (!script) {
+        script = document.createElement('script');
+        script.type = 'application/ld+json';
+        script.setAttribute('data-breeze-schema', '');
+        document.head.appendChild(script);
+      }
+      const schemaData = Object.assign({
+        '@context': 'https://schema.org',
+        '@type': props.type || 'WebSite'
+      }, props);
+      script.textContent = JSON.stringify(schemaData, null, 2);
+    },
+
+    applyAEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      const setMeta = (name, val) => {
+        if (!val) return;
+        let el = document.querySelector(`meta[name="${name}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute('name', name);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', val);
+      };
+      setMeta('ai:summary', props.summary);
+      setMeta('ai:key_points', props.topics || props.keyPoints);
+
+      if (props.speakable) {
+        const selectors = Array.isArray(props.speakable)
+          ? props.speakable
+          : String(props.speakable).split(',').map(s => s.trim());
+        this.applySchema({
+          type: 'WebPage',
+          speakable: {
+            '@type': 'SpeakableSpecification',
+            cssSelector: selectors
+          }
+        });
+      }
+    },
+
+    applyGEO(props) {
+      if (!props || typeof document === 'undefined') return;
+      const setMeta = (name, val) => {
+        if (!val) return;
+        let el = document.querySelector(`meta[name="${name}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute('name', name);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', val);
+      };
+      setMeta('geo:entities', props.entities);
+      setMeta('geo:facts', props.facts);
     },
 
     // ── Layout elements ───────────────────────────────────────────────
@@ -527,6 +720,90 @@
       return el;
     },
 
+    // ── Loop & Conditional elements ───────────────────────────────────
+
+    renderEach(node) {
+      const container = document.createElement('div');
+      container.className = 'bz-each';
+
+      const renderItems = () => {
+        container.innerHTML = '';
+        const items = State.get(node.listKey) || [];
+        if (Array.isArray(items)) {
+          items.forEach((item, index) => {
+            (node.children || []).forEach(child => {
+              const itemNode = this.interpolateItemNode(child, node.itemVar, item, index);
+              const el = this.renderNode(itemNode);
+              if (el) container.appendChild(el);
+            });
+          });
+        }
+      };
+
+      renderItems();
+      State.watch(node.listKey, () => renderItems());
+      return container;
+    },
+
+    interpolateItemNode(node, itemVar, item, index) {
+      if (!node) return null;
+      const clone = Object.assign({}, node);
+      if (typeof clone.text === 'string') {
+        const itemStr = typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item);
+        clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\}`, 'g'), itemStr);
+        clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\.index\\}`, 'g'), String(index));
+        if (typeof item === 'object' && item !== null) {
+          Object.keys(item).forEach(prop => {
+            clone.text = clone.text.replace(new RegExp(`\\{${itemVar}\\.${prop}\\}`, 'g'), String(item[prop]));
+          });
+        }
+      }
+      if (Array.isArray(clone.modifiers)) {
+        clone.modifiers = clone.modifiers.map(mod => {
+          let m = mod;
+          m = m.replace(new RegExp(`\\{${itemVar}\\.index\\}`, 'g'), String(index));
+          if (typeof item !== 'object' || item === null) {
+            m = m.replace(new RegExp(`\\{${itemVar}\\}`, 'g'), String(item));
+          } else {
+            Object.keys(item).forEach(prop => {
+              m = m.replace(new RegExp(`\\{${itemVar}\\.${prop}\\}`, 'g'), String(item[prop]));
+            });
+          }
+          return m;
+        });
+      }
+      if (Array.isArray(clone.children)) {
+        clone.children = clone.children.map(c => this.interpolateItemNode(c, itemVar, item, index));
+      }
+      return clone;
+    },
+
+    renderIf(node) {
+      const container = document.createElement('div');
+      container.className = 'bz-if';
+
+      const update = () => {
+        container.innerHTML = '';
+        const val = State.get(node.conditionKey);
+        let truthy = Boolean(val);
+        if (node.negate) truthy = !truthy;
+
+        if (truthy) {
+          (node.children || []).forEach(child => {
+            const el = this.renderNode(child);
+            if (el) container.appendChild(el);
+          });
+          container.style.display = '';
+        } else {
+          container.style.display = 'none';
+        }
+      };
+
+      update();
+      State.watch(node.conditionKey, () => update());
+      return container;
+    },
+
     // ── Reactive text binding ─────────────────────────────────────────
 
     /**
@@ -554,11 +831,25 @@
       });
     },
 
-    /** Called by State.set() to refresh all DOM nodes bound to a key */
+    /**
+     * Called by State.set() to refresh all DOM nodes bound to a key.
+     * Simultaneously prunes bindings whose element has been detached from
+     * the document (e.g. items removed by @each / branches hidden by @if),
+     * preventing unbounded growth of the binding registry and wasted work
+     * updating orphaned nodes.
+     */
     updateBindings(key) {
-      (this._bindings[key] || []).forEach(b => {
+      const list = this._bindings[key];
+      if (!list || !list.length) return;
+      const alive = [];
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i];
+        // isConnected is undefined outside the browser — treat as alive there.
+        if (b.el.isConnected === false) continue;
         b.el.textContent = this.resolveBindings(b.template);
-      });
+        alive.push(b);
+      }
+      this._bindings[key] = alive;
     },
 
     // ── Modifier → DOM mapping ────────────────────────────────────────
@@ -601,12 +892,19 @@
         'slide-left': 'bz-slide-left', 'slide-right': 'bz-slide-right',
         bounce: 'bz-bounce', pulse: 'bz-pulse', 'zoom-in': 'bz-zoom-in',
         // State
-        disabled: 'disabled', active: 'active', hidden: 'bz-hidden',
+        active: 'active', hidden: 'bz-hidden',
         // Spacing helpers
         'mt-sm': 'bz-mt-sm', 'mt-md': 'bz-mt-md', 'mt-lg': 'bz-mt-lg',
         'mb-sm': 'bz-mb-sm', 'mb-md': 'bz-mb-md', 'mb-lg': 'bz-mb-lg',
         'no-wrap': 'bz-no-wrap'
       };
+
+      // HTML boolean attributes: `[disabled]`, `[checked]`, … must set the
+      // real DOM attribute, not a look-alike CSS class.
+      const BOOL_ATTRS = new Set([
+        'disabled', 'checked', 'readonly', 'required',
+        'selected', 'multiple', 'autofocus'
+      ]);
 
       modifiers.forEach(mod => {
         mod = mod.trim();
@@ -618,6 +916,12 @@
           if (em) {
             el.addEventListener(em[1], e => Renderer.executeAction(em[2].trim(), e, el));
           }
+          return;
+        }
+
+        // ── Boolean attribute: [disabled], [checked], … ──────────────
+        if (BOOL_ATTRS.has(mod)) {
+          el.setAttribute(mod, '');
           return;
         }
 
@@ -670,6 +974,20 @@
       const emitM = action.match(/^emit\(([^,)]+)(?:,\s*(.+))?\)$/);
       if (emitM) { EventBus.emit(emitM[1].trim(), emitM[2]); return; }
 
+      const pushM = action.match(/^push\((\w+),\s*(.+)\)$/);
+      if (pushM) {
+        let v = pushM[2].trim();
+        try { v = JSON.parse(v); } catch (e) { v = v.replace(/^["']|["']$/g, ''); }
+        State.push(pushM[1], v);
+        return;
+      }
+
+      const remM = action.match(/^remove\((\w+),\s*(\d+)\)$/);
+      if (remM) {
+        State.remove(remM[1], parseInt(remM[2], 10));
+        return;
+      }
+
       // Plugin actions — let registered plugins handle unknown actions
       const pluginAction = Plugins.findAction(action);
       if (pluginAction) pluginAction(action, event, el);
@@ -684,8 +1002,13 @@
   const Router = {
     _routes:  {},
     _current: null,
+    _initialized: false,
 
     init() {
+      // Idempotent: mounting more than once must not stack hashchange
+      // listeners (which would fire handleRoute N times per navigation).
+      if (this._initialized) { this.handleRoute(); return; }
+      this._initialized = true;
       window.addEventListener('hashchange', () => this.handleRoute());
       // Handle initial hash on load
       if (document.readyState === 'loading') {
@@ -872,6 +1195,14 @@
 
     getState(key)        { return State.get(key); },
     setState(key, value) { State.set(key, value); return this; },
+    push(key, item)      { State.push(key, item); return this; },
+    remove(key, index)   { State.remove(key, index); return this; },
+
+    // ── SEO, AEO, and GEO API ─────────────────────────────────────────
+    seo(config)          { Renderer.applySEO(config); return this; },
+    schema(data)         { Renderer.applySchema(data); return this; },
+    aeo(config)          { Renderer.applyAEO(config); return this; },
+    geo(config)          { Renderer.applyGEO(config); return this; },
 
     // ── Routing ─────────────────────────────────────────────────────
 
