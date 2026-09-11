@@ -10,11 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const { performance } = require('perf_hooks');
 
-// Import engine (node-safe eval)
-const engineCode = fs.readFileSync(path.join(__dirname, 'breeze.js'), 'utf8');
-const ctx = {};
-eval(`(function(global) { ${engineCode} }).call(ctx, ctx)`);
-const Breeze = ctx.Breeze;
+// Import engine
+const { Breeze } = require('./breeze.js');
 
 // Import build utils
 const { extractSeoAndHead, buildHTML } = require('./breeze-cli.js');
@@ -37,7 +34,7 @@ console.log('\n🌊 Breeze Framework Benchmarks\n');
 // ── Parser ────────────────────────────────────────────────────────
 console.log('📝 Parser:');
 let ast;
-bench('  Parse example.breeze', () => {
+const parseMs = bench('  Parse example.breeze', () => {
   ast = Breeze.parse(exampleBreeze);
 }, 200);
 
@@ -60,13 +57,42 @@ bench('  buildHTML (SPA + minify)', () => {
 }, 30);
 
 // ── Cold start ────────────────────────────────────────────────────
-console.log('\n⚡ Cold Start (in-browser simulation):');
+// ── Reactivity & Signals ─────────────────────────────────────────
+console.log('\n⚡ Reactivity & Signals:');
+bench('  Signal read / write (10k ops)', () => {
+  const s = Breeze.signal(0);
+  for (let i = 0; i < 10000; i++) s.value = i;
+}, 50);
+
+bench('  Computed evaluation (5k ops)', () => {
+  const a = Breeze.signal(1);
+  const b = Breeze.signal(2);
+  const c = Breeze.computed(() => a.value + b.value);
+  for (let i = 0; i < 5000; i++) {
+    a.value = i;
+    const _ = c.value;
+  }
+}, 30);
+
+bench('  Batched updates (5k ops)', () => {
+  const a = Breeze.signal(0);
+  const b = Breeze.signal(0);
+  let triggers = 0;
+  Breeze.effect(() => { const _ = a.value + b.value; triggers++; });
+  for (let i = 0; i < 5000; i++) {
+    Breeze.batch(() => {
+      a.value = i;
+      b.value = i * 2;
+    });
+  }
+}, 20);
+
+// ── SSR ───────────────────────────────────────────────────────────
+console.log('\n🖥️ Server-Side Rendering:');
 let html;
-const measuredMs = bench('  Full build pipeline', () => {
-  const parsed = Breeze.parse(exampleBreeze);
-  const seo = extractSeoAndHead(exampleBreeze);
-  html = buildHTML({ breezeSource: exampleBreeze, css: breezeCss, js: breezeJs, doSpa: true, doMinify: true });
-}, 10);
+bench('  renderToString (full page)', () => {
+  html = Breeze.renderToString(exampleBreeze);
+}, 100);
 
 // ── Output size ───────────────────────────────────────────────────
 console.log('\n📦 Output Sizes:');
@@ -75,4 +101,4 @@ console.log(`  Full HTML: ${(htmlSize / 1024).toFixed(1)} KB`);
 console.log(`  Breeze.js: ${(breezeJs.length / 1024).toFixed(1)} KB`);
 console.log(`  Breeze.css: ${(breezeCss.length / 1024).toFixed(1)} KB`);
 
-console.log(`\n✨ Summary: parse at ${(exampleBreeze.length / measuredMs * 1000).toFixed(0)} KB/sec\n`);
+console.log(`\n✨ Summary: parse at ${(exampleBreeze.length * 200 / parseMs * 1000 / 1024).toFixed(0)} KB/sec\n`);

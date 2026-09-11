@@ -1,0 +1,57 @@
+{
+  "breeze": {
+    "create1000": 794.9,
+    "update10th": 10.3,
+    "selectRow": 1.1,
+    "swapRows": 486.6,
+    "deleteRow": 9.6,
+    "append1000": 860.3,
+    "clearRows": 57.7,
+    "create10000": 7252.6,
+    "heapUsedKB": 2471.8
+  },
+  "vanillajs": {
+    "create1000": 690.5,
+    "update10th": 67,
+    "selectRow": 18.7,
+    "swapRows": 47.2,
+    "deleteRow": 92.8,
+    "append1000": 640.7,
+    "clearRows": 56.3,
+    "create10000": 9668.4,
+    "heapUsedKB": 1812.7
+  },
+  "preact": {
+    "create1000": 875.9,
+    "update10th": 119.3,
+    "selectRow": 65.7,
+    "swapRows": 286.3,
+    "deleteRow": 98.5,
+    "append1000": 675.4,
+    "clearRows": 83.1,
+    "create10000": 8444.2,
+    "heapUsedKB": 15474.4
+  },
+  "vue": {
+    "create1000": 841.2,
+    "update10th": 98,
+    "selectRow": 40.1,
+    "swapRows": 74.9,
+    "deleteRow": 98.1,
+    "append1000": 723.8,
+    "clearRows": 123.9,
+    "create10000": 9587.3,
+    "heapUsedKB": 17242.2
+  },
+  "react": {
+    "create1000": 912,
+    "update10th": 562.7,
+    "selectRow": 20.8,
+    "swapRows": 706.5,
+    "deleteRow": 103.5,
+    "append1000": 763.1,
+    "clearRows": 111,
+    "create10000": 11534.9,
+    "heapUsedKB": 19611.5
+  }
+}

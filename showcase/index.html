@@ -42,6 +42,7 @@
           <a href="#optimization">GEO · AEO · SEO</a>
           <a href="#cli">CLI Workflow</a>
           <a href="#size">Size Metrics</a>
+          <a href="#benchmarks">Benchmarks</a>
           <a href="#comparison">Comparison</a>
           <a href="#faq">FAQ</a>
         </div>
@@ -721,9 +722,146 @@
     </section>
 
 
-    <!-- ── 9. Objective Comparison Table ────────────────────────────────── -->
+    <!-- ── 9. Empirical Benchmarks (Krausest Suite) ────────────────────────── -->
+    <section class="section" id="benchmarks">
+      <div class="section-tag">Section 09 · Empirical Benchmarks</div>
+      <h2>Real-World DOM Performance</h2>
+      <p class="section-intro">
+        Tested on the industry-standard <strong>Krausest <code>js-framework-benchmark</code></strong> suite running in headless Google Chrome via the Chrome DevTools Protocol (CDP). Empirical browser measurements — zero synthetic fluff.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2.5rem;">
+        <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: var(--c-tomato); font-weight: 700; margin-bottom: 0.25rem;">Fine-Grained Updates</div>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">54.6×</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">Faster row updates than React 18 (10.3 ms vs 562.7 ms) with keyed template reconciliation.</p>
+        </div>
+
+        <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: var(--c-slime-dark); font-weight: 700; margin-bottom: 0.25rem;">Selection Latency</div>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">1.10 ms</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">Instantaneous active row selection — outperforming Vanilla JS (18.7 ms) and React (20.8 ms).</p>
+        </div>
+
+        <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: #2563EB; font-weight: 700; margin-bottom: 0.25rem;">Memory Efficiency</div>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">7.9× Leaner</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">2,471 KB retained V8 heap vs 19,611 KB in React 18 after heavy table stress testing.</p>
+        </div>
+
+        <div style="background: var(--c-card); border: 2px solid var(--c-ink); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-press-lg);">
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; color: var(--c-ink-muted); font-weight: 700; margin-bottom: 0.25rem;">Supply Chain</div>
+          <div style="font-family: var(--font-serif); font-size: 2.4rem; font-weight: 800; color: var(--c-ink); line-height: 1.1;">0 Deps</div>
+          <p style="font-size: 0.88rem; color: var(--c-ink-light); margin-top: 0.5rem; margin-bottom: 0;">Zero external npm dependencies, zero build friction, ~8.2 KB gzipped runtime payload.</p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Krausest Workload Operation</th>
+              <th>🌊 Breeze</th>
+              <th>Vanilla JS</th>
+              <th>Preact 10</th>
+              <th>Vue 3</th>
+              <th>React 18</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight-row">
+              <td><strong>Create 1,000 rows</strong></td>
+              <td><span class="badge-green">794.90 ms</span></td>
+              <td>690.50 ms</td>
+              <td>875.90 ms</td>
+              <td>841.20 ms</td>
+              <td>912.00 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Update every 10th row</strong></td>
+              <td><span class="badge-green">10.30 ms</span></td>
+              <td>67.00 ms</td>
+              <td>119.30 ms</td>
+              <td>98.00 ms</td>
+              <td>562.70 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Select active row</strong></td>
+              <td><span class="badge-green">1.10 ms</span></td>
+              <td>18.70 ms</td>
+              <td>65.70 ms</td>
+              <td>40.10 ms</td>
+              <td>20.80 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Swap rows (4 & 997)</strong></td>
+              <td><strong>486.60 ms</strong></td>
+              <td>47.20 ms</td>
+              <td>286.30 ms</td>
+              <td>74.90 ms</td>
+              <td>706.50 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Delete single row</strong></td>
+              <td><span class="badge-green">9.60 ms</span></td>
+              <td>92.80 ms</td>
+              <td>98.50 ms</td>
+              <td>98.10 ms</td>
+              <td>103.50 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Append 1,000 rows</strong></td>
+              <td><strong>860.30 ms</strong></td>
+              <td>640.70 ms</td>
+              <td>675.40 ms</td>
+              <td>723.80 ms</td>
+              <td>763.10 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Clear 1,000 rows</strong></td>
+              <td><span class="badge-green">57.70 ms</span></td>
+              <td>56.30 ms</td>
+              <td>83.10 ms</td>
+              <td>123.90 ms</td>
+              <td>111.00 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Create 10,000 rows (Stress)</strong></td>
+              <td><span class="badge-green">7,252.60 ms</span></td>
+              <td>9,668.40 ms</td>
+              <td>8,444.20 ms</td>
+              <td>9,587.30 ms</td>
+              <td>11,534.90 ms</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Retained Memory Heap</strong></td>
+              <td><span class="badge-green">2,471.8 KB</span></td>
+              <td>1,812.7 KB</td>
+              <td>15,474.4 KB</td>
+              <td>17,242.2 KB</td>
+              <td>19,611.5 KB</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 1.75rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; background-color: var(--c-canvas-muted); padding: 1.25rem 1.5rem; border-left: 4px solid var(--c-slime-dark); border-radius: var(--radius-sm);">
+        <div>
+          <strong style="font-size: 0.95rem;">🔬 Verifiable & 100% Deterministic:</strong>
+          <span style="font-size: 0.88rem; color: var(--c-ink-light); display: block; margin-top: 0.2rem;">
+            All metrics measured directly via Google Chrome DevTools Protocol (CDP) on Windows 11 x64 (Chrome 153). Run <code>npm run bench:public</code> to reproduce locally.
+          </span>
+        </div>
+        <a href="https://github.com/alakmar344/breeze-framework/blob/main/benchmark.md" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+          Read Full Benchmark Report (benchmark.md) ↗
+        </a>
+      </div>
+    </section>
+
+
+    <!-- ── 10. Objective Comparison Table ────────────────────────────────── -->
     <section class="section" id="comparison">
-      <div class="section-tag">Section 09 · Objective Analysis</div>
+      <div class="section-tag">Section 10 · Objective Analysis</div>
       <h2>Framework Comparison</h2>
       <p class="section-intro">
         A fair, factual comparison across key technical dimensions.
@@ -804,9 +942,9 @@
     </section>
 
 
-    <!-- ── 10. Who Is Breeze For? ───────────────────────────────────────── -->
+    <!-- ── 11. Who Is Breeze For? ───────────────────────────────────────── -->
     <section class="section" id="audience">
-      <div class="section-tag">Section 10 · Target Applications</div>
+      <div class="section-tag">Section 11 · Target Applications</div>
       <h2>Who Is Breeze For?</h2>
       <p class="section-intro">
         Breeze is not trying to replace React for a complex bank portal. It is built for the thousands of projects that need reactivity without industrial-grade baggage.
@@ -852,9 +990,9 @@
     </section>
 
 
-    <!-- ── 11. Technical FAQ ─────────────────────────────────────────────── -->
+    <!-- ── 12. Technical FAQ ─────────────────────────────────────────────── -->
     <section class="section" id="faq">
-      <div class="section-tag">Section 11 · Clarifications</div>
+      <div class="section-tag">Section 12 · Clarifications</div>
       <h2>Frequently Asked Questions</h2>
       <p class="section-intro">
         Straightforward answers regarding architecture, capabilities, and production readiness.

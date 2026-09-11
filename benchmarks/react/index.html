@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>React 18 Benchmark</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .btn { padding: 6px 12px; margin: 4px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    td, th { padding: 8px; border-top: 1px solid #ddd; text-align: left; }
+    .col-md-1 { width: 10%; }
+    .col-md-4 { width: 40%; }
+    .col-md-6 { width: 40%; }
+    .danger { background-color: #f2dede; }
+    .lbl { cursor: pointer; color: #337ab7; text-decoration: none; }
+    .remove { cursor: pointer; color: red; }
+  </style>
+  <script src="/vendor/react.production.min.js"></script>
+  <script src="/vendor/react-dom.production.min.js"></script>
+</head>
+<body>
+  <div id="main"></div>
+  <script>
+    const adjectives = ["pretty", "large", "big", "small", "tall", "short", "long", "handsome", "plain", "quaint", "clean", "elegant", "easy", "angry", "crazy", "helpful", "mushy", "odd", "unsightly", "adorable", "important", "inexpensive", "cheap", "expensive", "fancy"];
+    const colours = ["red", "yellow", "blue", "green", "pink", "brown", "purple", "white", "black", "orange"];
+    const nouns = ["table", "chair", "house", "bbq", "desk", "car", "pony", "cookie", "sandwich", "burger", "pizza", "mouse", "keyboard"];
+
+    let nextId = 1;
+    function _random(max) { return Math.round(Math.random() * 1000) % max; }
+    function buildData(count) {
+      const data = new Array(count);
+      for (let i = 0; i < count; i++) {
+        data[i] = {
+          id: nextId++,
+          label: adjectives[_random(adjectives.length)] + " " + colours[_random(colours.length)] + " " + nouns[_random(nouns.length)]
+        };
+      }
+      return data;
+    }
+
+    const { useState, useCallback, memo } = React;
+    const e = React.createElement;
+
+    const Row = memo(function Row({ item, isSelected, onSelect, onRemove }) {
+      return e('tr', { className: isSelected ? 'danger' : '' },
+        e('td', { className: 'col-md-1' }, item.id),
+        e('td', { className: 'col-md-4' },
+          e('a', { className: 'lbl', onClick: () => onSelect(item.id) }, item.label)
+        ),
+        e('td', { className: 'col-md-1' },
+          e('a', { className: 'remove', onClick: () => onRemove(item.id) }, '✖')
+        ),
+        e('td', { className: 'col-md-6' })
+      );
+    });
+
+    function App() {
+      const [data, setData] = useState([]);
+      const [selected, setSelected] = useState(null);
+
+      const run = () => { setData(buildData(1000)); setSelected(null); };
+      const runlots = () => { setData(buildData(10000)); setSelected(null); };
+      const add = () => { setData(d => d.concat(buildData(1000))); };
+      const update = () => {
+        setData(d => {
+          const next = d.slice();
+          for (let i = 0; i < next.length; i += 10) {
+            next[i] = { ...next[i], label: next[i].label + ' !!!' };
+          }
+          return next;
+        });
+      };
+      const clear = () => { setData([]); setSelected(null); };
+      const swaprows = () => {
+        setData(d => {
+          if (d.length > 998) {
+            const next = d.slice();
+            const temp = next[4];
+            next[4] = next[997];
+            next[997] = temp;
+            return next;
+          }
+          return d;
+        });
+      };
+
+      const select = useCallback((id) => setSelected(id), []);
+      const remove = useCallback((id) => {
+        setData(d => d.filter(item => item.id !== id));
+      }, []);
+
+      return e('div', null,
+        e('h1', null, 'React 18 Benchmark'),
+        e('div', null,
+          e('button', { id: 'run', className: 'btn', onClick: run }, 'Create 1,000 rows'),
+          e('button', { id: 'runlots', className: 'btn', onClick: runlots }, 'Create 10,000 rows'),
+          e('button', { id: 'add', className: 'btn', onClick: add }, 'Append 1,000 rows'),
+          e('button', { id: 'update', className: 'btn', onClick: update }, 'Update every 10th row'),
+          e('button', { id: 'clear', className: 'btn', onClick: clear }, 'Clear'),
+          e('button', { id: 'swaprows', className: 'btn', onClick: swaprows }, 'Swap Rows')
+        ),
+        e('table', null,
+          e('tbody', { id: 'tbody' },
+            data.map(item => e(Row, {
+              key: item.id,
+              item: item,
+              isSelected: selected === item.id,
+              onSelect: select,
+              onRemove: remove
+            }))
+          )
+        )
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('main'));
+    root.render(e(App));
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

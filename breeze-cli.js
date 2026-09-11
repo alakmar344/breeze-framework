@@ -596,6 +596,16 @@ function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
   const jsonSource = JSON.stringify(breezeSource).replace(/</g, '\\u003c');
   const { title, metaTags, jsonLd } = extractSeoAndHead(breezeSource);
 
+  // Pre-render static HTML for instant SSG / FCP
+  let preRenderedHtml = '';
+  try {
+    const bzMod = require('./breeze.js');
+    const Breeze = bzMod.Breeze || bzMod;
+    if (Breeze && typeof Breeze.renderToString === 'function') {
+      preRenderedHtml = Breeze.renderToString(breezeSource);
+    }
+  } catch (_) {}
+
   let styleTag = '';
   if (css) {
     styleTag = `<style>\n${css}\n</style>`;
@@ -603,7 +613,16 @@ function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
 
   const mountScript = `<script>
 /* Breeze source — embedded at build time */
-(function(){ if(typeof Breeze!=='undefined') Breeze.mount(${jsonSource},'#app'); })();
+(function(){
+  if(typeof Breeze!=='undefined') {
+    var root = document.getElementById('app');
+    if (root && root.children && root.children.length > 0 && typeof Breeze.hydrate === 'function') {
+      Breeze.hydrate(${jsonSource},'#app');
+    } else {
+      Breeze.mount(${jsonSource},'#app');
+    }
+  }
+})();
 </script>`;
 
   let scriptTags = '';
@@ -636,7 +655,7 @@ function buildHTML({ breezeSource, css, js, doSpa, doMinify }) {
 ${headMetaHtml}${schemaScript}${css ? styleTag : '  <link rel="stylesheet" href="breeze.css">'}
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">${preRenderedHtml}</div>
 ${scriptTags}
 </body>
 </html>
@@ -768,16 +787,82 @@ function cmdServe(args) {
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// COMMAND: profile — Benchmark compiler, SSR & memory for a template
+// ═══════════════════════════════════════════════════════════════════════
+function cmdProfile(args) {
+  banner();
+  const file = args[0] || 'app.breeze';
+  const fullPath = path.resolve(file);
+  if (!fs.existsSync(fullPath)) {
+    err(`File not found: ${file}`);
+    process.exit(1);
+  }
+  const content = fs.readFileSync(fullPath, 'utf8');
+  log(`Profiling ${bold(file)} (${dim(formatSize(Buffer.byteLength(content, 'utf8')))})…\n`);
+
+  let Breeze;
+  try {
+    const bzMod = require('./breeze.js');
+    Breeze = bzMod.Breeze || bzMod;
+  } catch (e) {
+    err(`Could not load breeze.js: ${e.message}`);
+    process.exit(1);
+  }
+
+  // 1. Parser throughput
+  const ITERS = 100;
+  const { performance } = require('perf_hooks');
+  const t0 = performance.now();
+  let ast;
+  for (let i = 0; i < ITERS; i++) {
+    ast = Breeze.parse(content);
+  }
+  const parseMs = performance.now() - t0;
+  const avgParse = (parseMs / ITERS).toFixed(2);
+  const throughput = ((Buffer.byteLength(content, 'utf8') * ITERS / 1024 / 1024) / (parseMs / 1000)).toFixed(2);
+
+  ok(`Parser Speed:          ${bold(avgParse + ' ms/parse')}  ${dim(`(${throughput} MB/sec, ${ast.length} root AST nodes)`)}`);
+
+  // 2. SSR renderToString throughput
+  const t1 = performance.now();
+  let html = '';
+  for (let i = 0; i < ITERS; i++) {
+    html = Breeze.renderToString(ast);
+  }
+  const ssrMs = performance.now() - t1;
+  const avgSsr = (ssrMs / ITERS).toFixed(2);
+  ok(`SSR renderToString:    ${bold(avgSsr + ' ms/render')} ${dim(`(Output: ${formatSize(Buffer.byteLength(html, 'utf8'))})`)}`);
+
+  // 3. Memory snapshot
+  if (process.memoryUsage) {
+    const mem = process.memoryUsage();
+    ok(`Node Heap Used:        ${bold((mem.heapUsed / 1024 / 1024).toFixed(2) + ' MB')}`);
+  }
+  console.log('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// COMMAND: bench — Run benchmark suite
+// ═══════════════════════════════════════════════════════════════════════
+function cmdBench() {
+  banner();
+  log(`Running Breeze Performance Benchmark Suite…\n`);
+  require('./bench.js');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // HELP
 // ═══════════════════════════════════════════════════════════════════════
 function showHelp() {
   banner();
   console.log(`  ${bold('Usage:')}  breeze <command> [options]\n`);
   console.log(`  ${bold('Commands:')}`);
-  console.log(`    ${col('cyan', 'init')}  [name]              Scaffold a new project (alias: create)`);
-  console.log(`    ${col('cyan', 'dev')}   [port]              Start dev server with live reload (default: 3000)`);
-  console.log(`    ${col('cyan', 'build')} [file] [flags]      Build to dist/`);
-  console.log(`    ${col('cyan', 'serve')} [dir]  [port]       Serve a static directory (default: dist, port: 8080)`);
+  console.log(`    ${col('cyan', 'init')}    [name]            Scaffold a new project (alias: create)`);
+  console.log(`    ${col('cyan', 'dev')}     [port]            Start dev server with live reload (default: 3000)`);
+  console.log(`    ${col('cyan', 'build')}   [file] [flags]    Build to dist/`);
+  console.log(`    ${col('cyan', 'serve')}   [dir]  [port]     Serve a static directory (default: dist, port: 8080)`);
+  console.log(`    ${col('cyan', 'profile')} [file]            Profile parser, SSR throughput, and memory`);
+  console.log(`    ${col('cyan', 'bench')}                     Run the framework benchmark suite`);
   console.log('');
   console.log(`  ${bold('Build flags:')}`);
   console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML (single self-contained file)`);
@@ -790,6 +875,7 @@ function showHelp() {
   console.log(`  ${bold('Examples:')}`);
   console.log(`    breeze init my-app          ${dim('# scaffold + copy the runtime, ready to run')}`);
   console.log(`    breeze dev 4000`);
+  console.log(`    breeze profile app.breeze`);
   console.log(`    breeze build app.breeze --spa --minify`);
   console.log(`    breeze serve dist 9000`);
   console.log('');
@@ -825,10 +911,12 @@ if (typeof require !== 'undefined' && require.main === module) {
 
   switch (command) {
     case 'init':
-    case 'create': cmdInit(args);  break;
-    case 'dev':    cmdDev(args);   break;
-    case 'build':  cmdBuild(args); break;
-    case 'serve':  cmdServe(args); break;
+    case 'create':  cmdInit(args);    break;
+    case 'dev':     cmdDev(args);     break;
+    case 'build':   cmdBuild(args);   break;
+    case 'serve':   cmdServe(args);   break;
+    case 'profile': cmdProfile(args); break;
+    case 'bench':   cmdBench();       break;
     default:
       err(`Unknown command: ${bold(command)}`);
       console.log(`  Run ${col('cyan', 'breeze --help')} to see available commands.\n`);

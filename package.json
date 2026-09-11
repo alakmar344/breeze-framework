@@ -14,8 +14,11 @@
     "showcase:build": "node build-showcase.js",
     "start": "node breeze-cli.js serve dist",
     "test": "node --test",
-    "bench": "node bench.js"
+    "bench": "node bench.js",
+    "bench:public": "node benchmarks/krausest-runner.js",
+    "profile": "node breeze-cli.js profile"
   },
+  "types": "breeze.d.ts",
   "keywords": [
     "framework",
     "web",
@@ -27,6 +30,7 @@
   "license": "MIT",
   "files": [
     "breeze.js",
+    "breeze.d.ts",
     "breeze.css",
     "breeze-cli.js",
     "index.html",
