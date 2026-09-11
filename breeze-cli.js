@@ -213,8 +213,20 @@ node_modules/
 // ═══════════════════════════════════════════════════════════════════════
 function cmdDev(args) {
   banner();
-  const port  = parseInt(args[0]) || 3000;
-  const cwd   = process.cwd();
+  // Accept `dev [dir] [port]` in any order: a numeric arg is the port,
+  // a non-numeric arg is the root directory to serve.
+  let port = 3000;
+  let root = process.cwd();
+  for (const a of args) {
+    if (/^\d+$/.test(a)) port = parseInt(a, 10);
+    else root = path.resolve(a);
+  }
+  const cwd = root;
+
+  if (!fs.existsSync(cwd)) {
+    err(`Directory not found: ${cwd}`);
+    process.exit(1);
+  }
 
   // SSE client list — each entry is a ServerResponse
   const sseClients = [];
