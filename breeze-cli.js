@@ -668,12 +668,20 @@ ${scriptTags}
 // ─── Naïve minifiers (no external deps) ──────────────────────────────
 
 function minifyCSS(css) {
-  return css
+  // Preserve spaces inside calc()/min()/max()/clamp() where + - * / are load-bearing
+  // (e.g. `calc(100% - 2rem)` breaks as `calc(100%-2rem)`). Stash those parens first.
+  const stash = [];
+  const safe = String(css).replace(/(calc|min|max|clamp)\([^()]*\)/gi, m => {
+    stash.push(m);
+    return `__BZCALC${stash.length - 1}__`;
+  });
+  const min = safe
     .replace(/\/\*[\s\S]*?\*\//g, '')   // strip comments
     .replace(/\s{2,}/g, ' ')            // collapse whitespace
     .replace(/\s*([{};:,>~+])\s*/g, '$1')  // strip spaces around symbols
     .replace(/;\}/g, '}')               // remove trailing semicolons
     .trim();
+  return min.replace(/__BZCALC(\d+)__/g, (_, n) => stash[Number(n)]);
 }
 
 function minifyHTML(html) {

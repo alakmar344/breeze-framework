@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v1.0.0 — TypeScript Definitions
+ * Breeze Framework v1.1.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 
@@ -13,6 +13,7 @@ export interface BreezeStateController<T> {
   get(): T;
   set(value: T): void;
   watch(callback: (next: T, prev: T) => void): void;
+  signal: BreezeSignal<T>;
 }
 
 export interface AstNode {
@@ -20,6 +21,7 @@ export interface AstNode {
   tag?: string;
   id?: string | null;
   text?: string | null;
+  args?: string[];
   modifiers?: string[];
   children?: AstNode[];
   indent?: number;
@@ -27,6 +29,8 @@ export interface AstNode {
   value?: any;
   props?: Record<string, any>;
   target?: string | null;
+  name?: string;
+  params?: string[];
   itemVar?: string;
   listKey?: string;
   keyProp?: string;
@@ -62,9 +66,11 @@ export interface Router {
   params: Record<string, string>;
   query: Record<string, string>;
   setMode(mode: 'hash' | 'history'): Router;
-  beforeEach(guardFn: (to: string, from: string | null, next: (allow?: boolean) => void) => void): Router;
+  setOutlet(selector: string | null): Router;
+  reset(): Router;
+  beforeEach(guardFn: (to: string, from: string | null, next: (allow?: boolean | Promise<boolean>) => void) => void | boolean | Promise<boolean>): Router;
   init(): void;
-  route(pattern: string, handler: (path: string, params: Record<string, string>) => void): Router;
+  route(pattern: string, handler: (path: string, params: Record<string, string>, query?: Record<string, string>) => void | string | AstNode[] | Promise<any>): Router;
   navigate(path: string): void;
 }
 
@@ -154,7 +160,7 @@ export interface BreezeAPI {
 
   // Routing
   router: Router;
-  route(pattern: string, handler: (path: string, params: Record<string, string>) => void): BreezeAPI;
+  route(pattern: string, handler: (path: string, params: Record<string, string>, query?: Record<string, string>) => void | string | AstNode[] | Promise<any>): BreezeAPI;
   navigate(path: string): BreezeAPI;
 
   // Plugins

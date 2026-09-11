@@ -1,8 +1,8 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-1.1.0-6366f1?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
-[![Size](https://img.shields.io/badge/JS_size-~8KB-f59e0b?style=flat-square)](breeze.js)
+[![Size](https://img.shields.io/badge/JS_size-~24.6KB-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
 [![Demo](https://img.shields.io/badge/demo-live-22c55e?style=flat-square)](breeze-framework.vercel.app)
 
@@ -12,15 +12,15 @@
 
 ## ✨ Features
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, ~8.2 KB gzipped
-- 📝 **Declarative `.breeze` syntax** — clean indentation-based markup, `@def` components, and `@slot` projections
-- ⚡ **Fine-grained reactive signals** — `Breeze.signal()`, `computed()`, `effect()`, and `batch()` for instant O(1) updates
-- 🔁 **Keyed reconciliation** — template-cloned list diffing (`@each item in list [key=id]`)
-- 🛣️ **Client router** — HTML5 History & Hash SPA modes with parameter matching (`:id`) and navigation guards
-- 🖥️ **Zero-dependency SSR & Hydration** — `Breeze.renderToString()` and `Breeze.hydrate()`
+- 🚀 **Zero dependencies** — one `breeze.js` file, ~24.6 KB gzipped (113.2 KB raw, 20.7 KB Brotli; v1.1.0 shipped file with if/elif/else chains, component params, SSR parity, portable router, non-destructive hydrate)
+- 📝 **Declarative `.breeze` syntax** — clean indentation-based markup, `@def` components with params, and `@slot` projections
+- ⚡ **Fine-grained reactive signals** — `Breeze.signal()`, `computed()`, disposable `effect()`, and nested `batch()` with cycle-guarded store computeds
+- 🔁 **Keyed reconciliation** — template-cloned list diffing (`@each item in list [key=id]`) with append fast-path, duplicate-key warnings, structural fallback
+- 🛣️ **Client router** — Hash & History modes, `:id`/`:id?`/`*` patterns, outlet rendering, sync+async guards, decoded params/query
+- 🖥️ **Zero-dependency SSR & Hydration** — `Breeze.renderToString()` with client parity (chains/components/ids/attrs) and non-destructive `Breeze.hydrate()`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
-- 🎨 **Complete design system** — 50+ utility classes, dark mode, responsive layout primitives
-- 📊 **Empirical Multi-Suite Benchmarks** — 4.6× faster updates than React 18, 64× faster row deletion, 58 FPS continuous DBMonster animations, 8.1× leaner memory heap
+- 🎨 **Complete design system** — 50+ utility classes, dark mode, responsive primitives, `color-mix` fallbacks, reduced-motion
+- 📊 **Empirical Multi-Suite Benchmarks (v1.1.0 rerun, median-of-2)** — 4.1× faster updates than React 18, 6.6× faster row deletion, 31.6 FPS DBMonster (2.3× React), 11.7× leaner heap — see `benchmark.md` (v1.0.0 baselines: 4.6×/64×/58.3 FPS/8.1×)
 
 ---
 
@@ -448,10 +448,10 @@ breeze serve dist 9000
 
 | Feature | Breeze | React | Svelte | Vue | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size | ~8.2 KB | ~45 KB | ~10 KB | ~35 KB | 0 |
+| Bundle size | ~24.6 KB gzip | ~45 KB | ~10 KB | ~35 KB | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
-| Reactive state | ✅ Signals | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
-| Client routing | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Reactive state | ✅ Signals (disposable effects) | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
+| Client routing | ✅ (hash/history, `:id`/`:id?`/`*`, outlet, async guards) | ✅ | ❌ | ❌ | ❌ |
 | Design system | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Learning time | Minutes | Days | Hours | Hours | N/A |
 | Dependencies | 0 | ~1500 | ~200 | ~300 | 0 |

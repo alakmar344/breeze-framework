@@ -1,167 +1,57 @@
 {
-  "metadata": {
-    "date": "2026-09-11T07:34:22.789Z",
-    "platform": "Windows_NT 10.0.19045 x64",
-    "cpu": "Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz",
-    "node": "v24.18.0",
-    "browser": "Google Chrome (Headless CDP)"
+  "breeze": {
+    "create1000": 877.8,
+    "update10th": 15.4,
+    "selectRow": 20.5,
+    "swapRows": 608.85,
+    "deleteRow": 11.7,
+    "append1000": 977.9,
+    "clearRows": 69.35,
+    "create10000": 8145.1,
+    "heapUsedKB": 2478.5
   },
-  "bundle": {
-    "breeze": {
-      "name": "Breeze Framework",
-      "rawKB": 76.56,
-      "gzipKB": 16.3,
-      "brotliKB": 14.05,
-      "dependencies": 0,
-      "transitiveDeps": 0,
-      "parseLatencyMs": 0.158
-    },
-    "preact": {
-      "name": "Preact 10 (Core)",
-      "rawKB": 11.07,
-      "gzipKB": 4.69,
-      "brotliKB": 4.28,
-      "dependencies": 0,
-      "transitiveDeps": 0,
-      "parseLatencyMs": 0.068
-    },
-    "vue": {
-      "name": "Vue 3 (Prod Global)",
-      "rawKB": 154.23,
-      "gzipKB": 56.38,
-      "brotliKB": 50.28,
-      "dependencies": 0,
-      "transitiveDeps": 350,
-      "parseLatencyMs": 0.574
-    },
-    "react": {
-      "name": "React 18 + ReactDOM",
-      "rawKB": 139.54,
-      "gzipKB": 45.8,
-      "brotliKB": 39.35,
-      "dependencies": 0,
-      "transitiveDeps": 1400,
-      "parseLatencyMs": 0.388
-    }
+  "vanillajs": {
+    "create1000": 1229.25,
+    "update10th": 67.45,
+    "selectRow": 26.55,
+    "swapRows": 79.8,
+    "deleteRow": 535.1,
+    "append1000": 765.4,
+    "clearRows": 83.55,
+    "create10000": 9038.8,
+    "heapUsedKB": 3359.8
   },
-  "ssr": {
-    "Breeze SSR (pre-parsed AST)": {
-      "elapsedMs": 891.8,
-      "opsPerSec": 1121,
-      "meanLatencyUs": 891.8,
-      "htmlBytes": 2053
-    },
-    "Breeze SSR (raw DSL string)": {
-      "elapsedMs": 1016.9,
-      "opsPerSec": 983,
-      "meanLatencyUs": 1016.9,
-      "htmlBytes": 2053
-    },
-    "Virtual DOM Serializer (Preact-style)": {
-      "elapsedMs": 68.5,
-      "opsPerSec": 14591,
-      "meanLatencyUs": 68.5,
-      "htmlBytes": 2289
-    },
-    "Native JS Template Literals": {
-      "elapsedMs": 8.4,
-      "opsPerSec": 118395,
-      "meanLatencyUs": 8.4,
-      "htmlBytes": 2278
-    }
+  "preact": {
+    "create1000": 1021.5,
+    "update10th": 99.9,
+    "selectRow": 69.35,
+    "swapRows": 143.05,
+    "deleteRow": 148.1,
+    "append1000": 854.4,
+    "clearRows": 78.45,
+    "create10000": 9140.65,
+    "heapUsedKB": 15925.8
   },
-  "dbmonster": {
-    "breeze": {
-      "fps": 58.3,
-      "avgFrameTimeMs": 17.15,
-      "droppedFrames": 47,
-      "totalElapsedMs": 1896.3,
-      "heapUsedKB": 3059.6
-    },
-    "vanillajs": {
-      "fps": 20.8,
-      "avgFrameTimeMs": 48.14,
-      "droppedFrames": 99,
-      "totalElapsedMs": 4961.6,
-      "heapUsedKB": 1330.8
-    },
-    "preact": {
-      "fps": 20,
-      "avgFrameTimeMs": 49.97,
-      "droppedFrames": 99,
-      "totalElapsedMs": 5156.1,
-      "heapUsedKB": 1740.8
-    },
-    "vue": {
-      "fps": 18.3,
-      "avgFrameTimeMs": 54.77,
-      "droppedFrames": 99,
-      "totalElapsedMs": 5625.4,
-      "heapUsedKB": 5175.9
-    },
-    "react": {
-      "fps": 20,
-      "avgFrameTimeMs": 49.95,
-      "droppedFrames": 99,
-      "totalElapsedMs": 5188.3,
-      "heapUsedKB": 2288.2
-    }
+  "vue": {
+    "create1000": 840.15,
+    "update10th": 79.05,
+    "selectRow": 17,
+    "swapRows": 73.85,
+    "deleteRow": 102.35,
+    "append1000": 644.6,
+    "clearRows": 75.85,
+    "create10000": 7933.7,
+    "heapUsedKB": 36032.3
   },
-  "krausest": {
-    "breeze": {
-      "create1000": 539,
-      "update10th": 12.4,
-      "selectRow": 12.7,
-      "swapRows": 420.9,
-      "deleteRow": 1.1,
-      "append1000": 688.6,
-      "clearRows": 54.6,
-      "create10000": 5482.5,
-      "heapUsedKB": 2424.9
-    },
-    "vanillajs": {
-      "create1000": 893.9,
-      "update10th": 48.3,
-      "selectRow": 25.5,
-      "swapRows": 46.4,
-      "deleteRow": 117.4,
-      "append1000": 483.8,
-      "clearRows": 55.1,
-      "create10000": 6596.4,
-      "heapUsedKB": 1813.1
-    },
-    "preact": {
-      "create1000": 794.3,
-      "update10th": 116.1,
-      "selectRow": 53.4,
-      "swapRows": 95.3,
-      "deleteRow": 97.1,
-      "append1000": 590.1,
-      "clearRows": 75.2,
-      "create10000": 7271.3,
-      "heapUsedKB": 15474.5
-    },
-    "vue": {
-      "create1000": 573.2,
-      "update10th": 72.6,
-      "selectRow": 32.8,
-      "swapRows": 58,
-      "deleteRow": 81.1,
-      "append1000": 479.2,
-      "clearRows": 64.3,
-      "create10000": 5814,
-      "heapUsedKB": 17240.3
-    },
-    "react": {
-      "create1000": 580.4,
-      "update10th": 56.7,
-      "selectRow": 14.1,
-      "swapRows": 452.5,
-      "deleteRow": 71.1,
-      "append1000": 423,
-      "clearRows": 78.3,
-      "create10000": 6735.4,
-      "heapUsedKB": 19621.6
-    }
+  "react": {
+    "create1000": 867.65,
+    "update10th": 62.85,
+    "selectRow": 12.95,
+    "swapRows": 417.25,
+    "deleteRow": 76.7,
+    "append1000": 584.55,
+    "clearRows": 98.9,
+    "create10000": 12923.3,
+    "heapUsedKB": 28908.9
   }
 }

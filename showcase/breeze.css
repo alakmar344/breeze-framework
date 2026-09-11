@@ -306,16 +306,25 @@ em       { font-style: italic; }
   align-items: center;
   justify-content: center;
   text-align: center;
+  /* Fallback for Safari < 16.2 / older browsers without color-mix */
+  background: linear-gradient(135deg, var(--bz-bg) 0%, var(--bz-bg-alt) 100%);
   background: linear-gradient(135deg, var(--bz-bg) 0%, color-mix(in srgb, var(--bz-primary) 5%, var(--bz-bg)) 100%);
   padding: var(--bz-space-xl) var(--bz-space-lg);
 }
 .bz-hero h1 {
   font-size: clamp(2.5rem, 7vw, 5rem);
+  /* Solid-ink fallback when background-clip:text is unsupported */
+  color: var(--bz-primary);
   background: linear-gradient(135deg, var(--bz-primary), var(--bz-secondary));
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 1.5rem;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .bz-hero h1 {
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
 }
 .bz-hero p   { font-size: var(--bz-font-size-lg); color: var(--bz-muted); max-width: 60ch; }
 .bz-hero .bz-btn-group,
@@ -436,6 +445,8 @@ button.bz-btn {
    ════════════════════════════════════════════════════════════════ */
 .bz-hover-lift:hover  { transform: translateY(-4px); box-shadow: var(--bz-shadow-lg); }
 .bz-hover-scale:hover { transform: scale(1.03); }
+/* Fallback glow without color-mix, then enhanced version */
+.bz-hover-glow:hover  { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
 .bz-hover-glow:hover  { box-shadow: 0 0 20px color-mix(in srgb, var(--bz-primary) 40%, transparent); }
 
 

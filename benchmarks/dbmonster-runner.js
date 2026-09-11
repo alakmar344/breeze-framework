@@ -61,8 +61,37 @@ async function runDbMonsterBenchmark() {
   console.log('================================================================');
   console.log(`Test server running on http://127.0.0.1:${PORT}`);
 
-  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-  const profileDir = 'C:\\Users\\proma\\AppData\\Local\\Temp\\chrome-dbmonster-profile';
+  const os = require('os');
+  function resolveChromePath() {
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+    const candidates = [
+      process.env.CHROME_BIN,
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const c of candidates) {
+      try { if (fs.existsSync(c)) return c; } catch (_) {}
+    }
+    try {
+      const { execSync } = require('child_process');
+      const cmd = process.platform === 'win32' ? 'where chrome' : 'which google-chrome || which chromium || which chromium-browser || which chrome';
+      const out = execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (out.length) return out[0];
+    } catch (_) {}
+    return candidates[1];
+  }
+
+  const chromePath = resolveChromePath();
+  const profileDir = path.join(os.tmpdir(), 'chrome-dbmonster-profile');
+  if (!fs.existsSync(chromePath)) {
+    console.error(`Chrome not found at ${chromePath}. Set CHROME_PATH env var.`);
+    process.exit(1);
+  }
   if (fs.existsSync(profileDir)) {
     try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (_) {}
   }

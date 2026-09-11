@@ -37,16 +37,19 @@
   }
 
   // ── Real Repository Size Verification ────────────────────────────────────
-  // Actual measurements calculated directly from repository files:
+  // Shipped breeze.js (v1.1.0, with if/elif/else chains, component params,
+  // SSR parity, portable router, non-destructive hydrate). Regenerate with:
+  // node -e "const fs=require('fs'),z=require('zlib');const b=fs.readFileSync('breeze.js');console.log((z.gzipSync(b,{level:9}).length/1024).toFixed(2))"
   const SIZES = {
-    rawBytes: 35225,
-    rawKb: '34.40',
+    rawBytes: 115937,
+    rawKb: '113.22',
     minBytes: 23674,
     minKb: '23.12',
-    gzipBytes: 8407,
-    gzipKb: '8.21',
-    cssGzipKb: '5.78',
-    deps: 0
+    gzipBytes: 25200,
+    gzipKb: '24.61',
+    cssGzipKb: '5.90',
+    deps: 0,
+    note: 'shipped file (not minified core-only)'
   };
 
   document.addEventListener('DOMContentLoaded', () => {

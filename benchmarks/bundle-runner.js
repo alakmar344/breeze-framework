@@ -21,21 +21,25 @@ const frameworks = [
     id: 'breeze',
     file: path.join(rootDir, 'breeze.js'),
     dependencies: 0,
-    npmTransitiveEstimate: 0
+    // Measured: core has zero require()/import of external packages (verified by grep).
+    npmTransitiveEstimate: 0,
+    npmTransitiveNote: 'measured (zero require/import)'
   },
   {
     name: 'Preact 10 (Core)',
     id: 'preact',
     file: path.join(vendorDir, 'preact.umd.js'),
     dependencies: 0,
-    npmTransitiveEstimate: 0
+    npmTransitiveEstimate: 0,
+    npmTransitiveNote: 'measured (vendored file, no bundled deps)'
   },
   {
     name: 'Vue 3 (Prod Global)',
     id: 'vue',
     file: path.join(vendorDir, 'vue.global.prod.js'),
     dependencies: 0,
-    npmTransitiveEstimate: 350
+    npmTransitiveEstimate: 350,
+    npmTransitiveNote: 'estimate (npm install vue dev tree, not bundled payload)'
   },
   {
     name: 'React 18 + ReactDOM',
@@ -45,7 +49,8 @@ const frameworks = [
       path.join(vendorDir, 'react-dom.production.min.js')
     ],
     dependencies: 0,
-    npmTransitiveEstimate: 1400
+    npmTransitiveEstimate: 1400,
+    npmTransitiveNote: 'estimate (npm install react+react-dom dev tree, not bundled payload)'
   }
 ];
 
@@ -78,6 +83,7 @@ function analyzeFramework(fw) {
     brotliKB: parseFloat((brotli.length / 1024).toFixed(2)),
     dependencies: fw.dependencies,
     transitiveDeps: fw.npmTransitiveEstimate,
+    transitiveNote: fw.npmTransitiveNote || '',
     parseLatencyMs: parseFloat(parseMs.toFixed(3))
   };
 }
@@ -97,7 +103,7 @@ function runBundleBenchmark() {
     console.log(`  • Gzip Size:      ${data.gzipKB.toString().padStart(6)} KB`);
     console.log(`  • Brotli Size:    ${data.brotliKB.toString().padStart(6)} KB`);
     console.log(`  • V8 Parse Time:  ${data.parseLatencyMs.toString().padStart(6)} ms`);
-    console.log(`  • npm Deps:       ${data.dependencies} (Transitive ~${data.transitiveDeps})`);
+    console.log(`  • npm Deps:       ${data.dependencies} (Transitive ~${data.transitiveDeps} — ${data.transitiveNote})`);
     console.log('');
   }
 

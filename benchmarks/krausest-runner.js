@@ -66,8 +66,40 @@ async function main() {
   console.log(`================================================================`);
   console.log(`Local test server running on port ${PORT}`);
 
-  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-  const profileDir = 'C:\\Users\\proma\\AppData\\Local\\Temp\\chrome-krausest-profile';
+  const os = require('os');
+  const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '3', 10) || 3;
+
+  function resolveChromePath() {
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+    const candidates = [
+      process.env.CHROME_BIN,
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].filter(Boolean);
+    for (const c of candidates) {
+      try { if (fs.existsSync(c)) return c; } catch (_) {}
+    }
+    // PATH lookup
+    try {
+      const { execSync } = require('child_process');
+      const cmd = process.platform === 'win32' ? 'where chrome' : 'which google-chrome || which chromium || which chromium-browser || which chrome';
+      const out = execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (out.length) return out[0];
+    } catch (_) {}
+    return candidates[1];
+  }
+
+  const chromePath = resolveChromePath();
+  const profileDir = path.join(os.tmpdir(), 'chrome-krausest-profile');
+  if (!fs.existsSync(chromePath)) {
+    console.error(`Chrome not found at ${chromePath}. Set CHROME_PATH env var to your Chrome/Chromium binary.`);
+    process.exit(1);
+  }
   if (fs.existsSync(profileDir)) {
     try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (_) {}
   }
@@ -145,47 +177,79 @@ async function main() {
     await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/${fw}/index.html` });
     await new Promise(r => setTimeout(r, 800));
 
-    // Warmup
+    // Warmup (2 rounds, unmeasured variance stabilization)
+    await measureAction(`document.getElementById('run').click()`);
+    await measureAction(`document.getElementById('clear').click()`);
     await measureAction(`document.getElementById('run').click()`);
     await measureAction(`document.getElementById('clear').click()`);
 
-    // Workload 1: Create 1,000 rows
-    const create1k = await measureAction(`document.getElementById('run').click()`);
-    console.log(`  ✔ Create 1,000 rows:      ${create1k.toFixed(2).padStart(6)} ms`);
+    const median = (arr) => {
+      const s = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(s.length / 2);
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    };
+    const stddev = (arr) => {
+      if (arr.length < 2) return 0;
+      const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+      return Math.sqrt(arr.reduce((a, b) => a + (b - m) * (b - m), 0) / (arr.length - 1));
+    };
+    // Median-of-RUNS with rAF+setTimeout paint timing (note: rAF callback ≠ guaranteed paint)
+    async function measureMedian(expr, { reset = null } = {}) {
+      const samples = [];
+      for (let r = 0; r < RUNS; r++) {
+        samples.push(await measureAction(expr));
+        if (reset) await measureAction(reset);
+      }
+      return { median: median(samples), sd: stddev(samples), samples };
+    }
 
-    // Workload 2: Update every 10th row
-    const update10th = await measureAction(`document.getElementById('update').click()`);
-    console.log(`  ✔ Update every 10th row:  ${update10th.toFixed(2).padStart(6)} ms`);
+    // Workload 1: Create 1,000 rows
+    const create1kR = await measureMedian(`document.getElementById('run').click()`, { reset: `document.getElementById('clear').click()` });
+    const create1k = create1kR.median;
+    console.log(`  ✔ Create 1,000 rows:      ${create1k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${create1kR.sd.toFixed(2)})`);
+
+    // Workload 2: Update every 10th row (needs rows present)
+    await measureAction(`document.getElementById('run').click()`);
+    const update10thR = await measureMedian(`document.getElementById('update').click()`);
+    const update10th = update10thR.median;
+    console.log(`  ✔ Update every 10th row:  ${update10th.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${update10thR.sd.toFixed(2)})`);
 
     // Workload 3: Select a row (row 5)
-    const selectRow = await measureAction(`
+    const selectRowR = await measureMedian(`
       const lbl = document.querySelectorAll('.lbl')[4];
       if (lbl) lbl.click();
     `);
-    console.log(`  ✔ Select row:             ${selectRow.toFixed(2).padStart(6)} ms`);
+    const selectRow = selectRowR.median;
+    console.log(`  ✔ Select row:             ${selectRow.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${selectRowR.sd.toFixed(2)})`);
 
     // Workload 4: Swap rows (row 4 and 997)
-    const swapRows = await measureAction(`document.getElementById('swaprows').click()`);
-    console.log(`  ✔ Swap rows 4 & 997:      ${swapRows.toFixed(2).padStart(6)} ms`);
+    const swapRowsR = await measureMedian(`document.getElementById('swaprows').click()`);
+    const swapRows = swapRowsR.median;
+    console.log(`  ✔ Swap rows 4 & 997:      ${swapRows.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${swapRowsR.sd.toFixed(2)})`);
 
     // Workload 5: Delete row
-    const deleteRow = await measureAction(`
+    const deleteRowR = await measureMedian(`
       const rm = document.querySelectorAll('.remove')[10];
       if (rm) rm.click();
     `);
-    console.log(`  ✔ Delete single row:      ${deleteRow.toFixed(2).padStart(6)} ms`);
+    const deleteRow = deleteRowR.median;
+    console.log(`  ✔ Delete single row:      ${deleteRow.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${deleteRowR.sd.toFixed(2)})`);
 
     // Workload 6: Append 1,000 rows
-    const append1k = await measureAction(`document.getElementById('add').click()`);
-    console.log(`  ✔ Append 1,000 rows:      ${append1k.toFixed(2).padStart(6)} ms`);
+    const append1kR = await measureMedian(`document.getElementById('add').click()`);
+    const append1k = append1kR.median;
+    console.log(`  ✔ Append 1,000 rows:      ${append1k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${append1kR.sd.toFixed(2)})`);
 
     // Workload 7: Clear rows
-    const clearRows = await measureAction(`document.getElementById('clear').click()`);
-    console.log(`  ✔ Clear rows:             ${clearRows.toFixed(2).padStart(6)} ms`);
+    const clearRowsR = await measureMedian(`document.getElementById('clear').click()`, { reset: `document.getElementById('run').click()` });
+    const clearRows = clearRowsR.median;
+    console.log(`  ✔ Clear rows:             ${clearRows.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${clearRowsR.sd.toFixed(2)})`);
+    await measureAction(`document.getElementById('clear').click()`);
 
     // Workload 8: Create 10,000 rows
-    const create10k = await measureAction(`document.getElementById('runlots').click()`);
-    console.log(`  ✔ Create 10,000 rows:     ${create10k.toFixed(2).padStart(6)} ms`);
+    const create10kR = await measureMedian(`document.getElementById('runlots').click()`, { reset: `document.getElementById('clear').click()` });
+    const create10k = create10kR.median;
+    console.log(`  ✔ Create 10,000 rows:     ${create10k.toFixed(2).padStart(6)} ms (median of ${RUNS}, sd ${create10kR.sd.toFixed(2)})`);
 
     // Memory metrics
     const perf = await send('Performance.getMetrics');
