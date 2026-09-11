@@ -25,7 +25,17 @@
 
 ## ⚡ Quick Start
 
-### Option A — CDN (fastest)
+### Option A — One Command (fastest)
+
+```bash
+npx breeze-framework init my-app
+cd my-app
+npm run dev
+```
+
+The CLI scaffolds a complete, ready-to-run project with all necessary files and copies the runtime. Open <http://localhost:3000> in your browser — edit `app.breeze` and the page reloads live.
+
+### Option B — CDN (minimal setup)
 
 ```html
 <!DOCTYPE html>
@@ -34,11 +44,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My App</title>
-  <link rel="stylesheet" href="breeze.css">
+  <link rel="stylesheet" href="https://unpkg.com/breeze-framework/breeze.css">
 </head>
 <body>
   <div id="app"></div>
-  <script src="breeze.js"></script>
+  <script src="https://unpkg.com/breeze-framework/breeze.js"></script>
   <script>Breeze.init('app.breeze', '#app');</script>
 </body>
 </html>
@@ -71,17 +81,6 @@ Then write your `app.breeze`:
 @footer [dark]
   p "© 2026 My App"
 ```
-
-### Option B — CLI
-
-```bash
-npx breeze-framework init my-app
-cd my-app
-# Copy breeze.js and breeze.css into the folder, then:
-npx breeze-framework dev
-```
-
-Open <http://localhost:3000> and start editing `app.breeze` — the browser reloads automatically.
 
 ---
 
@@ -341,35 +340,44 @@ Breeze.plugin('myPlugin', {
 
 ## 🛠️ CLI Reference
 
-### `breeze init [name]`
+### `breeze init [name]` / `breeze create [name]`
 
-Scaffold a new project:
+Scaffold a new project with all necessary files and runtimes:
 
 ```bash
 breeze init my-app
 cd my-app
+npm run dev
 ```
 
-Creates:
+Instantly creates and populates:
 - `index.html` — bootstrapper
 - `app.breeze` — starter template
 - `package.json` — project manifest
+- `breeze.js` & `breeze.css` — runtime (ready to use)
+- `.gitignore` — sensible defaults
+
+The project is **immediately runnable** — no manual copying of runtime files required.
 
 ---
 
-### `breeze dev [port]`
+### `breeze dev [dir] [port]`
 
 Start a development server with **live reload** (default port: 3000):
 
 ```bash
-breeze dev
-breeze dev 4000
+breeze dev              # serve current directory on :3000
+breeze dev 4000        # serve current directory on :4000
+breeze dev showcase    # serve the 'showcase' directory on :3000
+breeze dev showcase 5000  # serve 'showcase' on :5000 (args in any order)
 ```
 
+Features:
 - Serves all static files with correct MIME types
 - Watches `.html`, `.breeze`, `.css`, `.js` for changes
 - Injects a **Server-Sent Events** live-reload script into HTML responses
 - SPA fallback — unknown paths serve `index.html`
+- Directory argument is optional; numeric args are treated as port numbers
 
 ---
 
@@ -486,6 +494,40 @@ breeze-framework/
 4. Open a pull request
 
 Please keep the zero-dependency rule — **no `npm install` for core files**.
+
+---
+
+## 🔧 Troubleshooting
+
+### Elements render in the wrong place
+
+**Cause:** Tabs used for indentation instead of spaces.
+
+Breeze uses **2 spaces per level**. Tabs and spaces mixed together cause silent nesting errors.
+
+**Fix:** Check your `.breeze` file — editor settings or pasted code may have introduced tabs. Convert all indentation to 2-space sequences.
+
+---
+
+### `--minify` produces broken output
+
+**Fixed in v1.0.1+:** Earlier versions had a bug where minified HTML collapsed whitespace inside `<script>` tags, breaking inlined JavaScript (particularly trailing `//` comments).
+
+If upgrading from an older version, rebuild with `--spa --minify`.
+
+---
+
+### Parser warnings about malformed directives
+
+Breeze emits clear, line-numbered warnings if your `.breeze` syntax is off:
+
+```
+[Breeze] Line 12: tab indentation detected.
+[Breeze] Line 15: Malformed @state: "@state count = [1,2,3]". Expected: @state name = value
+[Breeze] Line 8: @theme block is missing a closing "}"
+```
+
+Fix the indicated line; the parser tries to recover but invalid syntax may cause partial or incorrect output.
 
 ---
 
