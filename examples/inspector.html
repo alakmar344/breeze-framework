@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breeze Framework — Reactive Graph Inspector & DevTools</title>
+  <link rel="stylesheet" href="../breeze.css">
+  <style>
+    :root {
+      --app-bg: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --sig-color: #3b82f6; /* Signal: Blue */
+      --comp-color: #8b5cf6; /* Computed: Purple */
+      --eff-color: #10b981; /* Effect: Emerald */
+      --cycle-color: #ef4444; /* Cycle: Red */
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--app-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 0.85rem 1.5rem;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      background: #4154f1;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    button.btn {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+    button.btn:hover {
+      background: #475569;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    button.btn-primary {
+      background: #4154f1;
+      border-color: #4154f1;
+      color: #fff;
+    }
+    button.btn-primary:hover {
+      background: #3444cf;
+    }
+    button.btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+    button.btn-danger:hover {
+      background: rgba(239, 68, 68, 0.4);
+    }
+
+    /* Main layout: left control pane, center graph SVG, right detail pane */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section h3 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.825rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .interactive-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .demo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+
+    .graph-viewport {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      overflow: hidden;
+    }
+
+    svg#graph-svg {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    svg#graph-svg:active {
+      cursor: grabbing;
+    }
+
+    .cycle-banner {
+      position: absolute;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(239, 68, 68, 0.9);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      z-index: 20;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.02); }
+    }
+
+    .node-details {
+      width: 320px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--border);
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .node-details h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .detail-prop {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.825rem;
+    }
+    .detail-prop label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+    }
+    .detail-prop pre {
+      margin: 0;
+      padding: 0.5rem;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* SVG elements styling */
+    .graph-edge {
+      stroke: #64748b;
+      stroke-width: 2;
+      transition: stroke 0.2s ease, stroke-width 0.2s ease;
+      marker-end: url(#arrow);
+    }
+    .graph-edge.edge-cycle {
+      stroke: var(--cycle-color);
+      stroke-width: 3;
+      marker-end: url(#arrow-cycle);
+    }
+    .graph-node {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .graph-node:hover rect {
+      stroke-width: 2.5;
+    }
+    .graph-node rect {
+      rx: 8;
+      ry: 8;
+      transition: stroke 0.2s ease, fill 0.2s ease;
+    }
+    .graph-node text {
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Table Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 2rem;
+    }
+    .modal-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.825rem;
+      font-family: var(--font-mono);
+    }
+    table.data-table th, table.data-table td {
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.data-table th {
+      background: #0f172a;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>Breeze Reactive Inspector</h1>
+      <span class="badge">DevTools Groundwork</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="btn-view-table">📊 Summary Table</button>
+      <button class="btn" id="btn-refresh">🔄 Re-layout</button>
+      <button class="btn btn-danger" id="btn-reset-graph">🧹 Reset Graph</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Sidebar: Interactive State Demo & Legend -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3>Node Legend</h3>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background: var(--sig-color);"></span>
+            <span><strong>Signal</strong> (State source)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background: var(--comp-color);"></span>
+            <span><strong>Computed</strong> (Pure derived state)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background: var(--eff-color);"></span>
+            <span><strong>Effect</strong> (Side-effect runner)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background: var(--cycle-color);"></span>
+            <span><strong>Cycle</strong> (Detected infinite loop)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Interactive Demo State</h3>
+        <div class="interactive-demo">
+          <div class="demo-row">
+            <span>Base Count:</span>
+            <button class="btn btn-primary" id="btn-inc-count">Increment count</button>
+          </div>
+          <div class="demo-row">
+            <span>Multiplier:</span>
+            <button class="btn" id="btn-inc-mult">× Multiplier</button>
+          </div>
+          <div class="demo-row">
+            <span>Show Bonus:</span>
+            <button class="btn" id="btn-toggle-branch">Toggle Branch</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Graph Metrics</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Active Nodes:</span>
+            <strong id="metric-nodes">0</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Dependency Edges:</span>
+            <strong id="metric-edges">0</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Cycles Detected:</span>
+            <strong id="metric-cycles" style="color: var(--eff-color);">None (DAG)</strong>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Interactive SVG Graph Viewport -->
+    <main class="graph-viewport" id="viewport">
+      <div class="cycle-banner" id="cycle-alert">
+        <span>⚠️</span>
+        <span id="cycle-msg">Dependency Cycle Detected!</span>
+      </div>
+
+      <svg id="graph-svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" />
+          </marker>
+          <marker id="arrow-cycle" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
+          </marker>
+        </defs>
+        <g id="edges-group"></g>
+        <g id="nodes-group"></g>
+      </svg>
+    </main>
+
+    <!-- Right: Selected Node Details -->
+    <aside class="node-details">
+      <h3>Node Inspector</h3>
+      <div id="no-node-selected" style="color: var(--text-muted); font-size: 0.85rem;">
+        Click any node in the dependency graph to inspect its properties and dependencies.
+      </div>
+      <div id="node-info" style="display: none; flex-direction: column; gap: 1rem;">
+        <div class="detail-prop">
+          <label>ID</label>
+          <pre id="detail-id"></pre>
+        </div>
+        <div class="detail-prop">
+          <label>Label</label>
+          <pre id="detail-label"></pre>
+        </div>
+        <div class="detail-prop">
+          <label>Type</label>
+          <pre id="detail-type"></pre>
+        </div>
+        <div class="detail-prop">
+          <label>Current Value</label>
+          <pre id="detail-value"></pre>
+        </div>
+        <div class="detail-prop">
+          <label>Dependencies (Upstream)</label>
+          <pre id="detail-deps"></pre>
+        </div>
+        <div class="detail-prop">
+          <label>Dependents (Downstream)</label>
+          <pre id="detail-dependents"></pre>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal: Diagnostics Table Summary -->
+  <div class="modal-overlay" id="table-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="margin: 0; font-size: 1.1rem;">Breeze.diagnostics.table()</h3>
+        <button class="btn" id="btn-close-modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <table class="data-table" id="summary-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Label</th>
+              <th>Value</th>
+              <th>Dependencies</th>
+              <th>Dependents</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breeze Framework Single-File Distribution -->
+  <script src="../breeze.js"></script>
+
+  <script>
+    // ── 1. Setup Demo Signals & Reactivity ──────────────────────────────
+    let countSig, multSig, showBonusSig, bonusSig, totalComputed, loggerEffect;
+    let selectedNodeId = null;
+
+    function initDemoState() {
+      // Clear previous graph
+      if (Breeze.diagnostics && Breeze.diagnostics.reset) {
+        Breeze.diagnostics.reset();
+      }
+
+      countSig = Breeze.signal(10, 'count');
+      multSig = Breeze.signal(2, 'multiplier');
+      showBonusSig = Breeze.signal(true, 'showBonus');
+      bonusSig = Breeze.signal(5, 'bonus');
+
+      totalComputed = Breeze.computed(() => {
+        const base = countSig.value * multSig.value;
+        if (showBonusSig.value) {
+          return base + bonusSig.value;
+        }
+        return base;
+      }, 'total');
+
+      loggerEffect = Breeze.effect(() => {
+        const val = totalComputed.value;
+      }, 'renderLogger');
+    }
+
+    initDemoState();
+
+    // ── 2. Graph Layout & SVG Renderer ─────────────────────────────────
+    const svg = document.getElementById('graph-svg');
+    const edgesGroup = document.getElementById('edges-group');
+    const nodesGroup = document.getElementById('nodes-group');
+    const cycleAlert = document.getElementById('cycle-alert');
+    const cycleMsg = document.getElementById('cycle-msg');
+
+    function renderGraph() {
+      const graph = (window.__BREEZE_DEVTOOLS__ && window.__BREEZE_DEVTOOLS__.getGraph)
+        ? window.__BREEZE_DEVTOOLS__.getGraph()
+        : Breeze.diagnostics.graph();
+
+      // Metrics
+      document.getElementById('metric-nodes').textContent = graph.nodes.length;
+      document.getElementById('metric-edges').textContent = graph.edges.length;
+
+      if (graph.hasCycle) {
+        document.getElementById('metric-cycles').textContent = `Cycle Detected (${graph.cycles.length})`;
+        document.getElementById('metric-cycles').style.color = 'var(--cycle-color)';
+        cycleAlert.style.display = 'flex';
+        cycleMsg.textContent = `Infinite Dependency Cycle: ${graph.cycles[0].join(' → ')}`;
+      } else {
+        document.getElementById('metric-cycles').textContent = 'None (DAG)';
+        document.getElementById('metric-cycles').style.color = 'var(--eff-color)';
+        cycleAlert.style.display = 'none';
+      }
+
+      // Layer nodes: Group by type (signals on left, computeds in center, effects on right)
+      const layers = { signal: [], computed: [], effect: [] };
+      graph.nodes.forEach(node => {
+        if (layers[node.type]) layers[node.type].push(node);
+        else (layers.other = layers.other || []).push(node);
+      });
+
+      const width = svg.clientWidth || 800;
+      const height = svg.clientHeight || 600;
+
+      const layerX = {
+        signal: width * 0.18,
+        computed: width * 0.50,
+        effect: width * 0.82
+      };
+
+      const positions = {};
+      const cycleNodeSet = new Set();
+      if (graph.hasCycle && graph.cycles) {
+        graph.cycles.forEach(c => c.forEach(id => cycleNodeSet.add(id)));
+      }
+
+      ['signal', 'computed', 'effect'].forEach(type => {
+        const list = layers[type] || [];
+        const count = list.length;
+        list.forEach((node, idx) => {
+          const spacing = height / (count + 1);
+          positions[node.id] = {
+            x: layerX[type],
+            y: spacing * (idx + 1),
+            node
+          };
+        });
+      });
+
+      // Clear existing
+      edgesGroup.innerHTML = '';
+      nodesGroup.innerHTML = '';
+
+      // Draw Edges
+      graph.edges.forEach(edge => {
+        const from = positions[edge.from];
+        const to = positions[edge.to];
+        if (!from || !to) return;
+
+        const isCycleEdge = cycleNodeSet.has(edge.from) && cycleNodeSet.has(edge.to);
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const cx1 = from.x + dx * 0.5;
+        const cy1 = from.y;
+        const cx2 = from.x + dx * 0.5;
+        const cy2 = to.y;
+
+        const d = `M ${from.x + 60} ${from.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${to.x - 60} ${to.y}`;
+        line.setAttribute('d', d);
+        line.setAttribute('fill', 'none');
+        line.setAttribute('class', isCycleEdge ? 'graph-edge edge-cycle' : 'graph-edge');
+        edgesGroup.appendChild(line);
+      });
+
+      // Draw Nodes
+      graph.nodes.forEach(node => {
+        const pos = positions[node.id];
+        if (!pos) return;
+
+        const isCycle = cycleNodeSet.has(node.id);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'graph-node');
+        g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+
+        let nodeColor = '#3b82f6';
+        if (node.type === 'computed') nodeColor = '#8b5cf6';
+        if (node.type === 'effect') nodeColor = '#10b981';
+        if (isCycle) nodeColor = '#ef4444';
+
+        const isSelected = selectedNodeId === node.id;
+
+        // Node Card background
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', -60);
+        rect.setAttribute('y', -30);
+        rect.setAttribute('width', 120);
+        rect.setAttribute('height', 60);
+        rect.setAttribute('fill', '#1e293b');
+        rect.setAttribute('stroke', isSelected ? '#ffffff' : nodeColor);
+        rect.setAttribute('stroke-width', isSelected ? '3' : '2');
+        g.appendChild(rect);
+
+        // Header color strip
+        const strip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        strip.setAttribute('x', -60);
+        strip.setAttribute('y', -30);
+        strip.setAttribute('width', 120);
+        strip.setAttribute('height', 8);
+        strip.setAttribute('fill', nodeColor);
+        strip.setAttribute('rx', 4);
+        g.appendChild(strip);
+
+        // Label
+        const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        titleText.setAttribute('x', 0);
+        titleText.setAttribute('y', -4);
+        titleText.setAttribute('text-anchor', 'middle');
+        titleText.setAttribute('fill', '#f8fafc');
+        titleText.setAttribute('font-size', '12');
+        titleText.setAttribute('font-weight', '600');
+        titleText.textContent = node.label.length > 13 ? node.label.slice(0, 12) + '…' : node.label;
+        g.appendChild(titleText);
+
+        // Value text
+        const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        valText.setAttribute('x', 0);
+        valText.setAttribute('y', 16);
+        valText.setAttribute('text-anchor', 'middle');
+        valText.setAttribute('fill', '#94a3b8');
+        valText.setAttribute('font-size', '11');
+        valText.setAttribute('font-family', 'ui-monospace, SFMono-Regular, monospace');
+        const serialized = typeof node.value === 'object' && node.value !== null ? JSON.stringify(node.value) : String(node.value);
+        valText.textContent = serialized.length > 14 ? serialized.slice(0, 13) + '…' : serialized;
+        g.appendChild(valText);
+
+        g.addEventListener('click', () => {
+          selectedNodeId = node.id;
+          showNodeDetails(node, graph);
+          renderGraph();
+        });
+
+        nodesGroup.appendChild(g);
+      });
+
+      if (selectedNodeId) {
+        const found = graph.nodes.find(n => n.id === selectedNodeId);
+        if (found) showNodeDetails(found, graph);
+      }
+    }
+
+    function showNodeDetails(node, graph) {
+      document.getElementById('no-node-selected').style.display = 'none';
+      const infoBox = document.getElementById('node-info');
+      infoBox.style.display = 'flex';
+
+      document.getElementById('detail-id').textContent = node.id;
+      document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-type').textContent = node.type;
+      document.getElementById('detail-value').textContent = JSON.stringify(node.value, null, 2);
+
+      const upstream = graph.edges.filter(e => e.to === node.id).map(e => e.from);
+      document.getElementById('detail-deps').textContent = upstream.length ? upstream.join(', ') : '(None - Root Signal)';
+
+      const downstream = graph.edges.filter(e => e.from === node.id).map(e => e.to);
+      document.getElementById('detail-dependents').textContent = downstream.length ? downstream.join(', ') : '(None - Leaf Node)';
+    }
+
+    // ── 3. Interactive Buttons Handlers ────────────────────────────────
+    document.getElementById('btn-inc-count').addEventListener('click', () => {
+      countSig.value++;
+      renderGraph();
+    });
+
+    document.getElementById('btn-inc-mult').addEventListener('click', () => {
+      multSig.value = multSig.value === 2 ? 3 : 2;
+      renderGraph();
+    });
+
+    document.getElementById('btn-toggle-branch').addEventListener('click', () => {
+      showBonusSig.value = !showBonusSig.value;
+      renderGraph();
+    });
+
+    document.getElementById('btn-reset-graph').addEventListener('click', () => {
+      selectedNodeId = null;
+      document.getElementById('no-node-selected').style.display = 'block';
+      document.getElementById('node-info').style.display = 'none';
+      initDemoState();
+      renderGraph();
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      renderGraph();
+    });
+
+    // Modal table
+    const tableModal = document.getElementById('table-modal');
+    document.getElementById('btn-view-table').addEventListener('click', () => {
+      const rows = Breeze.diagnostics.table();
+      const tbody = document.querySelector('#summary-table tbody');
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${r.id}</strong></td>
+          <td><span style="color: ${r.type === 'signal' ? 'var(--sig-color)' : r.type === 'computed' ? 'var(--comp-color)' : 'var(--eff-color)'}">${r.type}</span></td>
+          <td>${r.label}</td>
+          <td>${r.value}</td>
+          <td>${r.dependencies}</td>
+          <td>${r.dependents}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      tableModal.style.display = 'flex';
+    });
+
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      tableModal.style.display = 'none';
+    });
+    tableModal.addEventListener('click', (e) => {
+      if (e.target === tableModal) tableModal.style.display = 'none';
+    });
+
+    // ── 4. Hook into DevTools update events ─────────────────────────────
+    if (window.__BREEZE_DEVTOOLS__ && window.__BREEZE_DEVTOOLS__.onUpdate) {
+      window.__BREEZE_DEVTOOLS__.onUpdate(() => {
+        renderGraph();
+      });
+    }
+
+    // Initial render
+    window.addEventListener('resize', renderGraph);
+    renderGraph();
+  </script>
+</body>
+</html>

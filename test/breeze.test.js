@@ -1014,10 +1014,10 @@ describe('Breeze Framework Core', () => {
     }
   });
 
-  it('v2: version is 2.1.2 across package + runtime', () => {
+  it('v2: version is 2.2.0 across package + runtime', () => {
     const pkg = require('../package.json');
-    assert.equal(pkg.version, '2.1.2');
-    assert.equal(Breeze.version, '2.1.2');
+    assert.equal(pkg.version, '2.2.0');
+    assert.equal(Breeze.version, '2.2.0');
   });
 
   it('v2: announce/focus are no-ops in Node (no document crash)', () => {

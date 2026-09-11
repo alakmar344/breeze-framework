@@ -973,11 +973,540 @@ function cmdFormat(args) {
   if (!fixed) log('Nothing to format.');
 }
 
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = [];
+  for (let i = 0; i <= m; i++) {
+    dp[i] = new Array(n + 1);
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+function findBestSuggestion(target, candidates) {
+  let best = null;
+  let minDistance = Infinity;
+  for (const c of candidates) {
+    if (c === target) continue;
+    const d = levenshtein(target, c);
+    if (d < minDistance) {
+      minDistance = d;
+      best = c;
+    }
+  }
+  const threshold = Math.max(1, Math.min(3, Math.floor(target.length / 2) + 1));
+  if (best && minDistance <= threshold && minDistance < target.length) {
+    return best;
+  }
+  return null;
+}
+
+function parseTypeScriptSchema(content) {
+  const clean = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+  const interfaces = {};
+  const re = /(?:export\s+)?(?:interface|type)\s+([A-Za-z0-9_$]+)(?:\s*=\s*)?\s*\{/g;
+  let m;
+  while ((m = re.exec(clean)) !== null) {
+    const name = m[1];
+    let depth = 1;
+    let i = re.lastIndex;
+    const start = i;
+    while (i < clean.length && depth > 0) {
+      if (clean[i] === '{') depth++;
+      else if (clean[i] === '}') depth--;
+      i++;
+    }
+    interfaces[name] = clean.slice(start, i - 1);
+  }
+
+  const parsed = {};
+  for (const [name, body] of Object.entries(interfaces)) {
+    const fields = {};
+    const fieldRe = /([A-Za-z0-9_$]+)\s*\??\s*:\s*([^;,\n]+)/g;
+    let fm;
+    while ((fm = fieldRe.exec(body)) !== null) {
+      fields[fm[1]] = fm[2].trim();
+    }
+    parsed[name] = fields;
+  }
+
+  const paths = new Set();
+  const arrayItemProps = {};
+
+  function expand(typeName, prefix, visited = new Set()) {
+    if (visited.has(typeName)) return;
+    visited.add(typeName);
+    const iface = parsed[typeName];
+    if (!iface) return;
+    for (const [key, rawType] of Object.entries(iface)) {
+      const full = prefix ? prefix + '.' + key : key;
+      paths.add(full);
+
+      const arrMatch = rawType.match(/^([A-Za-z0-9_$]+)\[\]$/) || rawType.match(/^Array<([A-Za-z0-9_$]+)>$/);
+      if (arrMatch) {
+        const itemType = arrMatch[1];
+        if (parsed[itemType]) {
+          if (!arrayItemProps[full]) arrayItemProps[full] = new Set();
+          for (const itemKey of Object.keys(parsed[itemType])) {
+            arrayItemProps[full].add(itemKey);
+            paths.add(full + '.' + itemKey);
+          }
+        }
+      } else if (parsed[rawType]) {
+        expand(rawType, full, new Set(visited));
+      }
+    }
+  }
+
+  for (const name of Object.keys(parsed)) {
+    expand(name, '');
+  }
+
+  return { paths: Array.from(paths), arrayItemProps };
+}
+
+function parseJsonSchema(content) {
+  let data;
+  try {
+    data = typeof content === 'string' ? JSON.parse(content) : content;
+  } catch (e) {
+    throw new Error(`Invalid JSON schema: ${e.message}`);
+  }
+
+  const paths = new Set();
+  const arrayItemProps = {};
+
+  if (data && typeof data === 'object' && data.properties) {
+    function walkJsonSchema(props, prefix = '') {
+      for (const [key, def] of Object.entries(props)) {
+        const full = prefix ? prefix + '.' + key : key;
+        paths.add(full);
+        if (def && typeof def === 'object') {
+          if (def.type === 'object' && def.properties) {
+            walkJsonSchema(def.properties, full);
+          } else if (def.type === 'array' && def.items && def.items.properties) {
+            if (!arrayItemProps[full]) arrayItemProps[full] = new Set();
+            for (const itemKey of Object.keys(def.items.properties)) {
+              arrayItemProps[full].add(itemKey);
+              paths.add(full + '.' + itemKey);
+            }
+          }
+        }
+      }
+    }
+    walkJsonSchema(data.properties);
+  } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+    function walkObject(obj, prefix = '') {
+      for (const [key, val] of Object.entries(obj)) {
+        const full = prefix ? prefix + '.' + key : key;
+        paths.add(full);
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val)) {
+            if (val.length > 0 && typeof val[0] === 'object' && val[0] !== null) {
+              if (!arrayItemProps[full]) arrayItemProps[full] = new Set();
+              for (const itemKey of Object.keys(val[0])) {
+                arrayItemProps[full].add(itemKey);
+                paths.add(full + '.' + itemKey);
+              }
+            }
+          } else {
+            walkObject(val, full);
+          }
+        }
+      }
+    }
+    walkObject(data);
+  }
+
+  return { paths: Array.from(paths), arrayItemProps };
+}
+
+function loadSchema(schemaPath, projectDir = process.cwd()) {
+  if (schemaPath) {
+    const fp = path.resolve(schemaPath);
+    if (!fs.existsSync(fp)) {
+      throw new Error(`Schema file not found: ${schemaPath}`);
+    }
+    const content = fs.readFileSync(fp, 'utf8');
+    const ext = path.extname(fp).toLowerCase();
+    if (ext === '.ts' || ext === '.d.ts') {
+      return parseTypeScriptSchema(content);
+    }
+    return parseJsonSchema(content);
+  }
+
+  const candidates = [
+    path.join(projectDir, 'schema.json'),
+    path.join(projectDir, 'schema.ts'),
+    path.join(projectDir, 'types.ts'),
+    path.join(projectDir, 'types.d.ts')
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      const content = fs.readFileSync(candidate, 'utf8');
+      const ext = path.extname(candidate).toLowerCase();
+      if (ext === '.ts' || ext === '.d.ts') {
+        return parseTypeScriptSchema(content);
+      }
+      return parseJsonSchema(content);
+    }
+  }
+
+  return { paths: [], arrayItemProps: {} };
+}
+
+function extractTemplateReferences(source) {
+  const lines = String(source).split(/\r?\n/);
+  const references = [];
+  const templateState = new Set();
+  const defParams = new Map(); // compName -> Set of params
+
+  // Scope tracking for @each and @def blocks
+  const scopeStack = [{ indent: -1, locals: new Set(), loopSources: new Map() }];
+
+  lines.forEach((rawLine, idx) => {
+    const lineNo = idx + 1;
+    const trimmed = rawLine.trim();
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('##')) return;
+
+    const rawIndent = rawLine.search(/\S/);
+    const indent = Math.floor(rawIndent / 2);
+
+    while (scopeStack.length > 1 && scopeStack[scopeStack.length - 1].indent >= indent) {
+      scopeStack.pop();
+    }
+    const curScope = scopeStack[scopeStack.length - 1];
+
+    // Top-level / inline state declarations: @state name = value
+    const stateMatch = trimmed.match(/^@state\s+([A-Za-z0-9_$]+)/);
+    if (stateMatch) {
+      templateState.add(stateMatch[1]);
+      curScope.locals.add(stateMatch[1]);
+    }
+
+    // Component definitions: @def CompName(param1, param2)
+    const defMatch = trimmed.match(/^@(def|component)\s+([A-Z][A-Za-z0-9_$]*)(?:\(([^)]*)\))?/);
+    if (defMatch) {
+      const params = defMatch[3] ? defMatch[3].split(',').map(s => s.trim()).filter(Boolean) : [];
+      defParams.set(defMatch[2], new Set(params));
+      scopeStack.push({
+        indent,
+        locals: new Set(params),
+        loopSources: new Map()
+      });
+      return;
+    }
+
+    // Loop blocks: @each item in listKey or @virtual each item in items
+    const loopMatch = trimmed.match(/^@(virtual\s+)?(each|for)\s+([A-Za-z0-9_$]+)\s+in\s+([A-Za-z0-9_$.-]+)/);
+    if (loopMatch) {
+      const itemVar = loopMatch[3];
+      const listKey = loopMatch[4];
+      references.push({
+        path: listKey,
+        line: lineNo,
+        raw: listKey,
+        context: 'loop-source',
+        scopeLocals: new Set(curScope.locals),
+        loopSources: new Map(curScope.loopSources)
+      });
+
+      const nextLoopSources = new Map(curScope.loopSources);
+      nextLoopSources.set(itemVar, listKey);
+      const nextLocals = new Set(curScope.locals);
+      nextLocals.add(itemVar);
+
+      scopeStack.push({
+        indent,
+        locals: nextLocals,
+        loopSources: nextLoopSources
+      });
+      return;
+    }
+
+    // Conditionals: @if conditionKey, @elif conditionKey
+    const ifMatch = trimmed.match(/^@(if|elif|elseif)\s+(!?)([A-Za-z0-9_$.-]+)/);
+    if (ifMatch) {
+      const condKey = ifMatch[3];
+      references.push({
+        path: condKey,
+        line: lineNo,
+        raw: condKey,
+        context: 'conditional',
+        scopeLocals: new Set(curScope.locals),
+        loopSources: new Map(curScope.loopSources)
+      });
+    }
+
+    // Directive modifiers: @show=var, @model=var, bind=var
+    const modDirectives = trimmed.match(/@?(show|model|bind)\s*=\s*([A-Za-z0-9_$.-]+)/g);
+    if (modDirectives) {
+      modDirectives.forEach(md => {
+        const parts = md.split('=');
+        const v = parts[1].trim().replace(/^["']|["']$/g, '');
+        if (v && !/^(true|false|null|\d+)$/.test(v)) {
+          references.push({
+            path: v,
+            line: lineNo,
+            raw: md,
+            context: 'directive',
+            scopeLocals: new Set(curScope.locals),
+            loopSources: new Map(curScope.loopSources)
+          });
+        }
+      });
+    }
+
+    // Actions in modifiers: @click -> increment(count), @click -> toggle(studio), @click -> setState(count, 0)
+    const actionMatches = trimmed.match(/->\s*([A-Za-z0-9_$]+)\(([^)]*)\)/g);
+    if (actionMatches) {
+      actionMatches.forEach(am => {
+        const m = am.match(/->\s*([A-Za-z0-9_$]+)\(([^)]*)\)/);
+        if (m) {
+          const fn = m[1];
+          const rawArgs = m[2] ? m[2].split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (['increment', 'decrement', 'toggle', 'setState', 'push', 'remove'].includes(fn) && rawArgs.length > 0) {
+            const stateArg = rawArgs[0];
+            if (stateArg && !/^["']|^#|^\d+$/.test(stateArg)) {
+              references.push({
+                path: stateArg,
+                line: lineNo,
+                raw: am,
+                context: 'action',
+                scopeLocals: new Set(curScope.locals),
+                loopSources: new Map(curScope.loopSources)
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // Text bindings: {path}
+    const tokenRe = /\{([\w.$-]+)\}/g;
+    let tm;
+    while ((tm = tokenRe.exec(trimmed)) !== null) {
+      references.push({
+        path: tm[1],
+        line: lineNo,
+        raw: tm[0],
+        context: 'interpolation',
+        scopeLocals: new Set(curScope.locals),
+        loopSources: new Map(curScope.loopSources)
+      });
+    }
+  });
+
+  return { references, templateState, defParams };
+}
+
+function checkTemplateTypes(source, schema = {}, options = {}) {
+  const { references, templateState } = extractTemplateReferences(source);
+  const schemaPaths = new Set(schema.paths || []);
+  const arrayItemProps = schema.arrayItemProps || {};
+  const errors = [];
+
+  // Union of all known valid paths for suggestion matching
+  const knownCandidates = new Set([
+    ...Array.from(schemaPaths),
+    ...Array.from(templateState)
+  ]);
+
+  for (const ref of references) {
+    const fullPath = ref.path;
+    const parts = fullPath.split('.');
+    const base = parts[0];
+
+    // 1. In-scope local variable (loop variable or component prop)
+    if (ref.scopeLocals && ref.scopeLocals.has(base)) {
+      if (parts.length === 1) {
+        continue;
+      }
+      // Accessing a property on a loop variable: item.prop
+      const listSource = ref.loopSources ? ref.loopSources.get(base) : null;
+      if (listSource && arrayItemProps[listSource]) {
+        const validItemProps = arrayItemProps[listSource];
+        const prop = parts.slice(1).join('.');
+        if (validItemProps.has(prop)) {
+          continue;
+        }
+        // Near-miss suggestion on item property
+        const suggestion = findBestSuggestion(prop, Array.from(validItemProps));
+        errors.push({
+          line: ref.line,
+          path: fullPath,
+          raw: ref.raw,
+          suggestion: suggestion ? `${base}.${suggestion}` : null,
+          message: suggestion
+            ? `Undefined property "${fullPath}". Did you mean "${base}.${suggestion}"?`
+            : `Undefined property "${fullPath}" on ${base} (element of ${listSource}).`
+        });
+        continue;
+      }
+      // If listSource has no restrictive schema, local property access is allowed
+      continue;
+    }
+
+    // 2. Declared in template @state
+    if (templateState.has(base)) {
+      if (parts.length === 1) {
+        continue;
+      }
+      // Dotted sub-path on template state: check if explicitly known
+      if (schemaPaths.has(fullPath)) {
+        continue;
+      }
+      // If schema has no restrictive properties for this base, allow it
+      const hasSubPaths = Array.from(schemaPaths).some(p => p.startsWith(base + '.'));
+      if (!hasSubPaths) {
+        continue;
+      }
+    }
+
+    // 3. Defined in schema
+    if (schemaPaths.has(fullPath) || schemaPaths.has(base)) {
+      if (parts.length === 1 || schemaPaths.has(fullPath)) {
+        continue;
+      }
+      // Check if schema explicitly defines child properties for this base
+      const validSubProps = Array.from(schemaPaths)
+        .filter(p => p.startsWith(base + '.'))
+        .map(p => p.slice(base.length + 1));
+      if (validSubProps.length > 0) {
+        const sub = parts.slice(1).join('.');
+        const suggestion = findBestSuggestion(sub, validSubProps);
+        errors.push({
+          line: ref.line,
+          path: fullPath,
+          raw: ref.raw,
+          suggestion: suggestion ? `${base}.${suggestion}` : null,
+          message: suggestion
+            ? `Undefined property "${fullPath}". Did you mean "${base}.${suggestion}"?`
+            : `Undefined property "${fullPath}" on schema object "${base}".`
+        });
+        continue;
+      }
+      continue;
+    }
+
+    // 4. Undefined reference
+    const suggestion = findBestSuggestion(fullPath, Array.from(knownCandidates));
+    errors.push({
+      line: ref.line,
+      path: fullPath,
+      raw: ref.raw,
+      suggestion,
+      message: suggestion
+        ? `Undefined reference "${fullPath}". Did you mean "${suggestion}"?`
+        : `Undefined reference "${fullPath}" — not declared in @state or schema.`
+    });
+  }
+
+  return { errors, referenceCount: references.length };
+}
+
+function findBreezeFiles(targetPath) {
+  const stat = fs.statSync(targetPath);
+  if (!stat.isDirectory()) {
+    return [targetPath];
+  }
+
+  const results = [];
+  function walk(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (['node_modules', '.git', 'dist'].includes(entry.name)) continue;
+        walk(full);
+      } else if (entry.isFile() && entry.name.endsWith('.breeze')) {
+        results.push(full);
+      }
+    }
+  }
+  walk(targetPath);
+  return results;
+}
+
+function checkTypes(targetPath, options = {}) {
+  const schema = loadSchema(options.schema, options.projectDir || process.cwd());
+  const files = findBreezeFiles(targetPath);
+  const results = [];
+  let totalErrors = 0;
+
+  for (const fp of files) {
+    const src = fs.readFileSync(fp, 'utf8');
+    const { errors, referenceCount } = checkTemplateTypes(src, schema, options);
+    totalErrors += errors.length;
+    results.push({ file: fp, errors, referenceCount });
+  }
+
+  return { files: results, totalErrors, schemaPathsCount: schema.paths.length };
+}
+
 function cmdCheck(args) {
   banner();
-  const file = args[0] || 'app.breeze';
-  const fp = path.resolve(file);
-  if (!fs.existsSync(fp)) { err(`File not found: ${file}`); process.exit(1); }
+  const isTypes = args.includes('--types');
+  let schemaPath = null;
+  const schemaIdx = args.indexOf('--schema');
+  if (schemaIdx !== -1 && args[schemaIdx + 1]) {
+    schemaPath = args[schemaIdx + 1];
+  }
+
+  const cleanArgs = args.filter((a, idx) => {
+    if (a === '--types' || a === '--schema') return false;
+    if (schemaIdx !== -1 && idx === schemaIdx + 1) return false;
+    return true;
+  });
+
+  const fileOrDir = cleanArgs[0] || (isTypes ? '.' : 'app.breeze');
+  const fp = path.resolve(fileOrDir);
+  if (!fs.existsSync(fp)) { err(`Path not found: ${fileOrDir}`); process.exit(1); }
+
+  const isDirectory = fs.statSync(fp).isDirectory();
+
+  if (isTypes) {
+    log(`Checking template types for ${bold(fileOrDir)}…`);
+    const { files, totalErrors, schemaPathsCount } = checkTypes(fp, { schema: schemaPath });
+
+    let errorCount = 0;
+    files.forEach(res => {
+      const rel = path.relative(process.cwd(), res.file) || res.file;
+      if (res.errors.length > 0) {
+        errorCount += res.errors.length;
+        res.errors.forEach(e => {
+          console.log(`  ${col('red', '✖')} ${bold(rel)}:${e.line} — ${e.message}`);
+        });
+      }
+    });
+
+    console.log('');
+    if (errorCount > 0) {
+      err(`Type check failed with ${errorCount} error${errorCount === 1 ? '' : 's'}.`);
+      process.exit(1);
+    }
+
+    ok(`Type check passed: ${bold(files.length)} template${files.length === 1 ? '' : 's'} verified against schema (${schemaPathsCount} paths, 0 errors)`);
+    console.log('');
+    if (cleanArgs.length === 0 || isDirectory) return;
+  }
+
+  if (isDirectory) {
+    return;
+  }
+
   const src = fs.readFileSync(fp, 'utf8');
   const diags = collectDiagnostics(src);
   const errors = diags.filter(d => d.level === 'error');
@@ -992,7 +1521,7 @@ function cmdCheck(args) {
     if (!ssrOk) err(`SSR failed: ${ssrErr}`);
     process.exit(1);
   }
-  ok(`Check passed: ${bold(file)} (${diags.length} warnings, SSR ok)`);
+  ok(`Check passed: ${bold(fileOrDir)} (${diags.length} warnings, SSR ok)`);
   console.log('');
 }
 
@@ -1012,7 +1541,11 @@ function showHelp() {
   console.log(`    ${col('cyan', 'generate')} <kind> <name> [dir]  Scaffold component|route|store|page (alias: g)`);
   console.log(`    ${col('cyan', 'lint')}    [file]            Check diagnostics (default: app.breeze)`);
   console.log(`    ${col('cyan', 'format')}  [files...]        Normalize tabs/trailing spaces`);
-  console.log(`    ${col('cyan', 'check')}   [file]            Strict parse + SSR smoke test (CI-friendly)`);
+  console.log(`    ${col('cyan', 'check')}   [file] [--types]  Strict parse + SSR smoke test or static type check`);
+  console.log('');
+  console.log(`  ${bold('Type-check flags (breeze check --types):')}`);
+  console.log(`    ${col('yellow', '--types')}                  Statically check template variable paths against schema`);
+  console.log(`    ${col('yellow', '--schema <file>')}          Path to TypeScript types (.ts, .d.ts) or schema.json`);
   console.log('');
   console.log(`  ${bold('Build flags:')}`);
   console.log(`    ${col('yellow', '--spa')}                   Inline breeze.js into the HTML (single self-contained file)`);
@@ -1026,7 +1559,8 @@ function showHelp() {
   console.log(`  ${bold('Examples:')}`);
   console.log(`    breeze init my-app          ${dim('# scaffold + copy the runtime, ready to run')}`);
   console.log(`    breeze dev 4000`);
-  console.log(`    breeze generate component Card ui`);
+  console.log(`    breeze check --types        ${dim('# verify all project templates against types/schema')}`);
+  console.log(`    breeze check app.breeze --types --schema types.ts`);
   console.log(`    breeze lint app.breeze && breeze check app.breeze`);
   console.log(`    breeze profile app.breeze`);
   console.log(`    breeze build app.breeze --spa --minify --min`);
@@ -1045,7 +1579,15 @@ if (typeof module !== 'undefined' && module.exports) {
     minifyHTML,
     minifyCSS,
     minifyJS,
-    collectDiagnostics
+    collectDiagnostics,
+    levenshtein,
+    findBestSuggestion,
+    parseTypeScriptSchema,
+    parseJsonSchema,
+    loadSchema,
+    extractTemplateReferences,
+    checkTemplateTypes,
+    checkTypes
   };
 }
 

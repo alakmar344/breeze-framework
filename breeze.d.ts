@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v2.1.2 — TypeScript Definitions
+ * Breeze Framework v2.2.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 
@@ -238,10 +238,25 @@ export interface BreezeAPI {
   sanitizeUrl(url: string): string;
   reportError(err: Error | unknown, context?: string): void;
 
+  diagnostics: {
+    graph(): {
+      nodes: Array<{ id: string; type: 'signal' | 'computed' | 'effect'; value: any; label: string }>;
+      edges: Array<{ from: string; to: string }>;
+      hasCycle: boolean;
+      cycles: string[][];
+    };
+    table(): any[];
+    detectCycles(): { hasCycle: boolean; cycles: string[][] };
+    reset(): void;
+  };
+
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;
   parse(source: string, opts?: { noCache?: boolean }): AstNode[];
+  render(sourceOrAst: string | AstNode | AstNode[], root?: any): any;
+  calculateVirtualWindow(opts?: { scrollTop?: number; viewportHeight?: number; totalCount?: number; itemHeight?: number; overscan?: number }): { startIndex: number; endIndex: number; visibleCount: number; totalHeight: number; offsetY: number };
   testing: {
+    calculateVirtualWindow(opts?: { scrollTop?: number; viewportHeight?: number; totalCount?: number; itemHeight?: number; overscan?: number }): { startIndex: number; endIndex: number; visibleCount: number; totalHeight: number; offsetY: number };
     renderToString(source: string | AstNode[], state?: Record<string, any>): string;
     parse(source: string, opts?: { noCache?: boolean }): AstNode[];
     splitArgs(inner: string): string[];
@@ -255,3 +270,16 @@ export interface BreezeAPI {
 
 export const Breeze: BreezeAPI;
 export default Breeze;
+
+declare global {
+  interface Window {
+    __BREEZE_DEVTOOLS__?: {
+      version: string;
+      getGraph(): { nodes: Array<{ id: string; type: string; value: any; label: string }>; edges: Array<{ from: string; to: string }>; hasCycle: boolean; cycles: string[][] };
+      getTable(): any[];
+      getReport(): any;
+      detectCycles(): { hasCycle: boolean; cycles: string[][] };
+      onUpdate(fn: (data: any) => void): () => void;
+    };
+  }
+}

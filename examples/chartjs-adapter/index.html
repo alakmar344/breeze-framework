@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breeze Framework — Third-Party Chart Adapter Example</title>
+  <link rel="stylesheet" href="../../breeze.css">
+  <style>
+    :root {
+      --app-bg: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #0266d6;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--app-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1rem 2rem;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .badge {
+      background: var(--primary);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    button.btn {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button.btn:hover {
+      background: #475569;
+    }
+    button.btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    button.btn-primary:hover {
+      background: #0052b3;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 360px;
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas#chart-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .metrics-bar {
+      display: flex;
+      gap: 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .metrics-bar strong {
+      color: var(--text);
+    }
+
+    pre.code-snippet {
+      margin: 0;
+      padding: 1rem;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #38bdf8;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>Breeze Framework</h1>
+      <span class="badge">Third-Party Library Adapter</span>
+    </div>
+    <div>
+      <a href="../README.md" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">← Back to Examples</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2 style="margin: 0; font-size: 1.25rem;">Chart.js / Canvas Adapter Pattern</h2>
+      <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+        Breeze preserves a zero-dependency, ultra-light runtime while enabling friction-free integration with rich vanilla JS ecosystems (Chart.js, D3, Leaflet, Three.js). By wrapping third-party libraries inside a lifecycle effect, external instances bind reactively to Breeze signals with automatic teardown.
+      </p>
+
+      <div class="controls-row">
+        <button class="btn btn-primary" id="btn-add">➕ Add Metric</button>
+        <button class="btn" id="btn-randomize">🎲 Randomize Data</button>
+        <button class="btn" id="btn-toggle-type">📈 Switch: <span id="lbl-type">Bar</span></button>
+        <button class="btn" id="btn-pop">➖ Remove Last</button>
+      </div>
+
+      <div class="chart-container">
+        <canvas id="chart-canvas"></canvas>
+      </div>
+
+      <div class="metrics-bar">
+        <div>Data Points: <strong id="val-count">6</strong></div>
+        <div>Total Volume: <strong id="val-total">0</strong></div>
+        <div>Active Mode: <strong id="val-type">Bar</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin: 0; font-size: 1rem;">The Canonical Adapter Pattern</h3>
+      <pre class="code-snippet"><code>// 1. Define your Breeze reactive signals
+const dataset = Breeze.signal([24, 45, 68, 39, 82, 56], 'chartData');
+const chartMode = Breeze.signal('bar', 'chartMode');
+
+// 2. Wrap third-party library in an effect to automatically track updates
+Breeze.effect(() => {
+  const data = dataset.value;
+  const mode = chartMode.value;
+
+  // Seamlessly update your external Chart instance:
+  chartInstance.update({ data, mode });
+});</code></pre>
+    </div>
+  </div>
+
+  <script src="../../breeze.js"></script>
+  <script>
+    // ── 1. Breeze Reactive State ─────────────────────────────────────────
+    const labelsSignal = Breeze.signal(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], 'labels');
+    const dataSignal = Breeze.signal([28, 48, 62, 35, 74, 52], 'dataPoints');
+    const modeSignal = Breeze.signal('bar', 'chartMode'); // 'bar' | 'line'
+
+    // Computed totals
+    const totalSignal = Breeze.computed(() => {
+      return dataSignal.value.reduce((acc, val) => acc + val, 0);
+    }, 'totalVolume');
+
+    // ── 2. Vanilla Canvas Charting Engine (Chart.js Adapter Implementation) ──
+    class BreezeChartAdapter {
+      constructor(canvasEl) {
+        this.canvas = canvasEl;
+        this.ctx = canvasEl.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => {
+          this.resize();
+          this.render();
+        });
+      }
+
+      resize() {
+        const rect = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.ctx.scale(dpr, dpr);
+        this.width = rect.width;
+        this.height = rect.height;
+      }
+
+      update({ labels, data, mode }) {
+        this.labels = labels;
+        this.data = data;
+        this.mode = mode;
+        this.render();
+      }
+
+      render() {
+        if (!this.data || !this.data.length) return;
+        const ctx = this.ctx;
+        const w = this.width;
+        const h = this.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const padLeft = 50;
+        const padBottom = 40;
+        const padTop = 30;
+        const padRight = 30;
+        const plotW = w - padLeft - padRight;
+        const plotH = h - padTop - padBottom;
+
+        const maxVal = Math.max(...this.data, 100);
+        const count = this.data.length;
+        const stepX = plotW / count;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const y = padTop + (plotH / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(padLeft, y);
+          ctx.lineTo(w - padRight, y);
+          ctx.stroke();
+
+          // Y-axis label
+          ctx.fillStyle = '#64748b';
+          ctx.font = '11px ui-monospace, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          const valLabel = Math.round(maxVal * (1 - i / 4));
+          ctx.fillText(valLabel, padLeft - 10, y);
+        }
+
+        if (this.mode === 'bar') {
+          const barW = Math.max(12, Math.min(48, stepX * 0.6));
+          this.data.forEach((val, i) => {
+            const barH = (val / maxVal) * plotH;
+            const x = padLeft + i * stepX + (stepX - barW) / 2;
+            const y = padTop + plotH - barH;
+
+            // Gradient fill
+            const grad = ctx.createLinearGradient(0, y, 0, y + barH);
+            grad.addColorStop(0, '#0266d6');
+            grad.addColorStop(1, '#0048a7');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]) : ctx.rect(x, y, barW, barH);
+            ctx.fill();
+
+            // X-axis label
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(this.labels[i] || `P${i + 1}`, x + barW / 2, h - padBottom + 10);
+          });
+        } else {
+          // Line / Area chart
+          ctx.beginPath();
+          const points = this.data.map((val, i) => {
+            const x = padLeft + i * stepX + stepX / 2;
+            const y = padTop + plotH - (val / maxVal) * plotH;
+            return { x, y };
+          });
+
+          // Area fill
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, padTop + plotH);
+          points.forEach(p => ctx.lineTo(p.x, p.y));
+          ctx.lineTo(points[points.length - 1].x, padTop + plotH);
+          ctx.closePath();
+          const fillGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+          fillGrad.addColorStop(0, 'rgba(2, 102, 214, 0.35)');
+          fillGrad.addColorStop(1, 'rgba(2, 102, 214, 0.0)');
+          ctx.fillStyle = fillGrad;
+          ctx.fill();
+
+          // Stroke line
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, points[0].y);
+          points.forEach(p => ctx.lineTo(p.x, p.y));
+          ctx.strokeStyle = '#0266d6';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          // Data dots
+          points.forEach((p, i) => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#0266d6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // X label
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(this.labels[i] || `P${i + 1}`, p.x, h - padBottom + 10);
+          });
+        }
+      }
+    }
+
+    // ── 3. Wire Up Adapter with Breeze Signals ───────────────────────────
+    const canvas = document.getElementById('chart-canvas');
+    const chart = new BreezeChartAdapter(canvas);
+
+    // Breeze Reactive Effect: whenever dataSignal, labelsSignal, or modeSignal changes, re-render chart!
+    Breeze.effect(() => {
+      chart.update({
+        labels: labelsSignal.value,
+        data: dataSignal.value,
+        mode: modeSignal.value
+      });
+
+      // Update UI metrics
+      document.getElementById('val-count').textContent = dataSignal.value.length;
+      document.getElementById('val-total').textContent = totalSignal.value.toLocaleString();
+      document.getElementById('val-type').textContent = modeSignal.value === 'bar' ? 'Bar Chart' : 'Line Chart';
+      document.getElementById('lbl-type').textContent = modeSignal.value === 'bar' ? 'Line' : 'Bar';
+    }, 'chartRenderEffect');
+
+    // ── 4. Interactive Controls ──────────────────────────────────────────
+    const monthNames = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    document.getElementById('btn-add').addEventListener('click', () => {
+      const curData = [...dataSignal.value];
+      const curLabels = [...labelsSignal.value];
+      const nextMonth = monthNames[curLabels.length % monthNames.length] || `M${curLabels.length + 1}`;
+      curLabels.push(nextMonth);
+      curData.push(Math.floor(Math.random() * 80) + 20);
+
+      Breeze.batch(() => {
+        labelsSignal.value = curLabels;
+        dataSignal.value = curData;
+      });
+    });
+
+    document.getElementById('btn-randomize').addEventListener('click', () => {
+      dataSignal.value = dataSignal.value.map(() => Math.floor(Math.random() * 90) + 15);
+    });
+
+    document.getElementById('btn-toggle-type').addEventListener('click', () => {
+      modeSignal.value = modeSignal.value === 'bar' ? 'line' : 'bar';
+    });
+
+    document.getElementById('btn-pop').addEventListener('click', () => {
+      if (dataSignal.value.length > 2) {
+        Breeze.batch(() => {
+          labelsSignal.value = labelsSignal.value.slice(0, -1);
+          dataSignal.value = dataSignal.value.slice(0, -1);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
