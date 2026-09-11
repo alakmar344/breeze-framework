@@ -482,21 +482,58 @@
       return out;
     },
 
+    _hashString(str) {
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      return (hash >>> 0).toString(36);
+    },
+
+    _getPersistedAST(hash) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = window.localStorage.getItem('bz_ast_' + hash);
+          if (raw) return JSON.parse(raw);
+        }
+      } catch (_) {}
+      return null;
+    },
+
+    _setPersistedAST(hash, ast) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('bz_ast_' + hash, JSON.stringify(ast));
+        }
+      } catch (_) {}
+    },
+
     /**
      * Parse a full .breeze source string into an array of AST nodes.
      * Indentation (2 spaces per level) determines parent-child nesting.
      * v2: LRU-caches small sources; pass { noCache: true } to bypass.
+     * v2.2: Persisted content-hash cache + zero-backtracking tokenizing.
      */
     parse(source, opts) {
       if (!source) return [];
       const useCache = !(opts && opts.noCache) && source.length < 500000;
-      if (useCache && this._cache.has(source)) {
-        const hit = this._cache.get(source);
-        // LRU refresh
-        this._cache.delete(source);
-        this._cache.set(source, hit);
-        return hit;
+      let hash = null;
+      if (useCache) {
+        if (this._cache.has(source)) {
+          const hit = this._cache.get(source);
+          this._cache.delete(source);
+          this._cache.set(source, hit);
+          return hit;
+        }
+        hash = this._hashString(source);
+        const persisted = this._getPersistedAST(hash);
+        if (persisted) {
+          this._cache.set(source, persisted);
+          return persisted;
+        }
       }
+
       // Normalize line endings (\r\n -> \n, \r -> \n)
       const normalized = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lines = normalized.split('\n');
@@ -506,72 +543,100 @@
 
       while (i < lines.length) {
         const rawLine = lines[i];
-        const trimmed = rawLine.trim();
+        let spaces = 0;
+        let j = 0;
+        let tabDetected = false;
+        const len = rawLine.length;
 
-        // Skip empty lines, line comments, and the shebang
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('##')) {
+        // Fast whitespace and indent scanner — eliminates per-line regex allocations
+        while (j < len) {
+          const ch = rawLine.charCodeAt(j);
+          if (ch === 32) {
+            spaces++;
+          } else if (ch === 9) {
+            spaces += 2;
+            tabDetected = true;
+          } else {
+            break;
+          }
+          j++;
+        }
+
+        if (j === len) {
           i++;
           continue;
         }
 
-        // Normalize tabs: each tab counts as one 2-space level.
-        // Warn (every occurrence) since mixed tabs/spaces misnest silently.
-        const expanded = rawLine.replace(/\t/g, '  ');
-        if (/\t/.test(rawLine)) {
+        const c0 = rawLine.charCodeAt(j);
+        const c1 = j + 1 < len ? rawLine.charCodeAt(j + 1) : 0;
+        if ((c0 === 47 && c1 === 47) || (c0 === 35 && c1 === 35)) {
+          i++;
+          continue;
+        }
+
+        if (tabDetected) {
           Parser._warn(
             `Line ${i + 1}: tab indentation detected. Breeze uses 2 spaces per ` +
             `level — tabs were expanded to 2 spaces; please convert to spaces.`
           );
         }
 
-        const rawIndent = expanded.search(/\S/);
-        if (rawIndent % 2 !== 0) {
+        if (spaces % 2 !== 0) {
           Parser._warn(
-            `Line ${i + 1}: odd indentation (${rawIndent} spaces). Breeze uses 2 spaces per ` +
-            `level — rounding down to level ${Math.floor(rawIndent / 2)}.`
+            `Line ${i + 1}: odd indentation (${spaces} spaces). Breeze uses 2 spaces per ` +
+            `level — rounding down to level ${Math.floor(spaces / 2)}.`
           );
         }
-        // Canonical level-based indent so 1sp vs 2sp vs 3sp can't create phantom levels
-        const indent = Math.floor(rawIndent / 2);
+        const indent = Math.floor(spaces / 2);
+        const trimmed = rawLine.slice(j).trimEnd();
+        const isDirective = c0 === 64; // '@'
 
         // ── Block directives: @theme, @seo, @schema, @aeo, @geo { key: value ... }
-        const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
-        if (blockMatch) {
-          const blockType = blockMatch[1];
-          if (!trimmed.includes('{')) {
-            Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
-          }
-          const blockNode = { type: blockType, props: {} };
-          const blockStart = i;
-          let closed = false;
-          i++;
-          while (i < lines.length) {
-            const tl = lines[i].trim();
-            if (tl === '}') { i++; closed = true; break; }
-            if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
-              const ci = tl.indexOf(':');
-              if (ci !== -1) {
-                const k = tl.substring(0, ci).trim();
-                let v = tl.substring(ci + 1).trim();
-                try {
-                  v = JSON.parse(v);
-                } catch (_) {
-                  v = v.replace(/^["']|["']$/g, '');
-                }
-                blockNode.props[k] = v;
-              }
+        if (isDirective && (
+          trimmed.startsWith('@theme') ||
+          trimmed.startsWith('@seo') ||
+          trimmed.startsWith('@schema') ||
+          trimmed.startsWith('@aeo') ||
+          trimmed.startsWith('@geo')
+        )) {
+          const blockMatch = trimmed.match(/^@(theme|seo|schema|aeo|geo)\b/);
+          if (blockMatch) {
+            const blockType = blockMatch[1];
+            if (!trimmed.includes('{')) {
+              Parser._warn(`Line ${i + 1}: @${blockType} must open a block with "{" on the same line.`);
             }
+            const blockNode = { type: blockType, props: {} };
+            const blockStart = i;
+            let closed = false;
             i++;
+            while (i < lines.length) {
+              const tl = lines[i].trim();
+              if (tl === '}') { i++; closed = true; break; }
+              if (tl && !tl.startsWith('//') && !tl.startsWith('##')) {
+                const ci = tl.indexOf(':');
+                if (ci !== -1) {
+                  const k = tl.substring(0, ci).trim();
+                  let v = tl.substring(ci + 1).trim();
+                  try {
+                    v = JSON.parse(v);
+                  } catch (_) {
+                    v = v.replace(/^["']|["']$/g, '');
+                  }
+                  blockNode.props[k] = v;
+                }
+              }
+              i++;
+            }
+            if (!closed) {
+              Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
+            }
+            root.push(blockNode);
+            continue;
           }
-          if (!closed) {
-            Parser._warn(`Line ${blockStart + 1}: @${blockType} block is missing a closing "}".`);
-          }
-          root.push(blockNode);
-          continue;
         }
 
         // ── Component Definition: @def ComponentName(prop1, prop2) ─────
-        if (trimmed.startsWith('@def') || trimmed.startsWith('@component')) {
+        if (isDirective && (trimmed.startsWith('@def') || trimmed.startsWith('@component'))) {
           const compM = trimmed.match(/@(def|component)\s+([A-Z]\w*)(?:\(([^)]*)\))?/);
           if (compM) {
             const compName = compM[2];
@@ -620,6 +685,9 @@
         if (this._cache.size > this._cacheLimit) {
           const oldest = this._cache.keys().next().value;
           this._cache.delete(oldest);
+        }
+        if (hash) {
+          this._setPersistedAST(hash, root);
         }
       }
       return root;
@@ -807,7 +875,13 @@
       }
 
       // Check if starts with a capitalized Component name: Card [shadow] or Card("a", badge="b")
-      const firstWord = content.split(/[\s[(\"]/)[0];
+      let fwEnd = 0;
+      while (fwEnd < content.length) {
+        const c = content.charCodeAt(fwEnd);
+        if (c === 32 || c === 91 || c === 40 || c === 34) break;
+        fwEnd++;
+      }
+      const firstWord = fwEnd === content.length ? content : content.slice(0, fwEnd);
       if (/^[A-Z]\w*$/.test(firstWord)) {
         return {
           type: 'component',
@@ -840,7 +914,7 @@
         }
       }
 
-      const tagClean = tag.replace(/[^a-zA-Z0-9_-]/g, '') || 'div';
+      const tagClean = (tag && !/[^a-zA-Z0-9_-]/.test(tag)) ? tag : (tag.replace(/[^a-zA-Z0-9_-]/g, '') || 'div');
       const bracketMods = Parser.extractModifiers(content);
       const dotMods = dotClasses.map(c => `class="${typeof BZ_CLASS_MAP !== 'undefined' && BZ_CLASS_MAP[c] ? BZ_CLASS_MAP[c] : c}"`);
       const allMods = dotMods.length > 0 ? [...dotMods, ...bracketMods] : bracketMods;
@@ -859,18 +933,48 @@
 
     extractQuoted(str) {
       if (!str) return null;
-      // Double-quoted first (supports escapes), then single-quoted
-      let m = str.match(/"([^"\\]*(?:\\.[^"\\]*)*)"/);
-      if (m) return m[1];
-      m = str.match(/'([^'\\]*(?:\\.[^'\\]*)*)'/);
-      return m ? m[1] : null;
+      const len = str.length;
+      const q1 = str.indexOf('"');
+      const q2 = str.indexOf("'");
+      if (q1 === -1 && q2 === -1) return null;
+
+      let quoteChar = 34; // '"'
+      let startIdx = q1;
+      if (q1 === -1 || (q2 !== -1 && q2 < q1)) {
+        quoteChar = 39; // "'"
+        startIdx = q2;
+      }
+
+      let escaped = false;
+      for (let i = startIdx + 1; i < len; i++) {
+        const code = str.charCodeAt(i);
+        if (code === 92) {
+          escaped = !escaped;
+        } else if (code === quoteChar && !escaped) {
+          return str.slice(startIdx + 1, i);
+        } else {
+          escaped = false;
+        }
+      }
+      return null;
     },
 
     extractId(str) {
       if (!str) return null;
-      const before = str.split('[')[0];
-      const m = before.match(/#([\w-]+)/);
-      return m ? m[1] : null;
+      const bracket = str.indexOf('[');
+      const searchEnd = bracket === -1 ? str.length : bracket;
+      const hashIdx = str.indexOf('#');
+      if (hashIdx === -1 || hashIdx >= searchEnd) return null;
+      let end = hashIdx + 1;
+      while (end < searchEnd) {
+        const c = str.charCodeAt(end);
+        if ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95 || c === 45) {
+          end++;
+        } else {
+          break;
+        }
+      }
+      return end > hashIdx + 1 ? str.slice(hashIdx + 1, end) : null;
     },
 
     extractModifiers(str) {
