@@ -66,8 +66,25 @@
     } catch (_) {}
   }
 
+  // ── v2.1 Modern UI & Web Component Custom Element demo ─────────────────
+  function registerWebComponents() {
+    if (typeof window === 'undefined' || !window.Breeze || !window.Breeze.defineElement) return;
+    try {
+      window.Breeze.defineElement('breeze-counter', `
+@state count = 42
+div.stat-metric-card
+  span.stat-metric-label "Native Web Component"
+  span.stat-metric-value "{count}"
+  div [flex, gap-sm, mt-sm]
+    button.btn-blueberry "+1 Increment" [@click -> count++]
+    button.btn.ghost "Reset" [@click -> count = 0]
+`, { observedAttributes: ['count'], initialState: { count: 42 } });
+    } catch (_) {}
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     registerV2Methods();
+    registerWebComponents();
     // Populate dynamic size elements if present
     const liveSizeEl = document.getElementById('live-size-val');
     if (liveSizeEl) {

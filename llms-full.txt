@@ -44,14 +44,17 @@ When generating Breeze code, LLMs MUST strictly adhere to these rules:
    - `@style "raw css"`
 4. **ELEMENTS**: Elements follow the format:
    `<tag> "<text with {bindings}>" [<modifiers>] #<id>`
+   or shorthand selector syntax:
+   `<tag>.<class1>.<class2>#<id> "<text with {bindings}>" [<modifiers>]`
    Any order of text, modifiers, and id is permitted after the tag name.
 5. **MODIFIERS ([...])**: Enclosed in square brackets. Comma-separated.
-   - CSS utility classes: `[primary, hero, center, pad-lg, grid-2, shadow, hover-lift]`
+   - CSS utility classes: `[primary, hero, center, pad-lg, grid-2, shadow, hover-lift, card-glass, switch, badge-blueberry, btn-glow]`
    - HTML attributes: `[type=email, placeholder="Enter email..."]`
    - Event actions: `[@click -> action(args)]`, `[@input -> action(args)]`
 6. **TEXT BINDINGS ({...})**: Any word enclosed in `{...}` within element text is treated as a reactive state binding:
    `p "Current value: {count}"`
    When `count` changes, Breeze directly updates that text node without re-rendering the page.
+7. **WEB COMPONENTS**: `Breeze.defineElement(tagName, template, options)` exports native custom elements that can be embedded into React, Vue, Angular, or raw HTML with observed attributes.
 
 ---
 

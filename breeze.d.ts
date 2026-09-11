@@ -232,6 +232,12 @@ export interface BreezeAPI {
   off(event: string, handler: (data: any) => void): BreezeAPI;
   emit(event: string, data?: any): BreezeAPI;
 
+  // Web Component & Configuration
+  defineElement(tagName: string, template: string | AstNode[], options?: { observedAttributes?: string[]; shadow?: boolean; initialState?: Record<string, any>; connected?: () => void; disconnected?: () => void }): any;
+  config: { warn: boolean; security: { sanitizeUrls: boolean } };
+  sanitizeUrl(url: string): string;
+  reportError(err: Error | unknown, context?: string): void;
+
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;
   parse(source: string, opts?: { noCache?: boolean }): AstNode[];
@@ -243,6 +249,7 @@ export interface BreezeAPI {
     isStaticRowTemplate(children: AstNode[], itemVar: string): boolean;
     itemNodeToHtml(node: AstNode, itemVar: string, item: any, index: number, key?: string | number | null): string;
     renderRowsHtml(children: AstNode[], itemVar: string, items: any[], startIdx: number, keyProp: string): { html: string; keys: Array<string | number>; rootTag: string };
+    compileRowSerializer(children: AstNode[], itemVar: string, keyProp: string, options?: { withKeys?: boolean }): { rootTag: string; render(items: any[], startIdx?: number): { html: string; keys: Array<string | number>; rootTag: string } };
   };
 }
 

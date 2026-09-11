@@ -12,16 +12,17 @@
 
 ## ✨ Features (v2.1.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, ~34.1 KB gzipped (148.6 KB raw, 28.2 KB Brotli; full comfort kit, roughly half of React 19's 66.5 KB)
-- 📝 **Declarative `.breeze` syntax** — indentation markup, `@def` params, `@slot`, `@each … [key=id]` keyed lists, `@show/@model/@ref/@cloak/@transition` comfort directives
-- ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, rAF `schedule()`/`tick()`, cycle-guarded store
-- 🔁 **LIS keyed reconciliation + static-row HTML path** — minimal moves for reorder; wiring-free row templates build as one HTML string (profiled bulk-append fix with DOM fallback)
+- 🚀 **Zero dependencies** — one `breeze.js` file, ~34.1 KB gzipped (148.6 KB raw, 28.2 KB Brotli; roughly half of React 19's 66.5 KB)
+- 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
+- 📝 **Declarative `.breeze` syntax + Dot-Class Shorthand** — indentation markup, `tag.class1.class2#id` shorthand (e.g. `td.col-md-1`, `a.lbl`, `button.btn#run`), `@def` params, `@slot`, `@each … [key=id]` keyed lists
+- ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, recursion depth limit (`MAX_UPDATE_DEPTH = 100`), rAF `schedule()`/`tick()`, cycle-guarded store
+- 🔁 **Precompiled row serializers + LIS reconciliation** — static row templates compile into high-speed chunked string serializers (30–50× faster bulk creation/append, 93% GC reduction); minimal-move LIS reordering
+- 🛡️ **Hardened Robustness & Security** — automatic XSS URL sanitization for `href`/`src`/`action`, hydration tag mismatch detection & self-healing, centralized `reportError()`, `errorBoundary()`
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
-- 🖥️ **SSR + non-destructive hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, ~2.8k pg/s
-- 🧰 **Comfort kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
+- 🖥️ **Ultra-Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, **5,400+ pages/sec** throughput
+- 🎨 **Blueberry Blue Design System & Modern UI** — vibrant `--bz-blueberry` palette, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
+- 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
 - 🛠️ **CLI** — `generate component|route|store|page`, `lint`, `format`, `check`, `build --min` (emits `breeze.min.js`), portable distribution-reporting benches
-- 🎨 **Design system** — 50+ utilities + suspense/cloak/transition/form/invalid/keyed/outlet/stack/cluster, `color-mix` fallbacks, reduced-motion
-- 📊 **Benchmark families (9)** — Krausest DOM ops, frame-callback throughput, page arrival (desktop + emulated mobile), workload families (wide/deep/form), bundle, SSR, build performance, engine micro, v2 node suites — latest releases, same CPU, distributions not single shots
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 
 > Measured 2026-09-11 (Pentium N3700, Chrome 153, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8):
@@ -291,6 +292,77 @@ card [zoom-in, hover-lift]
 | `zoom-in` | Scale 0.9→1 + fade |
 | `bounce` | Bounce effect |
 | `pulse` | Repeating pulse |
+
+---
+
+### Dot-Class & ID Shorthand Syntax
+
+Breeze supports standard CSS selector shorthand on tags:
+
+```
+button.btn.primary#submit-btn "Submit Form"
+td.col-md-1 "{row.id}"
+a.lbl "{row.label}"
+card.card-glass.shadow
+```
+
+- Any class matching a Breeze token (e.g. `primary`, `card-glass`, `shadow`) resolves to its framework token (`bz-primary`, etc.).
+- Any custom or external class (e.g. `col-md-1`, `lbl`, `btn-default`) is preserved verbatim without unwanted prefixes.
+
+---
+
+### Easy Adoption: Native Web Components
+
+Adopt Breeze progressively into existing React, Vue, Angular, or legacy HTML projects without build pipelines:
+
+```js
+// Define standard Web Component
+Breeze.defineElement('breeze-counter', `
+@state count = 0
+div.card-glass.shadow
+  span.badge-blueberry "Web Component"
+  h3 "Count: {count}"
+  button.btn-blueberry.btn-glow "+1" [@click -> count++]
+`, { observedAttributes: ['count'] });
+```
+
+Use it directly in standard HTML, JSX, or Vue templates:
+
+```html
+<breeze-counter count="10"></breeze-counter>
+```
+
+---
+
+### Blueberry Blue Design System & Modern UI Suite
+
+Breeze v2.1 introduces the **Blueberry Blue** aesthetic palette alongside modern UI component primitives:
+
+| Component | Class | Description |
+|---|---|---|
+| Glassmorphic Card | `.bz-card-glass` | Elevated card with 16px backdrop blur, subtle luminous border, and shadow |
+| Toggle Switch | `.bz-switch` | Accessible checkbox toggle switch bound to state |
+| Pill Badge | `.bz-badge-blueberry` | Pill-shaped status badge with blueberry border and light tint |
+| Glowing Button | `.bz-btn-blueberry`, `.bz-btn-glow` | Vibrant blueberry gradient button with luminous focus/hover glow |
+| Stat Metric Card | `.bz-stat-card` | Numeric dashboard metric card with uppercase label |
+| Segmented Tabs | `.bz-tabs` | Pill-style segmented tab controller |
+
+CSS Tokens:
+- `--bz-blueberry: #3b82f6`
+- `--bz-blueberry-dark: #1d4ed8`
+- `--bz-blueberry-light: #eff6ff`
+- `--bz-blueberry-glow: rgba(59, 130, 246, 0.35)`
+
+---
+
+### Robustness & Security Hardening
+
+Borrowing battle-tested resilience patterns from React 19 and Vue 3.5:
+
+- **Recursion Guard (`MAX_UPDATE_DEPTH = 100`)**: Halts runaway reactive update cascades before stack overflow, logging clear diagnostics via `reportError()`.
+- **Automatic URL Sanitization**: Protects `href`, `src`, and `action` against dangerous `javascript:`, `vbscript:`, and `data:text/html` payloads.
+- **Hydration Mismatch Recovery**: Gracefully aligns mismatched SSR nodes (such as ad injector insertions or SSR whitespace drifts) without desynchronizing sibling DOM trees.
+- **Cycle Guarded Computed**: Computed getters that reference themselves fail with informative cycle warnings rather than silent crashes.
 
 ---
 
