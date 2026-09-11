@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breeze Framework — Third-Party DatePicker Adapter Example</title>
+  <link rel="stylesheet" href="../../breeze.css">
+  <style>
+    :root {
+      --app-bg: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #0266d6;
+      --primary-light: #ebf4ff;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--app-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1rem 2rem;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .badge {
+      background: var(--primary);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .datepicker-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      align-items: flex-start;
+    }
+
+    /* DatePicker Calendar Widget Styling */
+    .datepicker-widget {
+      width: 320px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .cal-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .cal-nav-btn {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .cal-nav-btn:hover {
+      background: #475569;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+
+    .cal-day-header {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 0.4rem 0;
+    }
+
+    .cal-cell {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: var(--text);
+    }
+    .cal-cell:hover:not(.empty) {
+      background: rgba(2, 102, 214, 0.2);
+    }
+    .cal-cell.empty {
+      cursor: default;
+    }
+    .cal-cell.selected {
+      background: var(--primary) !important;
+      color: #ffffff !important;
+      font-weight: 700;
+    }
+    .cal-cell.today {
+      border: 1px solid var(--primary);
+    }
+
+    .detail-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-width: 280px;
+    }
+
+    .sync-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .quick-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    button.btn {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button.btn:hover {
+      background: #475569;
+    }
+    button.btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    pre.code-snippet {
+      margin: 0;
+      padding: 1rem;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #38bdf8;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>Breeze Framework</h1>
+      <span class="badge">Two-Way DatePicker Adapter</span>
+    </div>
+    <div>
+      <a href="../README.md" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">← Back to Examples</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2 style="margin: 0; font-size: 1.25rem;">Vanilla DatePicker Two-Way Binding</h2>
+      <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+        This example demonstrates two-way reactive state synchronization between a vanilla JavaScript DOM component and Breeze reactive signals. Selecting a date in the calendar updates the Breeze signal, and modifying the Breeze signal programmatically syncs the calendar widget immediately.
+      </p>
+
+      <div class="datepicker-layout">
+        <!-- The UI Calendar Widget -->
+        <div class="datepicker-widget" id="cal-widget">
+          <div class="cal-header">
+            <button class="cal-nav-btn" id="cal-prev">‹</button>
+            <div class="cal-title" id="cal-title">September 2026</div>
+            <button class="cal-nav-btn" id="cal-next">›</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Breeze Signal Two-Way Status & Controls -->
+        <div class="detail-panel">
+          <div class="sync-box">
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Bound Breeze Signal:</span>
+            <span style="font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; color: var(--primary-light);" id="disp-date">2026-09-11</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);" id="disp-formatted">Friday, September 11, 2026</span>
+          </div>
+
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Quick Presets (Programmatic Signal Mutations):</label>
+            <div class="quick-buttons">
+              <button class="btn btn-primary" id="btn-today">Today</button>
+              <button class="btn" id="btn-tomorrow">+1 Day</button>
+              <button class="btn" id="btn-week">+1 Week</button>
+              <button class="btn" id="btn-month">+1 Month</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin: 0; font-size: 1rem;">Two-Way Synchronization Pattern</h3>
+      <pre class="code-snippet"><code>// 1. Declare the reactive Breeze signal
+const selectedDate = Breeze.signal('2026-09-11', 'selectedDate');
+
+// 2. Component -> Signal: Emit change event on user selection
+calendarWidget.onSelect((isoDate) => {
+  selectedDate.value = isoDate;
+});
+
+// 3. Signal -> Component: Reactively sync widget when signal changes
+Breeze.effect(() => {
+  calendarWidget.setDate(selectedDate.value);
+});</code></pre>
+    </div>
+  </div>
+
+  <script src="../../breeze.js"></script>
+  <script>
+    // ── 1. Breeze Reactive State ─────────────────────────────────────────
+    const selectedDateSignal = Breeze.signal('2026-09-11', 'selectedDate');
+
+    // ── 2. Vanilla JS Datepicker Class ───────────────────────────────────
+    class VanillaDatePicker {
+      constructor(containerEl, onSelect) {
+        this.container = containerEl;
+        this.onSelect = onSelect;
+        this.viewDate = new Date();
+        this.selectedDateStr = null;
+
+        this.titleEl = containerEl.querySelector('#cal-title');
+        this.gridEl = containerEl.querySelector('#cal-grid');
+
+        containerEl.querySelector('#cal-prev').addEventListener('click', () => {
+          this.viewDate.setMonth(this.viewDate.getMonth() - 1);
+          this.render();
+        });
+
+        containerEl.querySelector('#cal-next').addEventListener('click', () => {
+          this.viewDate.setMonth(this.viewDate.getMonth() + 1);
+          this.render();
+        });
+      }
+
+      setDate(isoString) {
+        if (this.selectedDateStr === isoString) return;
+        this.selectedDateStr = isoString;
+        const [y, m, d] = isoString.split('-').map(Number);
+        this.viewDate = new Date(y, m - 1, 1);
+        this.render();
+      }
+
+      render() {
+        const year = this.viewDate.getFullYear();
+        const month = this.viewDate.getMonth();
+
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        this.titleEl.textContent = `${monthNames[month]} ${year}`;
+
+        this.gridEl.innerHTML = '';
+
+        // Day of week headers
+        const dayHeaders = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+        dayHeaders.forEach(dh => {
+          const el = document.createElement('div');
+          el.className = 'cal-day-header';
+          el.textContent = dh;
+          this.gridEl.appendChild(el);
+        });
+
+        // Days calculation
+        const firstDayIndex = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        // Empty cells before start of month
+        for (let i = 0; i < firstDayIndex; i++) {
+          const cell = document.createElement('div');
+          cell.className = 'cal-cell empty';
+          this.gridEl.appendChild(cell);
+        }
+
+        const todayIso = new Date().toISOString().split('T')[0];
+
+        // Day cells
+        for (let day = 1; day <= totalDays; day++) {
+          const cell = document.createElement('div');
+          cell.className = 'cal-cell';
+          cell.textContent = day;
+
+          const mStr = String(month + 1).padStart(2, '0');
+          const dStr = String(day).padStart(2, '0');
+          const cellIso = `${year}-${mStr}-${dStr}`;
+
+          if (cellIso === this.selectedDateStr) {
+            cell.classList.add('selected');
+          }
+          if (cellIso === todayIso) {
+            cell.classList.add('today');
+          }
+
+          cell.addEventListener('click', () => {
+            this.selectedDateStr = cellIso;
+            this.render();
+            if (this.onSelect) this.onSelect(cellIso);
+          });
+
+          this.gridEl.appendChild(cell);
+        }
+      }
+    }
+
+    // ── 3. Wire Up Two-Way Binding ───────────────────────────────────────
+    const pickerContainer = document.getElementById('cal-widget');
+
+    // UI -> Breeze Signal
+    const picker = new VanillaDatePicker(pickerContainer, (isoDate) => {
+      selectedDateSignal.value = isoDate;
+    });
+
+    // Breeze Signal -> UI & DOM Display
+    Breeze.effect(() => {
+      const curDate = selectedDateSignal.value;
+      picker.setDate(curDate);
+
+      // Update readable date display
+      document.getElementById('disp-date').textContent = curDate;
+      const [y, m, d] = curDate.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      document.getElementById('disp-formatted').textContent = dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }, 'syncDateEffect');
+
+    // ── 4. Quick Preset Handlers (Mutating the Breeze Signal) ────────────
+    function offsetDays(days) {
+      const [y, m, d] = selectedDateSignal.value.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      date.setDate(date.getDate() + days);
+      const newY = date.getFullYear();
+      const newM = String(date.getMonth() + 1).padStart(2, '0');
+      const newD = String(date.getDate()).padStart(2, '0');
+      selectedDateSignal.value = `${newY}-${newM}-${newD}`;
+    }
+
+    document.getElementById('btn-today').addEventListener('click', () => {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      selectedDateSignal.value = `${y}-${m}-${d}`;
+    });
+
+    document.getElementById('btn-tomorrow').addEventListener('click', () => offsetDays(1));
+    document.getElementById('btn-week').addEventListener('click', () => offsetDays(7));
+    document.getElementById('btn-month').addEventListener('click', () => offsetDays(30));
+  </script>
+</body>
+</html>
