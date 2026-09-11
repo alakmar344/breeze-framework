@@ -238,6 +238,18 @@ export interface BreezeAPI {
   sanitizeUrl(url: string): string;
   reportError(err: Error | unknown, context?: string): void;
 
+  diagnostics: {
+    graph(): {
+      nodes: Array<{ id: string; type: 'signal' | 'computed' | 'effect'; value: any; label: string }>;
+      edges: Array<{ from: string; to: string }>;
+      hasCycle: boolean;
+      cycles: string[][];
+    };
+    table(): any[];
+    detectCycles(): { hasCycle: boolean; cycles: string[][] };
+    reset(): void;
+  };
+
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;
   parse(source: string, opts?: { noCache?: boolean }): AstNode[];
@@ -258,3 +270,16 @@ export interface BreezeAPI {
 
 export const Breeze: BreezeAPI;
 export default Breeze;
+
+declare global {
+  interface Window {
+    __BREEZE_DEVTOOLS__?: {
+      version: string;
+      getGraph(): { nodes: Array<{ id: string; type: string; value: any; label: string }>; edges: Array<{ from: string; to: string }>; hasCycle: boolean; cycles: string[][] };
+      getTable(): any[];
+      getReport(): any;
+      detectCycles(): { hasCycle: boolean; cycles: string[][] };
+      onUpdate(fn: (data: any) => void): () => void;
+    };
+  }
+}

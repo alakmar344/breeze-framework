@@ -243,9 +243,88 @@
     }
   }
 
-  function signal(initialValue) {
+  // ── Reactive Graph Tracking & Diagnostics Helpers ───────────────────
+  let reactiveIdCounter = 0;
+  const reactiveNodes = new Map();
+
+  function safeSerializeValue(val) {
+    if (val === undefined) return undefined;
+    if (val === null) return null;
+    const type = typeof val;
+    if (type === 'number' || type === 'boolean' || type === 'string') return val;
+    if (type === 'bigint') return val.toString() + 'n';
+    if (type === 'function') return `[Function: ${val.name || 'anonymous'}]`;
+    if (typeof Element !== 'undefined' && val instanceof Element) return `<${val.tagName.toLowerCase()}>`;
+    if (Array.isArray(val)) {
+      return val.length <= 10 ? val.map(safeSerializeValue) : `Array(${val.length})`;
+    }
+    if (type === 'object') {
+      try {
+        JSON.stringify(val);
+        return val;
+      } catch (_) {
+        return '[Circular / Complex Object]';
+      }
+    }
+    return String(val);
+  }
+
+  function detectGraphCycles(nodes, edges) {
+    const adj = new Map();
+    (nodes || []).forEach(n => adj.set(n.id, []));
+    (edges || []).forEach(e => {
+      if (adj.has(e.from)) adj.get(e.from).push(e.to);
+    });
+
+    const state = new Map(); // 0: unvisited, 1: visiting, 2: visited
+    const cycles = [];
+
+    function dfs(u, path) {
+      state.set(u, 1);
+      path.push(u);
+
+      const neighbors = adj.get(u) || [];
+      for (const v of neighbors) {
+        const vState = state.get(v) || 0;
+        if (vState === 1) {
+          const cycleStart = path.indexOf(v);
+          if (cycleStart !== -1) {
+            cycles.push(path.slice(cycleStart).concat([v]));
+          }
+        } else if (vState === 0) {
+          dfs(v, path);
+        }
+      }
+
+      path.pop();
+      state.set(u, 2);
+    }
+
+    (nodes || []).forEach(n => {
+      if ((state.get(n.id) || 0) === 0) {
+        dfs(n.id, []);
+      }
+    });
+
+    return {
+      hasCycle: cycles.length > 0,
+      cycles
+    };
+  }
+
+  function signal(initialValue, label) {
     let value = initialValue;
     const subscribers = new Set();
+    const id = 'sig_' + (++reactiveIdCounter);
+    const nodeLabel = label || `signal_${id}`;
+
+    reactiveNodes.set(id, {
+      id,
+      type: 'signal',
+      label: nodeLabel,
+      getVal: () => value,
+      subscribers
+    });
 
     function track() {
       if (activeEffect) {
@@ -253,6 +332,9 @@
         // Record reverse link so effects/computeds can unsubscribe on re-run/dispose
         if (!activeEffect._sources) activeEffect._sources = new Set();
         activeEffect._sources.add(subscribers);
+        if (activeEffect._depNodes) {
+          activeEffect._depNodes.add(id);
+        }
       }
     }
 
@@ -265,6 +347,9 @@
         if (value !== newValue) {
           value = newValue;
           Profiler.recordSignalUpdate();
+          if (typeof EventBus !== 'undefined' && EventBus.emit) {
+            try { EventBus.emit('breeze:signal', { id, label: nodeLabel, value }); } catch (_) {}
+          }
           // v2 fast-paths: single subscriber (common) avoids Array.from alloc;
           // batched multi-subscriber path batches without intermediate arrays.
           if (batchDepth > 0) {
@@ -281,7 +366,10 @@
         subscribers.add(fn);
         return () => subscribers.delete(fn);
       },
-      _subscribers: subscribers
+      _subscribers: subscribers,
+      _nodeId: id,
+      _nodeType: 'signal',
+      label: nodeLabel
     };
   }
 
@@ -289,6 +377,9 @@
     if (runner && runner._sources) {
       for (const set of runner._sources) set.delete(runner);
       runner._sources.clear();
+    }
+    if (runner && runner._depNodes) {
+      runner._depNodes.clear();
     }
   }
 
@@ -331,11 +422,13 @@
     return keep;
   }
 
-  function computed(fn) {
+  function computed(fn, label) {
     let cachedValue;
     let dirty = true;
     let evaluating = false;
     const subscribers = new Set();
+    const id = 'comp_' + (++reactiveIdCounter);
+    const nodeLabel = label || `computed_${id}`;
 
     const runner = () => {
       if (!dirty) {
@@ -350,6 +443,18 @@
       }
     };
     runner._sources = new Set();
+    runner._depNodes = new Set();
+    runner._nodeId = id;
+    runner._nodeType = 'computed';
+
+    reactiveNodes.set(id, {
+      id,
+      type: 'computed',
+      label: nodeLabel,
+      getVal: () => cachedValue,
+      runner,
+      subscribers
+    });
 
     return {
       get value() {
@@ -377,6 +482,9 @@
           subscribers.add(activeEffect);
           if (!activeEffect._sources) activeEffect._sources = new Set();
           activeEffect._sources.add(subscribers);
+          if (activeEffect._depNodes) {
+            activeEffect._depNodes.add(id);
+          }
         }
         return cachedValue;
       },
@@ -384,13 +492,23 @@
       subscribe(fn) {
         subscribers.add(fn);
         return () => subscribers.delete(fn);
-      }
+      },
+      dispose() {
+        detachRunner(runner);
+        reactiveNodes.delete(id);
+      },
+      _nodeId: id,
+      _nodeType: 'computed',
+      label: nodeLabel
     };
   }
 
-  function effect(fn) {
+  function effect(fn, label) {
     let running = false;
     let runCount = 0;
+    const id = 'eff_' + (++reactiveIdCounter);
+    const nodeLabel = label || `effect_${id}`;
+
     const runner = () => {
       if (running) {
         if (++runCount > MAX_UPDATE_DEPTH) {
@@ -410,13 +528,29 @@
       } finally {
         running = false;
         activeEffect = prev;
+        if (typeof EventBus !== 'undefined' && EventBus.emit) {
+          try { EventBus.emit('breeze:effect', { id, label: nodeLabel, runCount }); } catch (_) {}
+        }
       }
     };
     runner._sources = new Set();
+    runner._depNodes = new Set();
+    runner._nodeId = id;
+    runner._nodeType = 'effect';
+
+    reactiveNodes.set(id, {
+      id,
+      type: 'effect',
+      label: nodeLabel,
+      getVal: () => '[Effect]',
+      runner
+    });
+
     runner();
     return () => {
       detachRunner(runner);
       pendingEffects.delete(runner);
+      reactiveNodes.delete(id);
     };
   }
 
@@ -4294,32 +4428,32 @@
     },
 
     // ── Fine-Grained Reactive Signals API ─────────────────────────────
-    signal(initialValue) {
-      return signal(initialValue);
+    signal(initialValue, label) {
+      return signal(initialValue, label);
     },
 
-    ref(initialValue) {
+    ref(initialValue, label) {
       // v2 ref: { value } alias over signal (Vue-like ergonomics)
-      return signal(initialValue);
+      return signal(initialValue, label);
     },
 
-    memo(fn) {
+    memo(fn, label) {
       // v2 memo: computed signal with explicit dispose
-      const c = computed(fn);
+      const c = computed(fn, label);
       c.dispose = () => { /* computed deps auto-detach on next eval */ };
       return c;
     },
 
-    computed(keyOrFn, maybeDeps, maybeFn) {
+    computed(keyOrFn, maybeDeps, maybeFn, maybeLabel) {
       if (typeof keyOrFn === 'function') {
-        return computed(keyOrFn);
+        return computed(keyOrFn, typeof maybeDeps === 'string' ? maybeDeps : undefined);
       }
       State.computed(keyOrFn, maybeDeps, maybeFn);
       return this;
     },
 
-    effect(fn) {
-      return effect(fn);
+    effect(fn, label) {
+      return effect(fn, label);
     },
 
     batch(fn) {
@@ -4358,6 +4492,82 @@
       else if (DevToolsHUD._el) DevToolsHUD._el.remove();
       return this;
     },
+
+    // ── DevTools & Diagnostics Graph API ──────────────────────────────
+    diagnostics: Object.assign(
+      function diagnostics() {
+        return Parser.getDiagnostics();
+      },
+      {
+        graph() {
+          const nodes = [];
+          const edges = [];
+          const edgeSet = new Set();
+
+          for (const [id, node] of reactiveNodes.entries()) {
+            let rawVal = undefined;
+            try { rawVal = node.getVal ? node.getVal() : undefined; } catch (_) {}
+            nodes.push({
+              id,
+              type: node.type,
+              value: safeSerializeValue(rawVal),
+              label: typeof node.label === 'function' ? node.label() : (node.label || id)
+            });
+
+            if (node.runner && node.runner._depNodes) {
+              for (const depId of node.runner._depNodes) {
+                if (reactiveNodes.has(depId)) {
+                  const edgeKey = `${depId}->${id}`;
+                  if (!edgeSet.has(edgeKey)) {
+                    edgeSet.add(edgeKey);
+                    edges.push({ from: depId, to: id });
+                  }
+                }
+              }
+            }
+          }
+
+          const cycleResult = detectGraphCycles(nodes, edges);
+
+          return {
+            nodes,
+            edges,
+            hasCycle: cycleResult.hasCycle,
+            cycles: cycleResult.cycles
+          };
+        },
+
+        table() {
+          const g = this.graph();
+          const rows = g.nodes.map(n => {
+            const deps = g.edges.filter(e => e.to === n.id).map(e => e.from).join(', ') || '-';
+            const dependents = g.edges.filter(e => e.from === n.id).map(e => e.to).join(', ') || '-';
+            return {
+              id: n.id,
+              type: n.type,
+              label: n.label,
+              value: typeof n.value === 'object' && n.value !== null ? JSON.stringify(n.value) : String(n.value),
+              dependencies: deps,
+              dependents: dependents
+            };
+          });
+          if (typeof console !== 'undefined' && typeof console.table === 'function') {
+            try { console.table(rows); } catch (_) {}
+          }
+          return rows;
+        },
+
+        detectCycles() {
+          const g = this.graph();
+          return detectGraphCycles(g.nodes, g.edges);
+        },
+
+        reset() {
+          reactiveNodes.clear();
+          reactiveIdCounter = 0;
+        }
+      }
+    ),
 
     // ── SSR & Hydration API ───────────────────────────────────────────
     renderToString(sourceOrAst, state) {
@@ -4439,7 +4649,7 @@
         State._store[key] = initialValue;
       }
       if (!State._signals[key]) {
-        const s = signal(State._store[key]);
+        const s = signal(State._store[key], key);
         // Two-way sync: signal -> store (without re-triggering signal)
         let syncing = false;
         const origDesc = Object.getOwnPropertyDescriptor(s, 'value');
@@ -4550,7 +4760,6 @@
     a11y: A11y,
     announce(msg) { A11y.announce(msg); return this; },
     codeframe(source, line) { return codeframe(source, line); },
-    diagnostics() { return Parser.getDiagnostics(); },
     clearCache() { Parser.clearCache(); return this; },
     selectRow(containerSel, key, activeClass) {
       const c = typeof containerSel === 'string' && typeof document !== 'undefined'
@@ -4605,6 +4814,33 @@
 
     parse(source, opts) { return Parser.parse(source, opts); }
   };
+
+  // ── DevTools Extension Hook (__BREEZE_DEVTOOLS__) ───────────────────
+  const devtoolsHook = {
+    version: BreezeAPI.version,
+    getGraph: () => BreezeAPI.diagnostics.graph(),
+    getTable: () => BreezeAPI.diagnostics.table(),
+    getReport: () => Profiler.getReport(),
+    detectCycles: () => BreezeAPI.diagnostics.detectCycles(),
+    onUpdate: (fn) => {
+      if (typeof EventBus !== 'undefined') {
+        EventBus.on('breeze:signal', fn);
+        EventBus.on('breeze:effect', fn);
+        return () => {
+          EventBus.off('breeze:signal', fn);
+          EventBus.off('breeze:effect', fn);
+        };
+      }
+      return () => {};
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.__BREEZE_DEVTOOLS__ = devtoolsHook;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.__BREEZE_DEVTOOLS__ = devtoolsHook;
+  }
 
   // Expose globally & as module
   global.Breeze = BreezeAPI;
