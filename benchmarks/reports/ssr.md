@@ -7,13 +7,13 @@ Breeze Framework v2.2.0 includes a zero-dependency server-side renderer (`Breeze
 
 ## Environment & Methodology
 
-- **Date**: 2026-09-11
+- **Date**: 2026-09-12
 - **Node.js**: v24.18.0 (V8 13.x)
 - **Operating System**: Windows 10 Pro x64 (Build 10.0.19045)
 - **CPU**: Intel(R) Pentium(R) CPU N3700 @ 1.60GHz (4 cores, 4 threads)
 - **Memory**: 4.15 GB DDR3
 - **Warmup**: 50 full render passes before timing
-- **Sample Size**: 1,000 continuous render passes per engine
+- **Sample Size**: 1,000–2,000 continuous render passes per engine
 - **Workload**: Realistic multi-section app template consisting of:
   - Header & sticky navigation (`@nav`)
   - User profile with dynamic `{username}` and `{count}` interpolations

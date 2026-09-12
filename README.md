@@ -590,21 +590,22 @@ breeze serve dist 9000
 ## 📊 Public Multi-Suite Benchmarks
 
 Measured 2026-09-12 on an Intel Pentium N3700, headless Chrome 153 via CDP
-(median-of-5 with p95/min/max/sd; latest releases: React 19.3.0, Vue 3.5.42, Preact 10.29.8).
+(median-of-7 with p95/min/max/sd; enterprise thermal pacing; latest releases: React 19.3.0, Vue 3.5.42, Preact 10.29.8).
 Absolute ms are slow on this chip — ordering is the claim:
 
 | Benchmark Workload | 🌊 Breeze | Vanilla JS | Preact 10 | Vue 3.5 | React 19 | Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Swap rows 4 & 997 (Krausest)** | **3.8 ms** | 45.5 ms | 70.4 ms | 62.4 ms | 461.4 ms | 🌊 **121× faster than React 19** |
-| **Select active row** | **7.9 ms** | 13.3 ms | 31.4 ms | 11.9 ms | 11.2 ms | 🌊 **Fastest of all 5** |
-| **Clear 1,000 rows** | **30.9 ms** | 32.3 ms | 47.6 ms | 47.9 ms | 58.3 ms | 🌊 **Fastest of all 5** |
-| **DBMonster frame throughput** | **15.4 FPS** | 9.4 FPS | 12.0 FPS | 11.8 FPS | 7.4 FPS | 🌊 **2.1× higher than React 19** |
-| **Enterprise Data Grid (30k cells)**| **4,775.4 ms** | 10,743.9 ms | 7,341.1 ms | 5,998.9 ms | 6,100.4 ms | 🌊 **#1 overall pipeline win** |
-| **Data Grid 5k Sort** | **348.0 ms** | 2,647.5 ms | 3,581.4 ms | 2,175.2 ms | 2,411.3 ms | 🌊 **6.9× faster than React 19** |
-| **TodoMVC 100 Item Creation** | **32.4 ms** | 32.9 ms | 41.6 ms | 39.1 ms | 40.2 ms | 🌊 **Fastest creation among frameworks** |
-| **TodoMVC Total Flow** | 178.1 ms | 179.9 ms | **139.2 ms** | 174.7 ms | 160.9 ms | Matches Vanilla JS and Vue |
-| **Memory Stress Retained Delta (5 cyc)**| **+363.9 KB** | +150.1 KB | +224.7 KB | +1,161.9 KB | +183.6 KB | 🟢 **Zero leaks (Vue retains +1.16MB)** |
-| **Compiler Scaling (200 modules)** | **68.8 ms cold / 0.26 ms warm (84,278 lines/sec)** | — | — | — | — | ⚡ **264.7× warm cache speedup** |
+| **Swap rows 4 & 997 (Krausest)** | **4.0 ms** | 35.1 ms | 62.7 ms | 58.3 ms | 403.0 ms | 🌊 **100.8× faster than React 19** |
+| **Select active row** | **10.2 ms** | 11.2 ms | 26.5 ms | 13.5 ms | 13.2 ms | 🌊 **Fastest of all 5** |
+| **Clear 1,000 rows** | **32.8 ms** | 29.0 ms | 41.2 ms | 37.3 ms | 46.0 ms | 🌊 **1.4× faster than React 19** |
+| **Retained Memory (Krausest)** | **1,006.7 KB** | 655.4 KB | 761.2 KB | 1,618.2 KB | 14,156.0 KB | 🌊 **14.1× leaner than React 19** |
+| **DBMonster frame throughput** | **17.0 FPS** | 13.0 FPS | 13.7 FPS | 12.8 FPS | 13.1 FPS | 🌊 **#1 overall throughput** |
+| **Enterprise Data Grid (30k cells)**| **5,260.6 ms** | 12,538.2 ms | 6,500.8 ms | 5,785.2 ms | 6,167.7 ms | 🌊 **#1 overall pipeline win** |
+| **Data Grid 5k Sort** | **328.9 ms** | 2,802.9 ms | 2,705.6 ms | 2,199.1 ms | 2,452.6 ms | 🌊 **7.5× faster than React 19** |
+| **Data Grid Search Filter** | **439.7 ms** | 664.6 ms | 601.8 ms | 562.6 ms | 632.3 ms | 🌊 **Fastest of all 5** |
+| **TodoMVC Total Flow (7 runs)** | 188.1 ms | 148.0 ms | **113.8 ms** | 104.0 ms | 141.5 ms | High-frequency reactivity flow |
+| **Memory Stress Retained Delta (6 cyc)**| **+424.8 KB** | +151.9 KB | +230.7 KB | +1,165.5 KB | +193.3 KB | 🟢 **Zero leaks (Vue retains +1.16MB)** |
+| **Compiler Scaling (200 modules)** | **64.72 ms cold / 0.23 ms warm (89,617 lines/sec)** | — | — | — | — | ⚡ **281.4× warm cache speedup** |
 
 *Full methodology, machine fingerprint, per-op variance, historical baselines and honest losses in [benchmark.md](benchmark.md). Raw machine output: `benchmarks/results.json`.*
 

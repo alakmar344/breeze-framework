@@ -67,10 +67,10 @@ async function main() {
   console.log(`Local test server running on port ${PORT}`);
 
   const os = require('os');
-  // Default 5 runs: on slow hardware each op costs seconds, so 10–30 runs
+  // Default 7 runs: on slow hardware each op costs seconds, so 10–30 runs
   // (recommended on fast machines) is left to BZ_BENCH_RUNS. Distributions
   // (median/p95/min/max/sd) are always reported — never a bare single shot.
-  const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '5', 10) || 5;
+  const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '7', 10) || 7;
   const { summarize } = require('./stats.js');
 
   function resolveChromePath() {
@@ -313,6 +313,8 @@ async function main() {
     };
 
     ws.close();
+    // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+    await new Promise(r => setTimeout(r, 1000));
   }
 
   } finally {
