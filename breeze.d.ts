@@ -9,6 +9,126 @@ export interface BreezeSignal<T> {
   subscribe(fn: (value: T) => void): () => void;
 }
 
+// ── HTTP / data layer types ───────────────────────────────────────────
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+export type ResponseType = 'auto' | 'json' | 'text' | 'blob' | 'arrayBuffer' | 'stream' | 'response';
+
+export interface RetryPolicy {
+  attempts?: number;
+  minDelay?: number;
+  maxDelay?: number;
+  factor?: number;
+  jitter?: boolean;
+  methods?: string[];
+  statuses?: number[];
+  respectRetryAfter?: boolean;
+  shouldRetry?: (info: { error: HttpError | null; response: Response | null; attempt: number; ctx: any }) => boolean | Promise<boolean>;
+}
+
+export type CacheOption = boolean | number | 'no-store' | 'default' | { ttl?: number; swr?: number; staleWhileRevalidate?: number; key?: string };
+export type AuthOption = string | (() => string | null | undefined | Promise<string | null | undefined>) | { header: string; value: string };
+
+export interface RequestOptions {
+  params?: Record<string, any> | URLSearchParams | string;
+  query?: Record<string, any> | URLSearchParams | string;
+  headers?: Record<string, string | null | undefined> | Headers;
+  body?: any;
+  responseType?: ResponseType;
+  timeout?: number;
+  retry?: RetryPolicy | number | boolean;
+  cache?: CacheOption;
+  cacheBust?: boolean;
+  dedupe?: boolean;
+  signal?: AbortSignal;
+  credentials?: RequestCredentials;
+  mode?: RequestMode;
+  redirect?: RequestRedirect;
+  baseURL?: string;
+  auth?: AuthOption;
+  onUnauthorized?: (ctx: any) => boolean | void | Promise<boolean | void>;
+  throwHttpErrors?: boolean;
+  raw?: boolean;
+  fetch?: typeof fetch;
+  meta?: Record<string, any>;
+}
+
+export interface HttpClientConfig extends RequestOptions {
+  baseURL?: string;
+  arrayFormat?: 'repeat' | 'bracket' | 'comma';
+  cacheMax?: number;
+}
+
+export interface RawResult<T = any> {
+  data: T;
+  response: Response | null;
+  status: number;
+  headers: Headers | null;
+  fromCache: boolean;
+}
+
+export interface Interceptor<T> {
+  use(fn: T): number;
+  eject(id: number): void;
+  clear(): void;
+}
+
+export interface HttpClient {
+  request<T = any>(method: HttpMethod, url: string, opts?: RequestOptions): Promise<T>;
+  get<T = any>(url: string, opts?: RequestOptions): Promise<T>;
+  delete<T = any>(url: string, opts?: RequestOptions): Promise<T>;
+  head<T = any>(url: string, opts?: RequestOptions): Promise<T>;
+  options<T = any>(url: string, opts?: RequestOptions): Promise<T>;
+  post<T = any>(url: string, body?: any, opts?: RequestOptions): Promise<T>;
+  put<T = any>(url: string, body?: any, opts?: RequestOptions): Promise<T>;
+  patch<T = any>(url: string, body?: any, opts?: RequestOptions): Promise<T>;
+  interceptors: {
+    request: Interceptor<(ctx: any) => any>;
+    response: Interceptor<(response: Response, ctx: any) => any>;
+    error: Interceptor<(error: HttpError, ctx: any) => any>;
+  };
+  cache: HttpCache;
+  config: HttpClientConfig;
+  extend(extra?: HttpClientConfig): HttpClient;
+}
+
+export interface HttpCache {
+  get(key: string): any;
+  set(key: string, data: any, ttl: number, staleTtl?: number): void;
+  delete(key: string): boolean;
+  clear(): void;
+  invalidate(matcher?: string | RegExp | ((key: string) => boolean)): void;
+}
+
+export declare class HttpError extends Error {
+  name: 'HttpError';
+  code: 'HTTP' | 'TIMEOUT' | 'ABORTED' | 'NETWORK' | 'PARSE';
+  status: number;
+  statusText: string;
+  response: Response | null;
+  data: any;
+  request: { method: string; url: string } | null;
+  readonly isHttpError: true;
+  readonly timeout: boolean;
+  readonly aborted: boolean;
+  readonly network: boolean;
+}
+
+export interface ResourceOptions<T> {
+  initialData?: T;
+  immediate?: boolean;
+  onError?: (err: any) => void;
+}
+
+export interface Resource<T> {
+  data: BreezeSignal<T | undefined>;
+  error: BreezeSignal<HttpError | null>;
+  loading: BreezeSignal<boolean>;
+  fetching: BreezeSignal<boolean>;
+  refetch(opts?: { reset?: boolean }): Promise<void>;
+  abort(): void;
+  mutate(next: T | ((prev: T | undefined) => T)): T;
+}
+
 export interface BreezeStateController<T> {
   get(): T;
   set(value: T): void;
@@ -249,6 +369,17 @@ export interface BreezeAPI {
     detectCycles(): { hasCycle: boolean; cycles: string[][] };
     reset(): void;
   };
+
+  // ── HTTP / data layer (provided by breeze-http.js) ──────────────────
+  createClient(config?: HttpClientConfig): HttpClient;
+  http: HttpClient;
+  HttpError: typeof HttpError;
+  HttpCache: new (max?: number) => HttpCache;
+  /** Reactive async data source bound to Breeze signals. */
+  resource<T = any>(
+    fetcher: (ctx: { signal?: AbortSignal; refetch: () => Promise<void> }) => Promise<T>,
+    options?: ResourceOptions<T>
+  ): Resource<T>;
 
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;

@@ -24,6 +24,7 @@
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
 - 🖥️ **Ultra-Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates, **4,500–5,500 pages/sec** throughput (see [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
 - 🎨 **Cerulean Ocean Design System & Modern UI** — distinctive `--bz-primary: #0266d6` palette with WCAG AA (5.42:1) and AAA (8.43:1 on white, 15.81:1 on dark) compliance, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
+- 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — **~1.2 µs/request** overhead over raw `fetch` (see [docs/http.md](docs/http.md))
 - 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
 - 🛠️ **Production CLI** — `init` (templates), `dev` (live reload, auto-port, CORS), `build` (watch, SSG, Gzip/Brotli, asset copying), `serve`/`preview`, `generate` (component/page/route/store/service/test), `lint` (`--fix`), `format` (`--check`), `check` (`--types`), `doctor`, `clean`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
@@ -406,7 +407,7 @@ Breeze.emit('my-event', { value: 42 });
 Breeze.query('#app');
 Breeze.queryAll('.bz-card');
 
-// Fetch (auto-parses JSON)
+// Fetch (auto-parses JSON) — legacy one-liner, kept for back-compat
 const data = await Breeze.fetch('/api/posts');
 
 // Plugin
@@ -417,6 +418,51 @@ Breeze.plugin('myPlugin', {
   }
 });
 ```
+
+---
+
+## 🌐 HTTP / Data Layer
+
+Breeze ships a production-grade, **dependency-free** data layer in
+`breeze-http.js`. It is a separate, tree-shakeable module built entirely on web
+standards (`fetch`, `Headers`, `URL`, `AbortController`) so the core stays tiny
+— load it and it installs itself onto `Breeze`. Full guide:
+[`docs/http.md`](docs/http.md).
+
+```js
+// Simple cases are tiny
+const users = await Breeze.http.get('/api/users');
+await Breeze.http.post('/api/users', { name: 'Ada' });   // auto JSON body
+
+// Complex cases are still one call
+const api = Breeze.createClient({
+  baseURL: 'https://api.example.com/v1',
+  timeout: 10_000,
+  retry: { attempts: 3 },                 // exponential backoff + jitter + Retry-After
+  cache: { ttl: 30_000, swr: 300_000 },   // TTL + stale-while-revalidate + dedup
+  auth: () => localStorage.getItem('token'),
+  onUnauthorized: refreshSession,          // single-flight 401 refresh + retry
+});
+
+const page = await api.get('/orders', { params: { status: 'open', page: 2 } });
+
+// Typed errors — branch on code, never string-match messages
+try { await api.get('/x'); }
+catch (e) { if (e.code === 'HTTP' && e.status === 404) notFound(); }
+
+// Reactive async state bound to Breeze signals
+const orders = Breeze.resource(({ signal }) => api.get('/orders', { signal }), { initialData: [] });
+orders.data.value; orders.loading.value; orders.error.value;
+orders.refetch(); orders.mutate(list => [...list, draft]);   // optimistic
+```
+
+Highlights: GET/POST/PUT/PATCH/DELETE · JSON/text/binary/stream · 204 & empty
+bodies · query serialization · timeouts · `AbortController` cancellation ·
+configurable retries with exponential backoff + jitter + `Retry-After` ·
+request/response/error interceptors · auth + single-flight token refresh ·
+in-memory caching, request dedup/coalescing, and stale-while-revalidate ·
+optimistic updates · one typed `HttpError`. Measured overhead: **~1.2 µs per
+request** over raw `fetch` (`npm run bench:http`).
 
 ---
 

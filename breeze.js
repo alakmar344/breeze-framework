@@ -4845,6 +4845,23 @@
   // Expose globally & as module
   global.Breeze = BreezeAPI;
 
+  // ── Optional HTTP/data layer wiring ─────────────────────────────────
+  // The HTTP layer ships as a separate, dependency-free, tree-shakeable
+  // module (breeze-http.js) so the core stays tiny. When it is present it
+  // installs createClient/http/resource/HttpError onto the Breeze API and
+  // wires resource() to Breeze.signal. In the browser, loading the script
+  // auto-installs via the global; in Node we opportunistically require it.
+  if (typeof require === 'function' && typeof module !== 'undefined') {
+    try {
+      const BreezeHttp = require('./breeze-http.js');
+      if (BreezeHttp && typeof BreezeHttp.installInto === 'function') {
+        BreezeHttp.installInto(BreezeAPI);
+      }
+    } catch (_) { /* optional — core works without it */ }
+  } else if (typeof global.BreezeHttp !== 'undefined' && global.BreezeHttp.installInto) {
+    global.BreezeHttp.installInto(BreezeAPI);
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { Breeze: BreezeAPI, default: BreezeAPI };
     module.exports.Breeze = BreezeAPI;
