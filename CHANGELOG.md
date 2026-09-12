@@ -6,6 +6,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed — Reactive memory leak (unbounded `reactiveNodes` growth)
+- Every `signal()`/`computed()`/`effect()` was registered into the DevTools node
+  registry and **never released** (signals have no `dispose()`), so long-lived or
+  signal-heavy apps grew memory without bound and could OOM. A stress loop that
+  repeatedly creates signals **OOM-killed the process** on the old code.
+- Reactive-node tracking is now **opt-in**: it stays off (zero cost, zero
+  retention) until any diagnostics/DevTools surface is used
+  (`Breeze.diagnostics.enable()`/`reset()`/`graph()`, the Ctrl+Shift+B HUD, or an
+  external `__BREEZE_DEVTOOLS__` client). New `diagnostics.enable()`/`disable()`/
+  `isEnabled()`.
+- Measured on Node 22 (see `benchmark.md`): dropping 200k signals now retains
+  **~0 MB vs 118 MB** before; **signal creation ~1.65× faster**;
+  **effect-triggering writes ~1.20× faster** — because per-reactive-op allocation
+  (node object + closures + dep-set inserts + dev-event payloads) is eliminated
+  in production.
+- Regression tests added in `test/reactive-memory.test.js`.
+
+### Added — Production HTTP / Data Layer (`breeze-http.js`)
+- New **dependency-free, tree-shakeable** data-layer module built entirely on web
+  standards (`fetch`, `Headers`, `URL`, `AbortController`). The core `breeze.js`
+  does not depend on it; when present it installs `createClient`, `http`,
+  `resource`, `HttpError`, and `HttpCache` onto `Breeze` and wires `resource()`
+  to `Breeze.signal`. Runs in browsers, Node 18+, Deno, Bun, and edge runtimes.
+- `createClient(config)` with `get/post/put/patch/delete/head/options/request`
+  and `extend()`. Per-request options override client config.
+- **Body handling**: plain objects → JSON; `FormData`/`Blob`/`ArrayBuffer`/
+  `URLSearchParams`/`ReadableStream`/string pass through; GET/HEAD never send a body.
+- **Response parsing** (`auto`): JSON / text / binary negotiation, `204`/empty →
+  `null`, malformed JSON → typed `PARSE` error. Also `json/text/blob/arrayBuffer/
+  stream/response` modes and `{ raw: true }` for metadata.
+- **Query serialization**: arrays (`repeat`/`bracket`/`comma`), `Date`→ISO,
+  nested→JSON, null-skip, hash/existing-query preservation.
+- **Reliability**: per-request timeouts, `AbortController` cancellation,
+  configurable retries (exponential backoff + full jitter, `Retry-After`,
+  idempotent-only by default), single typed `HttpError` with a `code`
+  (`HTTP/TIMEOUT/ABORTED/NETWORK/PARSE`).
+- **Interceptors**: request / response / error (error interceptors can recover).
+- **Auth**: static / function / custom-header tokens; single-flight `401`
+  refresh via `onUnauthorized` then one retry.
+- **Caching**: in-memory TTL cache, request dedup/coalescing, stale-while-
+  revalidate, and `cache.invalidate(prefix|RegExp|fn)`.
+- **Reactive `resource()`**: `data/error/loading/fetching` signals, `refetch()`,
+  `abort()`, and `mutate()` for optimistic updates; supersede-safe.
+- 35 new tests (`test/http.test.js`), a benchmark (`npm run bench:http`,
+  ~1.2 µs/request overhead over raw fetch), TypeScript definitions, and a full
+  guide (`docs/http.md`).
+
+### Compatibility
+- Fully backward compatible. `Breeze.fetch()` is retained. No existing public
+  API changed; all 136 pre-existing tests still pass.
+
+---
+
 ## [2.2.0] - 2026-09-11
 
 ### ⚠️ Visual Breaking Changes

@@ -38,6 +38,7 @@
     "bench:append-profile": "node benchmarks/append-profile-runner.js",
     "bench:pageload": "node benchmarks/page-load-runner.js",
     "bench:families": "node benchmarks/workload-families-runner.js",
+    "bench:http": "node benchmarks/http-layer-runner.js",
     "bench:build-perf": "node benchmarks/build-perf-runner.js",
     "bench:parse": "node benchmarks/parse-latency-runner.js",
     "bench:bulk": "node benchmarks/bulk-serialization-runner.js",
@@ -56,6 +57,7 @@
   "license": "MIT",
   "files": [
     "breeze.js",
+    "breeze-http.js",
     "breeze.d.ts",
     "breeze.css",
     "breeze-cli.js",

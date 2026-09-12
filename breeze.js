@@ -152,7 +152,7 @@
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
         Profiler._enabled = !Profiler._enabled;
-        if (Profiler._enabled) DevToolsHUD.mount();
+        if (Profiler._enabled) { enableDiagTracking(); DevToolsHUD.mount(); }
         else if (DevToolsHUD._el) DevToolsHUD._el.remove();
       }
     });
@@ -244,8 +244,19 @@
   }
 
   // ── Reactive Graph Tracking & Diagnostics Helpers ───────────────────
+  // The reactive-node registry powers the DevTools graph/table/cycle inspector.
+  // It is a DEV-ONLY structure: in production most apps never open DevTools, yet
+  // registering every signal/computed/effect (a) allocates a node object +
+  // closures on every reactive creation (hot path) and (b) pins those objects
+  // forever because signals have no dispose() — an unbounded memory leak in
+  // long-lived, signal-heavy apps. Tracking is therefore OPT-IN: it turns on
+  // automatically the moment any diagnostics/DevTools surface is used
+  // (Breeze.diagnostics.*, the Ctrl+Shift+B HUD, or the __BREEZE_DEVTOOLS__
+  // hook) and stays off — zero cost — otherwise.
   let reactiveIdCounter = 0;
   const reactiveNodes = new Map();
+  let _diagTracking = false;
+  function enableDiagTracking() { _diagTracking = true; }
 
   function safeSerializeValue(val) {
     if (val === undefined) return undefined;
@@ -318,7 +329,7 @@
     const id = 'sig_' + (++reactiveIdCounter);
     const nodeLabel = label || `signal_${id}`;
 
-    reactiveNodes.set(id, {
+    if (_diagTracking) reactiveNodes.set(id, {
       id,
       type: 'signal',
       label: nodeLabel,
@@ -332,7 +343,8 @@
         // Record reverse link so effects/computeds can unsubscribe on re-run/dispose
         if (!activeEffect._sources) activeEffect._sources = new Set();
         activeEffect._sources.add(subscribers);
-        if (activeEffect._depNodes) {
+        // Dep-node recording feeds only the DevTools graph — skip when off.
+        if (_diagTracking && activeEffect._depNodes) {
           activeEffect._depNodes.add(id);
         }
       }
@@ -347,7 +359,9 @@
         if (value !== newValue) {
           value = newValue;
           Profiler.recordSignalUpdate();
-          if (typeof EventBus !== 'undefined' && EventBus.emit) {
+          // Dev-only signal event: skip the per-update payload allocation +
+          // emit unless DevTools/diagnostics are actually attached.
+          if (_diagTracking && typeof EventBus !== 'undefined' && EventBus.emit) {
             try { EventBus.emit('breeze:signal', { id, label: nodeLabel, value }); } catch (_) {}
           }
           // v2 fast-paths: single subscriber (common) avoids Array.from alloc;
@@ -447,7 +461,7 @@
     runner._nodeId = id;
     runner._nodeType = 'computed';
 
-    reactiveNodes.set(id, {
+    if (_diagTracking) reactiveNodes.set(id, {
       id,
       type: 'computed',
       label: nodeLabel,
@@ -482,7 +496,7 @@
           subscribers.add(activeEffect);
           if (!activeEffect._sources) activeEffect._sources = new Set();
           activeEffect._sources.add(subscribers);
-          if (activeEffect._depNodes) {
+          if (_diagTracking && activeEffect._depNodes) {
             activeEffect._depNodes.add(id);
           }
         }
@@ -528,7 +542,7 @@
       } finally {
         running = false;
         activeEffect = prev;
-        if (typeof EventBus !== 'undefined' && EventBus.emit) {
+        if (_diagTracking && typeof EventBus !== 'undefined' && EventBus.emit) {
           try { EventBus.emit('breeze:effect', { id, label: nodeLabel, runCount }); } catch (_) {}
         }
       }
@@ -538,7 +552,7 @@
     runner._nodeId = id;
     runner._nodeType = 'effect';
 
-    reactiveNodes.set(id, {
+    if (_diagTracking) reactiveNodes.set(id, {
       id,
       type: 'effect',
       label: nodeLabel,
@@ -4563,9 +4577,20 @@
         },
 
         reset() {
+          // Using diagnostics implies you want the graph populated: turn on
+          // node tracking so reactive primitives created after this point are
+          // recorded. (Production stays leak-free until you opt in.)
+          enableDiagTracking();
           reactiveNodes.clear();
           reactiveIdCounter = 0;
-        }
+        },
+
+        /** Explicitly enable dev-only reactive-node tracking (default: off). */
+        enable() { enableDiagTracking(); return true; },
+        /** Disable tracking and release all registered nodes. */
+        disable() { _diagTracking = false; reactiveNodes.clear(); return false; },
+        /** Whether reactive-node tracking is currently active. */
+        isEnabled() { return _diagTracking; }
       }
     ),
 
@@ -4823,6 +4848,8 @@
     getReport: () => Profiler.getReport(),
     detectCycles: () => BreezeAPI.diagnostics.detectCycles(),
     onUpdate: (fn) => {
+      // An external DevTools client is attaching — start recording the graph.
+      enableDiagTracking();
       if (typeof EventBus !== 'undefined') {
         EventBus.on('breeze:signal', fn);
         EventBus.on('breeze:effect', fn);
@@ -4844,6 +4871,23 @@
 
   // Expose globally & as module
   global.Breeze = BreezeAPI;
+
+  // ── Optional HTTP/data layer wiring ─────────────────────────────────
+  // The HTTP layer ships as a separate, dependency-free, tree-shakeable
+  // module (breeze-http.js) so the core stays tiny. When it is present it
+  // installs createClient/http/resource/HttpError onto the Breeze API and
+  // wires resource() to Breeze.signal. In the browser, loading the script
+  // auto-installs via the global; in Node we opportunistically require it.
+  if (typeof require === 'function' && typeof module !== 'undefined') {
+    try {
+      const BreezeHttp = require('./breeze-http.js');
+      if (BreezeHttp && typeof BreezeHttp.installInto === 'function') {
+        BreezeHttp.installInto(BreezeAPI);
+      }
+    } catch (_) { /* optional — core works without it */ }
+  } else if (typeof global.BreezeHttp !== 'undefined' && global.BreezeHttp.installInto) {
+    global.BreezeHttp.installInto(BreezeAPI);
+  }
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { Breeze: BreezeAPI, default: BreezeAPI };
