@@ -367,7 +367,14 @@ export interface BreezeAPI {
     };
     table(): any[];
     detectCycles(): { hasCycle: boolean; cycles: string[][] };
+    /** Clears the graph and enables dev-only reactive-node tracking. */
     reset(): void;
+    /** Enable dev-only reactive-node tracking (default: off in production). */
+    enable(): boolean;
+    /** Disable tracking and release all registered nodes. */
+    disable(): boolean;
+    /** Whether reactive-node tracking is currently active. */
+    isEnabled(): boolean;
   };
 
   // ── HTTP / data layer (provided by breeze-http.js) ──────────────────

@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Reactive memory leak (unbounded `reactiveNodes` growth)
+- Every `signal()`/`computed()`/`effect()` was registered into the DevTools node
+  registry and **never released** (signals have no `dispose()`), so long-lived or
+  signal-heavy apps grew memory without bound and could OOM. A stress loop that
+  repeatedly creates signals **OOM-killed the process** on the old code.
+- Reactive-node tracking is now **opt-in**: it stays off (zero cost, zero
+  retention) until any diagnostics/DevTools surface is used
+  (`Breeze.diagnostics.enable()`/`reset()`/`graph()`, the Ctrl+Shift+B HUD, or an
+  external `__BREEZE_DEVTOOLS__` client). New `diagnostics.enable()`/`disable()`/
+  `isEnabled()`.
+- Measured on Node 22 (see `benchmark.md`): dropping 200k signals now retains
+  **~0 MB vs 118 MB** before; **signal creation ~1.65× faster**;
+  **effect-triggering writes ~1.20× faster** — because per-reactive-op allocation
+  (node object + closures + dep-set inserts + dev-event payloads) is eliminated
+  in production.
+- Regression tests added in `test/reactive-memory.test.js`.
+
 ### Added — Production HTTP / Data Layer (`breeze-http.js`)
 - New **dependency-free, tree-shakeable** data-layer module built entirely on web
   standards (`fetch`, `Headers`, `URL`, `AbortController`). The core `breeze.js`
