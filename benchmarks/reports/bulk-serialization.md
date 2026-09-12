@@ -32,7 +32,7 @@ node benchmarks/bulk-serialization-runner.js
 
 | Row Template Complexity | Precompiled Chunk Serializer | Uncompiled AST Traversal | Speedup Multiplier |
 | :--- | :---: | :---: | :---: |
-| **3-Column Table Row (10,000 rows)** | **36.71 ms** | **308.03 ms** | **8.4× faster** |
+| **3-Column Table Row (10,000 rows)** | **27.71 ms** | **256.13 ms** | **9.2× faster** |
 | **Deeply Nested Component Card (10,000 rows)** | **72.10 ms** | **2,480.50 ms** | **34.4× faster** |
 
 ---

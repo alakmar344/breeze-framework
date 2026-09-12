@@ -49,7 +49,9 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-async function runMemoryLeakBenchmark(cyclesCount = 5, updatesPerCycle = 25) {
+async function runMemoryLeakBenchmark(cyclesCount = 6, updatesPerCycle = 25) {
+  cyclesCount = Number(process.env.BZ_BENCH_MEM_CYCLES) || cyclesCount || 6;
+  updatesPerCycle = Number(process.env.BZ_BENCH_MEM_UPDATES) || updatesPerCycle || 25;
   await new Promise(r => server.listen(PORT, r));
 
   const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -195,6 +197,8 @@ async function runMemoryLeakBenchmark(cyclesCount = 5, updatesPerCycle = 25) {
 
       ws.close();
       await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);
+      // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     try { chromeProc.kill(); } catch (_) {}

@@ -104,7 +104,7 @@ function pageBytes(fw) {
 async function runPageLoad() {
   const args = process.argv.slice(2);
   const runsArg = args.find(a => a.startsWith('--runs='));
-  const RUNS = parseInt((runsArg || '').split('=')[1] || '3', 10) || 3;
+  const RUNS = parseInt((runsArg || '').split('=')[1] || process.env.BZ_BENCH_RUNS || '5', 10) || 5;
   const modes = args.includes('--mobile-only') ? ['mobile']
     : args.includes('--desktop-only') ? ['desktop'] : ['desktop', 'mobile'];
 
@@ -202,6 +202,8 @@ async function runPageLoad() {
         };
         const r = results[mode][fw];
         console.log(`  ✔ ${fw.padEnd(10)} DCL ${r.domContentLoadedMs.median.toFixed(1)} ms | FMP ${r.firstMeaningfulPaintMs.median.toFixed(1)} ms | script ${r.scriptMs.median.toFixed(1)} ms | layout ${r.layoutStyleMs.median.toFixed(1)} ms | ${(bytes.htmlBytes + bytes.jsBytes) / 1024 < 1024 ? ((bytes.htmlBytes + bytes.jsBytes) / 1024).toFixed(1) + ' KB' : 'big'} transfer`);
+        // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
   } finally {

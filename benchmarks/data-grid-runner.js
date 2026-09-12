@@ -55,7 +55,8 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-async function runDataGridBenchmark(iterations = 3) {
+async function runDataGridBenchmark(iterations = 5) {
+  iterations = Number(process.env.BZ_BENCH_RUNS) || iterations || 5;
   await new Promise(r => server.listen(PORT, r));
 
   const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -165,6 +166,8 @@ async function runDataGridBenchmark(iterations = 3) {
 
       ws.close();
       await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`);
+      // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     try { chromeProc.kill(); } catch (_) {}

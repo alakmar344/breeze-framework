@@ -52,7 +52,7 @@ const server = http.createServer((req, res) => {
 });
 
 async function runTodoMvcBenchmark(runsArg) {
-  const RUNS = runsArg || Number(process.env.BZ_BENCH_RUNS) || 5;
+  const RUNS = runsArg || Number(process.env.BZ_BENCH_RUNS) || 7;
   await new Promise(r => server.listen(PORT, r));
 
   const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -170,6 +170,8 @@ async function runTodoMvcBenchmark(runsArg) {
 
       ws.close();
       await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`).catch(() => {});
+      // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     try { chromeProc.kill(); } catch (_) {}

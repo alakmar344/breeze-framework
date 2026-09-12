@@ -95,7 +95,7 @@ async function waitForCdp(timeoutMs) {
 async function runWorkloadFamilies() {
   const args = process.argv.slice(2);
   const runsArg = args.find(a => a.startsWith('--runs='));
-  const RUNS = parseInt((runsArg || '').split('=')[1] || '5', 10) || 5;
+  const RUNS = parseInt((runsArg || '').split('=')[1] || process.env.BZ_BENCH_RUNS || '7', 10) || 7;
 
   await new Promise(r => server.listen(PORT, r));
   console.log('\n================================================================');
@@ -159,6 +159,8 @@ async function runWorkloadFamilies() {
         console.log(`  ✔ ${w.label.padEnd(26)} ${dist.median.toFixed(2).padStart(8)} ms (p95 ${dist.p95.toFixed(2)}, sd ${dist.sd.toFixed(2)}, n=${dist.n})`);
       }
       ws.close();
+      // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     try { chromeProc.kill(); } catch (_) {}

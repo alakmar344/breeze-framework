@@ -19,8 +19,8 @@ const vendorDir = path.join(__dirname, 'vendor');
 const animDir = path.join(__dirname, 'animation');
 
 const frameworks = ['breeze', 'vanillajs', 'preact', 'vue', 'react'];
-const PORT = 4898;
-const CDP_PORT = 9342;
+const PORT = 4901;
+const CDP_PORT = 9345;
 
 const server = http.createServer((req, res) => {
   const reqPath = req.url.split('?')[0];
@@ -51,7 +51,8 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-async function runAnimationStressBenchmark(framesCount = 100) {
+async function runAnimationStressBenchmark(framesCount = 150) {
+  framesCount = parseInt(process.env.BZ_BENCH_ANIM_FRAMES || String(framesCount), 10) || 150;
   await new Promise(r => server.listen(PORT, r));
 
   const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -147,6 +148,8 @@ async function runAnimationStressBenchmark(framesCount = 100) {
 
       ws.close();
       await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${tab.id}`).catch(() => {});
+      // Enterprise practice: thermal cooldown pause between framework runs to prevent CPU throttling
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     try { chromeProc.kill(); } catch (_) {}
