@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vanilla JS Enterprise Data Grid</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    function generateData(count = 5000) {
+      const depts = ['Engineering', 'Design', 'Marketing', 'Sales', 'Product', 'Support'];
+      const roles = ['Senior Developer', 'UI Specialist', 'Lead Architect', 'Account Exec', 'Product Owner', 'QA Engineer'];
+      const statuses = ['Active', 'Pending', 'Suspended', 'On Leave'];
+      const items = new Array(count);
+      for (let i = 0; i < count; i++) {
+        items[i] = {
+          id: i + 1,
+          name: 'Employee ' + (i + 1),
+          dept: depts[i % depts.length],
+          role: roles[i % roles.length],
+          salary: 50000 + ((i * 137) % 80000),
+          status: statuses[i % statuses.length]
+        };
+      }
+      return items;
+    }
+
+    let allItems = generateData(5000);
+    let curRows = [];
+    const app = document.getElementById('app');
+    app.innerHTML = '<table id="grid"><thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Role</th><th>Salary</th><th>Status</th></tr></thead><tbody id="tbody"></tbody></table>';
+    const tbody = document.getElementById('tbody');
+
+    function renderTbody(rows) {
+      curRows = rows;
+      let h = '';
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        h += '<tr><td>' + r.id + '</td><td>' + r.name + '</td><td>' + r.dept + '</td><td>' + r.role + '</td><td>' + r.salary + '</td><td>' + r.status + '</td></tr>';
+      }
+      tbody.innerHTML = h;
+    }
+
+    window.__runGridAction = function(action, callback) {
+      const t0 = performance.now();
+      if (action === 'render') {
+        renderTbody(allItems.slice());
+      } else if (action === 'sort') {
+        const sorted = allItems.slice().sort((a, b) => b.salary - a.salary || (a.name < b.name ? -1 : 1));
+        renderTbody(sorted);
+      } else if (action === 'filter') {
+        const filtered = allItems.filter(r => r.dept === 'Engineering' || r.role.includes('Developer'));
+        renderTbody(filtered);
+      } else if (action === 'reset') {
+        renderTbody(allItems.slice());
+      } else if (action === 'update') {
+        const cur = curRows.slice();
+        const limit = Math.min(1000, cur.length);
+        for (let i = 0; i < limit; i++) {
+          cur[i] = {
+            id: cur[i].id,
+            name: cur[i].name,
+            dept: cur[i].dept,
+            role: cur[i].role,
+            salary: cur[i].salary + 1000,
+            status: cur[i].status === 'Active' ? 'Updated' : 'Active'
+          };
+        }
+        renderTbody(cur);
+      }
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const dur = performance.now() - t0;
+          callback(dur);
+        }, 0);
+      });
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

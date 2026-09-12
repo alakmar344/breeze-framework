@@ -1258,6 +1258,16 @@ function cmdServe(rawArgs) {
         headers['Content-Encoding'] = 'gzip';
       }
 
+      const stat = fs.statSync(servePath);
+      const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+      headers['ETag'] = etag;
+
+      if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, headers);
+        res.end();
+        return;
+      }
+
       const content = fs.readFileSync(servePath);
       res.writeHead(200, headers);
       res.end(content);

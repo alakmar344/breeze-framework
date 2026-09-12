@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VanillaJS Animation Stress Benchmark</title>
+  <style>
+    body { margin: 0; padding: 10px; font-family: sans-serif; }
+    .box-grid { display: flex; flex-wrap: wrap; width: 600px; }
+    .box { width: 10px; height: 10px; margin: 1px; transition: none; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="grid" class="box-grid"></div>
+  </div>
+  <script>
+    const COUNT = 500;
+    const grid = document.getElementById('grid');
+    const boxEls = new Array(COUNT);
+    const frag = document.createDocumentFragment();
+
+    for (let i = 0; i < COUNT; i++) {
+      const el = document.createElement('div');
+      el.className = 'box';
+      el.style.backgroundColor = '#3b82f6';
+      boxEls[i] = el;
+      frag.appendChild(el);
+    }
+    grid.appendChild(frag);
+
+    window.__startAnimation = function(targetFrames, callback) {
+      const frameTimes = [];
+      let lastTime = performance.now();
+      let frames = 0;
+
+      function loop() {
+        const now = performance.now();
+        const delta = now - lastTime;
+        lastTime = now;
+        frameTimes.push(delta);
+
+        frames++;
+        const t = frames * 0.05;
+        for (let i = 0; i < COUNT; i++) {
+          const s = Math.sin(t + i * 0.1) * 0.5 + 0.5;
+          const r = Math.floor(s * 255);
+          const g = Math.floor((1 - s) * 200);
+          boxEls[i].style.backgroundColor = `rgb(${r},${g},240)`;
+          boxEls[i].style.transform = `scale(${0.8 + s * 0.4})`;
+        }
+
+        if (frames < targetFrames) {
+          requestAnimationFrame(loop);
+        } else {
+          callback(frameTimes.slice(1));
+        }
+      }
+      requestAnimationFrame(loop);
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

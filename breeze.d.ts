@@ -403,7 +403,10 @@ export interface BreezeAPI {
     itemNodeToHtml(node: AstNode, itemVar: string, item: any, index: number, key?: string | number | null): string;
     renderRowsHtml(children: AstNode[], itemVar: string, items: any[], startIdx: number, keyProp: string): { html: string; keys: Array<string | number>; rootTag: string };
     compileRowSerializer(children: AstNode[], itemVar: string, keyProp: string, options?: { withKeys?: boolean }): { rootTag: string; render(items: any[], startIdx?: number): { html: string; keys: Array<string | number>; rootTag: string } };
+    compileRowPatcher(children: AstNode[], itemVar: string): (rootEl: any, item: any, index: number) => boolean;
+    updateItemDOM(el: any, children: AstNode[], itemVar: string, item: any, index: number): boolean;
   };
+  Renderer: any;
 }
 
 export const Breeze: BreezeAPI;

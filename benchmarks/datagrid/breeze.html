@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breeze Enterprise Data Grid</title>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    function generateData(count = 5000) {
+      const depts = ['Engineering', 'Design', 'Marketing', 'Sales', 'Product', 'Support'];
+      const roles = ['Senior Developer', 'UI Specialist', 'Lead Architect', 'Account Exec', 'Product Owner', 'QA Engineer'];
+      const statuses = ['Active', 'Pending', 'Suspended', 'On Leave'];
+      const items = new Array(count);
+      for (let i = 0; i < count; i++) {
+        items[i] = {
+          id: i + 1,
+          name: 'Employee ' + (i + 1),
+          dept: depts[i % depts.length],
+          role: roles[i % roles.length],
+          salary: 50000 + ((i * 137) % 80000),
+          status: statuses[i % statuses.length]
+        };
+      }
+      return items;
+    }
+
+    let allItems = generateData(5000);
+
+    Breeze.mount(`
+@app "Breeze Data Grid"
+@state rows = []
+@section #main
+  table#grid
+    thead
+      tr
+        th "ID"
+        th "Name"
+        th "Department"
+        th "Role"
+        th "Salary"
+        th "Status"
+    tbody
+      @each row in rows [key=id]
+        tr
+          td "{row.id}"
+          td "{row.name}"
+          td "{row.dept}"
+          td "{row.role}"
+          td "{row.salary}"
+          td "{row.status}"
+`, '#app');
+
+    window.__runGridAction = function(action, callback) {
+      const t0 = performance.now();
+      if (action === 'render') {
+        Breeze.setState('rows', allItems.slice());
+      } else if (action === 'sort') {
+        const sorted = allItems.slice().sort((a, b) => b.salary - a.salary || (a.name < b.name ? -1 : 1));
+        Breeze.setState('rows', sorted);
+      } else if (action === 'filter') {
+        const filtered = allItems.filter(r => r.dept === 'Engineering' || r.role.includes('Developer'));
+        Breeze.setState('rows', filtered);
+      } else if (action === 'reset') {
+        Breeze.setState('rows', allItems.slice());
+      } else if (action === 'update') {
+        const cur = (Breeze.getState('rows') || []).slice();
+        const limit = Math.min(1000, cur.length);
+        for (let i = 0; i < limit; i++) {
+          cur[i] = {
+            id: cur[i].id,
+            name: cur[i].name,
+            dept: cur[i].dept,
+            role: cur[i].role,
+            salary: cur[i].salary + 1000,
+            status: cur[i].status === 'Active' ? 'Updated' : 'Active'
+          };
+        }
+        Breeze.setState('rows', cur);
+      }
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const dur = performance.now() - t0;
+          callback(dur);
+        }, 0);
+      });
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

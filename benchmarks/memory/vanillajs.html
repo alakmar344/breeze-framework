@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vanilla JS Memory Leak Benchmark</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    let cards = [];
+    let listeners = [];
+    let mounted = false;
+
+    window.__mount1000 = function() {
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      const container = document.createElement('div');
+      container.id = 'container';
+      cards = new Array(1000);
+      listeners = new Array(1000);
+
+      for (let i = 0; i < 1000; i++) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const title = document.createElement('span');
+        title.className = 'title';
+        title.textContent = 'Item ' + i;
+        const count = document.createElement('span');
+        count.className = 'count';
+        count.textContent = '0';
+        const btn = document.createElement('button');
+        btn.textContent = 'Click';
+        let c = 0;
+        const fn = () => { c++; count.textContent = String(c); };
+        btn.addEventListener('click', fn);
+        listeners[i] = { btn, fn };
+
+        card.appendChild(title);
+        card.appendChild(count);
+        card.appendChild(btn);
+        container.appendChild(card);
+
+        cards[i] = { card, title, count, c: 0 };
+      }
+      app.appendChild(container);
+      mounted = true;
+    };
+
+    window.__runUpdates = function(numUpdates = 25) {
+      if (!mounted) return;
+      for (let c = 1; c <= numUpdates; c++) {
+        for (let i = 0; i < 1000; i++) {
+          const it = cards[i];
+          it.c++;
+          it.count.textContent = String(it.c);
+          it.title.textContent = 'Updated ' + c + '-' + i;
+          it.card.className = (c % 2 === 0) ? 'card is-active' : 'card';
+        }
+      }
+    };
+    window.__update200 = window.__runUpdates;
+
+    window.__unmountAll = function() {
+      if (!mounted) return;
+      for (let i = 0; i < listeners.length; i++) {
+        const l = listeners[i];
+        if (l && l.btn) l.btn.removeEventListener('click', l.fn);
+      }
+      listeners = [];
+      cards = [];
+      const app = document.getElementById('app');
+      if (app) app.innerHTML = '';
+      mounted = false;
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

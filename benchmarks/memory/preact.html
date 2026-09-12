@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Preact Memory Leak Benchmark</title>
+  <script src="/vendor/preact.umd.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { h, render, Component } = window.preact;
+    let appInstance = null;
+
+    class App extends Component {
+      constructor(props) {
+        super(props);
+        this.state = { items: props.initialItems || [] };
+        appInstance = this;
+      }
+      render() {
+        return h('div', { id: 'container' },
+          this.state.items.map(it => h('div', { key: it.id, class: 'card ' + it.active },
+            h('span', { class: 'title' }, it.text),
+            h('span', { class: 'count' }, String(it.count)),
+            h('button', { onClick: () => this.setState({ items: this.state.items.map(x => x.id === it.id ? { ...x, count: x.count + 1 } : x) }) }, 'Click')
+          ))
+        );
+      }
+    }
+
+    window.__mount1000 = function() {
+      const items = new Array(1000);
+      for (let i = 0; i < 1000; i++) {
+        items[i] = { id: i, count: 0, text: 'Item ' + i, active: '' };
+      }
+      const app = document.getElementById('app');
+      render(h(App, { initialItems: items }), app);
+    };
+
+    window.__runUpdates = function(numUpdates = 25) {
+      if (!appInstance) return;
+      for (let c = 1; c <= numUpdates; c++) {
+        const prev = appInstance.state.items;
+        const next = new Array(prev.length);
+        for (let i = 0; i < prev.length; i++) {
+          const it = prev[i];
+          next[i] = {
+            id: it.id,
+            count: it.count + 1,
+            text: 'Updated ' + c + '-' + it.id,
+            active: (c % 2 === 0) ? 'is-active' : ''
+          };
+        }
+        appInstance.setState({ items: next });
+      }
+    };
+    window.__update200 = window.__runUpdates;
+
+    window.__unmountAll = function() {
+      const app = document.getElementById('app');
+      render(null, app);
+      appInstance = null;
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

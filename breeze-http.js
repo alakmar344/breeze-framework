@@ -155,7 +155,10 @@
     if (responseType === 'json') {
       const raw = await response.text();
       if (!raw) return null; // empty body on a 200 -> null, never a parse crash
-      try { return JSON.parse(raw); }
+      const clean = raw.charCodeAt(0) === 41 && (raw.startsWith(")]}',\n") || raw.startsWith(")]}',"))
+        ? raw.replace(/^\)\]\}',\s*/, '')
+        : raw;
+      try { return JSON.parse(clean); }
       catch (err) { throw new HttpError('Malformed JSON response', { code: 'PARSE', status: response.status, statusText: response.statusText, response, cause: err }); }
     }
 
@@ -164,7 +167,10 @@
     if (ct.includes('application/json') || ct.includes('+json')) {
       const raw = await response.text();
       if (!raw) return null;
-      try { return JSON.parse(raw); }
+      const clean = raw.charCodeAt(0) === 41 && (raw.startsWith(")]}',\n") || raw.startsWith(")]}',"))
+        ? raw.replace(/^\)\]\}',\s*/, '')
+        : raw;
+      try { return JSON.parse(clean); }
       catch (err) { throw new HttpError('Malformed JSON response', { code: 'PARSE', status: response.status, statusText: response.statusText, response, cause: err }); }
     }
     if (ct.startsWith('text/') || ct.includes('xml') || ct.includes('csv') || ct.includes('javascript') || ct === '') {

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breeze Animation Stress Benchmark</title>
+  <style>
+    body { margin: 0; padding: 10px; font-family: sans-serif; }
+    .box-grid { display: flex; flex-wrap: wrap; width: 600px; }
+    .box { width: 10px; height: 10px; margin: 1px; transition: none; }
+  </style>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const COUNT = 500;
+    const initialBoxes = new Array(COUNT);
+    for (let i = 0; i < COUNT; i++) {
+      initialBoxes[i] = { id: i, bg: '#3b82f6', transform: 'scale(1)' };
+    }
+
+    Breeze.mount(`
+@app "Breeze Animation Stress"
+@state boxes = []
+@section #main
+  div.box-grid#grid
+    @each box in boxes [key=id]
+      div.box [style="background-color:{box.bg};transform:{box.transform}"]
+`, '#app');
+
+    Breeze.setState('boxes', initialBoxes);
+
+    let running = false;
+    window.__startAnimation = function(targetFrames, callback) {
+      const frameTimes = [];
+      let lastTime = performance.now();
+      let frames = 0;
+
+      function loop() {
+        const now = performance.now();
+        const delta = now - lastTime;
+        lastTime = now;
+        frameTimes.push(delta);
+
+        frames++;
+        const t = frames * 0.05;
+        const next = new Array(COUNT);
+        for (let i = 0; i < COUNT; i++) {
+          const s = Math.sin(t + i * 0.1) * 0.5 + 0.5;
+          const r = Math.floor(s * 255);
+          const g = Math.floor((1 - s) * 200);
+          const b = 240;
+          next[i] = {
+            id: i,
+            bg: `rgb(${r},${g},${b})`,
+            transform: `scale(${0.8 + s * 0.4})`
+          };
+        }
+        Breeze.setState('boxes', next);
+
+        if (frames < targetFrames) {
+          requestAnimationFrame(loop);
+        } else {
+          // Remove first warmup frame
+          callback(frameTimes.slice(1));
+        }
+      }
+      requestAnimationFrame(loop);
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

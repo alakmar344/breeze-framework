@@ -367,3 +367,15 @@ test('installInto wires resource() to Breeze.signal', () => {
   assert.equal(typeof fakeBreeze.resource, 'function');
   assert.equal(fakeBreeze.HttpError, HttpError);
 });
+
+test('strips JSON hijacking vulnerability prefix )]}\',\n', async () => {
+  const client = createClient({
+    fetch: async () => new Response(")]}',\n{\"secure\": true, \"items\": [1, 2, 3]}", {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })
+  });
+  const data = await client.get('/api/protected');
+  assert.deepEqual(data, { secure: true, items: [1, 2, 3] });
+});
+

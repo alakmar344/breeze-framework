@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vue Animation Stress Benchmark</title>
+  <style>
+    body { margin: 0; padding: 10px; font-family: sans-serif; }
+    .box-grid { display: flex; flex-wrap: wrap; width: 600px; }
+    .box { width: 10px; height: 10px; margin: 1px; transition: none; }
+  </style>
+  <script src="/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="box-grid">
+      <div
+        v-for="b in boxes"
+        :key="b.id"
+        class="box"
+        :style="{ backgroundColor: b.bg, transform: b.transform }"
+      ></div>
+    </div>
+  </div>
+  <script>
+    const { createApp, shallowRef, nextTick } = Vue;
+    const COUNT = 500;
+
+    const initial = new Array(COUNT);
+    for (let i = 0; i < COUNT; i++) {
+      initial[i] = { id: i, bg: '#3b82f6', transform: 'scale(1)' };
+    }
+
+    const app = createApp({
+      setup() {
+        const boxes = shallowRef(initial);
+        return { boxes };
+      }
+    });
+
+    const vm = app.mount('#app');
+
+    window.__startAnimation = function(targetFrames, callback) {
+      const frameTimes = [];
+      let lastTime = performance.now();
+      let frames = 0;
+
+      function loop() {
+        const now = performance.now();
+        frameTimes.push(now - lastTime);
+        lastTime = now;
+
+        frames++;
+        const t = frames * 0.05;
+        const next = new Array(COUNT);
+        for (let i = 0; i < COUNT; i++) {
+          const s = Math.sin(t + i * 0.1) * 0.5 + 0.5;
+          const r = Math.floor(s * 255);
+          const g = Math.floor((1 - s) * 200);
+          next[i] = {
+            id: i,
+            bg: `rgb(${r},${g},240)`,
+            transform: `scale(${0.8 + s * 0.4})`
+          };
+        }
+        vm.boxes = next;
+
+        nextTick(() => {
+          if (frames < targetFrames) {
+            requestAnimationFrame(loop);
+          } else {
+            callback(frameTimes.slice(1));
+          }
+        });
+      }
+      requestAnimationFrame(loop);
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

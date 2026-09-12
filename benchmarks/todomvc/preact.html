@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Preact TodoMVC Benchmark</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .btn { padding: 4px 8px; margin: 2px; cursor: pointer; }
+    .completed { text-decoration: line-through; color: #888; }
+    .todo-item { display: flex; align-items: center; padding: 4px; border-bottom: 1px solid #eee; }
+    .todo-title { flex: 1; margin-left: 8px; }
+  </style>
+  <script src="/vendor/preact.umd.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { h, render, Component } = preact;
+
+    class TodoApp extends Component {
+      constructor() {
+        super();
+        this.state = {
+          items: [],
+          filter: 'all'
+        };
+      }
+
+      componentDidMount() {
+        document.getElementById('btn-create').addEventListener('click', () => {
+          const items = new Array(100);
+          for (let i = 0; i < 100; i++) {
+            items[i] = { id: i + 1, title: 'Todo task #' + (i + 1), completed: false };
+          }
+          this.setState({ items, filter: 'all' });
+        });
+
+        document.getElementById('btn-toggle').addEventListener('click', () => {
+          const next = this.state.items.slice();
+          for (let i = 0; i < next.length; i += 2) {
+            next[i] = { ...next[i], completed: !next[i].completed };
+          }
+          this.setState({ items: next });
+        });
+
+        document.getElementById('btn-filter-active').addEventListener('click', () => {
+          this.setState({ filter: 'active' });
+        });
+
+        document.getElementById('btn-filter-completed').addEventListener('click', () => {
+          this.setState({ filter: 'completed' });
+        });
+
+        document.getElementById('btn-filter-all').addEventListener('click', () => {
+          this.setState({ filter: 'all' });
+        });
+
+        document.getElementById('btn-edit').addEventListener('click', () => {
+          const next = this.state.items.slice();
+          for (let i = 0; i < 20 && i < next.length; i++) {
+            next[i] = { ...next[i], title: next[i].title + ' (edited)' };
+          }
+          this.setState({ items: next });
+        });
+
+        document.getElementById('btn-clear-completed').addEventListener('click', () => {
+          this.setState({ items: this.state.items.filter(t => !t.completed) });
+        });
+
+        document.getElementById('btn-clear-all').addEventListener('click', () => {
+          this.setState({ items: [], filter: 'all' });
+        });
+
+        window.__framework_ready = true;
+      }
+
+      render() {
+        let filtered = this.state.items;
+        if (this.state.filter === 'active') filtered = this.state.items.filter(t => !t.completed);
+        else if (this.state.filter === 'completed') filtered = this.state.items.filter(t => t.completed);
+
+        return h('div', null,
+          h('h1', null, 'TodoMVC Benchmark'),
+          h('div', { class: 'controls' },
+            h('button', { id: 'btn-create', class: 'btn' }, 'Batch Create 100'),
+            h('button', { id: 'btn-toggle', class: 'btn' }, 'Toggle 50 Completed'),
+            h('button', { id: 'btn-filter-active', class: 'btn' }, 'Filter Active'),
+            h('button', { id: 'btn-filter-completed', class: 'btn' }, 'Filter Completed'),
+            h('button', { id: 'btn-filter-all', class: 'btn' }, 'Filter All'),
+            h('button', { id: 'btn-edit', class: 'btn' }, 'Edit 20 Items'),
+            h('button', { id: 'btn-clear-completed', class: 'btn' }, 'Clear Completed'),
+            h('button', { id: 'btn-clear-all', class: 'btn' }, 'Clear All')
+          ),
+          h('div', { id: 'todo-list' },
+            filtered.map(item =>
+              h('div', { key: item.id, class: 'todo-item' + (item.completed ? ' completed' : '') },
+                h('span', { class: 'todo-title' }, item.title)
+              )
+            )
+          )
+        );
+      }
+    }
+
+    render(h(TodoApp), document.getElementById('app'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>React Memory Leak Benchmark</title>
+  <script src="/vendor/react-19-stack.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { createElement: h, useState } = window.React;
+    const { createRoot } = window.ReactDOM;
+    let root = null;
+    let setItemsFn = null;
+    let curItems = [];
+
+    function App(props) {
+      const [items, setItems] = useState(props.initialItems);
+      setItemsFn = setItems;
+      curItems = items;
+      return h('div', { id: 'container' },
+        items.map(it => h('div', { key: it.id, className: 'card ' + it.active },
+          h('span', { className: 'title' }, it.text),
+          h('span', { className: 'count' }, String(it.count)),
+          h('button', { onClick: () => setItems(items.map(x => x.id === it.id ? { ...x, count: x.count + 1 } : x)) }, 'Click')
+        ))
+      );
+    }
+
+    window.__mount1000 = function() {
+      const items = new Array(1000);
+      for (let i = 0; i < 1000; i++) {
+        items[i] = { id: i, count: 0, text: 'Item ' + i, active: '' };
+      }
+      curItems = items;
+      const app = document.getElementById('app');
+      root = createRoot(app);
+      window.ReactDOM.flushSync(() => {
+        root.render(h(App, { initialItems: items }));
+      });
+    };
+
+    window.__runUpdates = function(numUpdates = 25) {
+      if (!setItemsFn) return;
+      for (let c = 1; c <= numUpdates; c++) {
+        const next = new Array(curItems.length);
+        for (let i = 0; i < curItems.length; i++) {
+          const it = curItems[i];
+          next[i] = {
+            id: it.id,
+            count: it.count + 1,
+            text: 'Updated ' + c + '-' + it.id,
+            active: (c % 2 === 0) ? 'is-active' : ''
+          };
+        }
+        setItemsFn(next);
+      }
+    };
+    window.__update200 = window.__runUpdates;
+
+    window.__unmountAll = function() {
+      if (root) {
+        root.unmount();
+        root = null;
+        setItemsFn = null;
+        curItems = [];
+      }
+      const app = document.getElementById('app');
+      if (app) app.innerHTML = '';
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

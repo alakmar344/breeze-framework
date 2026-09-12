@@ -42,6 +42,11 @@
     "bench:build-perf": "node benchmarks/build-perf-runner.js",
     "bench:parse": "node benchmarks/parse-latency-runner.js",
     "bench:bulk": "node benchmarks/bulk-serialization-runner.js",
+    "bench:todomvc": "node benchmarks/todomvc-runner.js",
+    "bench:animation": "node benchmarks/animation-stress-runner.js",
+    "bench:memory": "node benchmarks/memory-leak-runner.js",
+    "bench:datagrid": "node benchmarks/data-grid-runner.js",
+    "bench:build-scale": "node benchmarks/build-scale-runner.js",
     "bench:all": "node benchmarks/run-all.js",
     "profile": "node breeze-cli.js profile"
   },
