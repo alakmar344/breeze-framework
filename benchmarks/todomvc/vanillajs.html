@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VanillaJS TodoMVC Benchmark</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .btn { padding: 4px 8px; margin: 2px; cursor: pointer; }
+    .completed { text-decoration: line-through; color: #888; }
+    .todo-item { display: flex; align-items: center; padding: 4px; border-bottom: 1px solid #eee; }
+    .todo-title { flex: 1; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>TodoMVC Benchmark</h1>
+    <div class="controls">
+      <button id="btn-create" class="btn">Batch Create 100</button>
+      <button id="btn-toggle" class="btn">Toggle 50 Completed</button>
+      <button id="btn-filter-active" class="btn">Filter Active</button>
+      <button id="btn-filter-completed" class="btn">Filter Completed</button>
+      <button id="btn-filter-all" class="btn">Filter All</button>
+      <button id="btn-edit" class="btn">Edit 20 Items</button>
+      <button id="btn-clear-completed" class="btn">Clear Completed</button>
+      <button id="btn-clear-all" class="btn">Clear All</button>
+    </div>
+    <div id="todo-list"></div>
+  </div>
+  <script>
+    let allItems = [];
+    let curFilter = 'all';
+    const listEl = document.getElementById('todo-list');
+
+    function renderList() {
+      let filtered = allItems;
+      if (curFilter === 'active') filtered = allItems.filter(t => !t.completed);
+      else if (curFilter === 'completed') filtered = allItems.filter(t => t.completed);
+
+      listEl.textContent = '';
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < filtered.length; i++) {
+        const item = filtered[i];
+        const row = document.createElement('div');
+        row.className = 'todo-item' + (item.completed ? ' completed' : '');
+        row.dataset.id = item.id;
+        const span = document.createElement('span');
+        span.className = 'todo-title';
+        span.textContent = item.title;
+        row.appendChild(span);
+        frag.appendChild(row);
+      }
+      listEl.appendChild(frag);
+    }
+
+    document.getElementById('btn-create').addEventListener('click', () => {
+      allItems = new Array(100);
+      for (let i = 0; i < 100; i++) {
+        allItems[i] = { id: i + 1, title: 'Todo task #' + (i + 1), completed: false };
+      }
+      curFilter = 'all';
+      renderList();
+    });
+
+    document.getElementById('btn-toggle').addEventListener('click', () => {
+      for (let i = 0; i < allItems.length; i += 2) {
+        allItems[i].completed = !allItems[i].completed;
+      }
+      renderList();
+    });
+
+    document.getElementById('btn-filter-active').addEventListener('click', () => {
+      curFilter = 'active';
+      renderList();
+    });
+
+    document.getElementById('btn-filter-completed').addEventListener('click', () => {
+      curFilter = 'completed';
+      renderList();
+    });
+
+    document.getElementById('btn-filter-all').addEventListener('click', () => {
+      curFilter = 'all';
+      renderList();
+    });
+
+    document.getElementById('btn-edit').addEventListener('click', () => {
+      for (let i = 0; i < 20 && i < allItems.length; i++) {
+        allItems[i].title += ' (edited)';
+      }
+      renderList();
+    });
+
+    document.getElementById('btn-clear-completed').addEventListener('click', () => {
+      allItems = allItems.filter(t => !t.completed);
+      renderList();
+    });
+
+    document.getElementById('btn-clear-all').addEventListener('click', () => {
+      allItems = [];
+      renderList();
+    });
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

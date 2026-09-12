@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Preact Enterprise Data Grid</title>
+  <script src="/vendor/preact.umd.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { h, render, Component } = window.preact;
+
+    function generateData(count = 5000) {
+      const depts = ['Engineering', 'Design', 'Marketing', 'Sales', 'Product', 'Support'];
+      const roles = ['Senior Developer', 'UI Specialist', 'Lead Architect', 'Account Exec', 'Product Owner', 'QA Engineer'];
+      const statuses = ['Active', 'Pending', 'Suspended', 'On Leave'];
+      const items = new Array(count);
+      for (let i = 0; i < count; i++) {
+        items[i] = {
+          id: i + 1,
+          name: 'Employee ' + (i + 1),
+          dept: depts[i % depts.length],
+          role: roles[i % roles.length],
+          salary: 50000 + ((i * 137) % 80000),
+          status: statuses[i % statuses.length]
+        };
+      }
+      return items;
+    }
+
+    let allItems = generateData(5000);
+    let appInstance = null;
+
+    class App extends Component {
+      constructor(props) {
+        super(props);
+        this.state = { rows: [] };
+        appInstance = this;
+      }
+      render() {
+        return h('table', { id: 'grid' },
+          h('thead', null,
+            h('tr', null,
+              h('th', null, 'ID'),
+              h('th', null, 'Name'),
+              h('th', null, 'Department'),
+              h('th', null, 'Role'),
+              h('th', null, 'Salary'),
+              h('th', null, 'Status')
+            )
+          ),
+          h('tbody', null,
+            this.state.rows.map(r => h('tr', { key: r.id },
+              h('td', null, String(r.id)),
+              h('td', null, r.name),
+              h('td', null, r.dept),
+              h('td', null, r.role),
+              h('td', null, String(r.salary)),
+              h('td', null, r.status)
+            ))
+          )
+        );
+      }
+    }
+
+    render(h(App), document.getElementById('app'));
+
+    window.__runGridAction = function(action, callback) {
+      const t0 = performance.now();
+      if (action === 'render') {
+        appInstance.setState({ rows: allItems.slice() });
+      } else if (action === 'sort') {
+        const sorted = allItems.slice().sort((a, b) => b.salary - a.salary || (a.name < b.name ? -1 : 1));
+        appInstance.setState({ rows: sorted });
+      } else if (action === 'filter') {
+        const filtered = allItems.filter(r => r.dept === 'Engineering' || r.role.includes('Developer'));
+        appInstance.setState({ rows: filtered });
+      } else if (action === 'reset') {
+        appInstance.setState({ rows: allItems.slice() });
+      } else if (action === 'update') {
+        const cur = appInstance.state.rows.slice();
+        const limit = Math.min(1000, cur.length);
+        for (let i = 0; i < limit; i++) {
+          cur[i] = {
+            id: cur[i].id,
+            name: cur[i].name,
+            dept: cur[i].dept,
+            role: cur[i].role,
+            salary: cur[i].salary + 1000,
+            status: cur[i].status === 'Active' ? 'Updated' : 'Active'
+          };
+        }
+        appInstance.setState({ rows: cur });
+      }
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const dur = performance.now() - t0;
+          callback(dur);
+        }, 0);
+      });
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

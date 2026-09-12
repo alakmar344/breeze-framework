@@ -213,6 +213,7 @@
   let activeEffect = null;
   let batchDepth = 0;
   const pendingEffects = new Set();
+  const effectsQueue = [];
 
   function batch(fn) {
     batchDepth++;
@@ -225,19 +226,22 @@
         while (pendingEffects.size > 0) {
           if (++iterations > MAX_UPDATE_DEPTH) {
             pendingEffects.clear();
+            effectsQueue.length = 0;
             const msg = `[Breeze] Maximum recursive update depth (${MAX_UPDATE_DEPTH}) exceeded. Detected a potential infinite reactivity loop in effect or watcher.`;
             reportError(new Error(msg), 'batch');
             break;
           }
-          const effectsToRun = Array.from(pendingEffects);
+          effectsQueue.length = 0;
+          for (const eff of pendingEffects) effectsQueue.push(eff);
           pendingEffects.clear();
-          for (let i = 0; i < effectsToRun.length; i++) {
+          for (let i = 0; i < effectsQueue.length; i++) {
             try {
-              effectsToRun[i]();
+              effectsQueue[i]();
             } catch (err) {
               reportError(err, 'effect');
             }
           }
+          effectsQueue.length = 0;
         }
       }
     }
@@ -370,8 +374,18 @@
             for (const sub of subscribers) pendingEffects.add(sub);
           } else if (subscribers.size === 1) {
             for (const sub of subscribers) { sub(); break; }
-          } else if (subscribers.size > 1) {
-            for (const sub of Array.from(subscribers)) sub();
+          } else if (subscribers.size === 2) {
+            let s1 = null, s2 = null;
+            for (const sub of subscribers) {
+              if (s1 === null) s1 = sub;
+              else { s2 = sub; break; }
+            }
+            if (s1) s1();
+            if (s2) s2();
+          } else if (subscribers.size > 2) {
+            const subs = [];
+            for (const s of subscribers) subs.push(s);
+            for (let i = 0; i < subs.length; i++) subs[i]();
           }
         }
       },
@@ -451,8 +465,18 @@
           for (const sub of subscribers) pendingEffects.add(sub);
         } else if (subscribers.size === 1) {
           for (const sub of subscribers) { sub(); break; }
-        } else if (subscribers.size > 1) {
-          for (const sub of Array.from(subscribers)) sub();
+        } else if (subscribers.size === 2) {
+          let s1 = null, s2 = null;
+          for (const sub of subscribers) {
+            if (s1 === null) s1 = sub;
+            else { s2 = sub; break; }
+          }
+          if (s1) s1();
+          if (s2) s2();
+        } else if (subscribers.size > 2) {
+          const subs = [];
+          for (const s of subscribers) subs.push(s);
+          for (let i = 0; i < subs.length; i++) subs[i]();
         }
       }
     };
@@ -576,7 +600,7 @@
   const Parser = {
     _components: {}, // Component definitions registered via @def / @component
     _cache: new Map(), // source-string → AST (LRU, v2 perf)
-    _cacheLimit: 50,
+    _cacheLimit: 500,
     _diagnostics: [],
 
     /** Emit a non-fatal parser diagnostic (collected for tooling) */
@@ -1123,9 +1147,11 @@
     extractQuoted(str) {
       if (!str) return null;
       const len = str.length;
+      const bracketIdx = str.indexOf('[');
+      const searchEnd = bracketIdx === -1 ? len : bracketIdx;
       const q1 = str.indexOf('"');
       const q2 = str.indexOf("'");
-      if (q1 === -1 && q2 === -1) return null;
+      if ((q1 === -1 || q1 >= searchEnd) && (q2 === -1 || q2 >= searchEnd)) return null;
 
       let quoteChar = 34; // '"'
       let startIdx = q1;
@@ -1133,6 +1159,7 @@
         quoteChar = 39; // "'"
         startIdx = q2;
       }
+      if (startIdx >= searchEnd) return null;
 
       let escaped = false;
       for (let i = startIdx + 1; i < len; i++) {
@@ -2188,6 +2215,38 @@
           return;
         }
 
+        // Fast-path: In-place update when list length and all keys are identical (common in animations & row updates)
+        if (renderedRecords.length === items.length && items.length > 0) {
+          let keysMatch = true;
+          for (let i = 0; i < items.length; i++) {
+            if (renderedRecords[i].key !== keyOf(items[i], i)) {
+              keysMatch = false;
+              break;
+            }
+          }
+          if (keysMatch) {
+            for (let i = 0; i < items.length; i++) {
+              const rec = renderedRecords[i];
+              const item = items[i];
+              if (rec.item !== item || rec.index !== i) {
+                const patched = Renderer.updateItemDOM(rec.el, node.children, itemVar, item, i);
+                if (!patched) {
+                  const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
+                  if (rec.el && rec.el.parentNode === container) {
+                    container.replaceChild(rowEl, rec.el);
+                    Profiler.recordDomOp('remove');
+                    Profiler.recordDomOp('create');
+                  }
+                  rec.el = rowEl;
+                }
+                rec.item = item;
+                rec.index = i;
+              }
+            }
+            return;
+          }
+        }
+
         // General Keyed Reconciliation
         const nextRecords = new Array(items.length);
         const nextKeyMap = new Map();
@@ -2239,7 +2298,7 @@
           }
         }
 
-        // Step 2: Fast-path append or LIS reorder
+        // Step 2: Fast-path append, order-maintained, 2-element swap, or LIS reorder
         let isPrefix = renderedRecords.length > 0 && renderedRecords.length < nextRecords.length;
         if (isPrefix) {
           for (let i = 0; i < renderedRecords.length; i++) {
@@ -2254,35 +2313,100 @@
           }
           container.appendChild(frag);
         } else {
-          // v2 true LIS minimal-move reorder: swap-2-in-1000 → ~2 moves, not O(n).
-          const posOfEl = new Map();
-          let pi = 0;
-          for (let n = container.firstElementChild; n; n = n.nextElementSibling) {
-            posOfEl.set(n, pi++);
-          }
-          const positions = new Array(nextRecords.length);
+          // Check if order is already completely maintained (e.g. after deletions or in-place updates)
+          let orderMaintained = true;
+          let lastOldIdx = -1;
           for (let i = 0; i < nextRecords.length; i++) {
             const rec = nextRecords[i];
-            if (!rec || !rec.el || rec.el.parentNode !== container) { positions[i] = -1; continue; }
-            const p = posOfEl.get(rec.el);
-            positions[i] = (p === undefined) ? -1 : p;
+            if (!rec || !rec.el || rec.el.parentNode !== container) {
+              orderMaintained = false;
+              break;
+            }
+            const oldRec = recordMap.get(rec.key);
+            const oldIdx = oldRec ? oldRec.index : undefined;
+            if (oldIdx === undefined || oldIdx < lastOldIdx) {
+              orderMaintained = false;
+              break;
+            }
+            lastOldIdx = oldIdx;
           }
-          const keep = lisKeepSet(positions);
-          let anchor = null;
-          for (let i = nextRecords.length - 1; i >= 0; i--) {
-            const rec = nextRecords[i];
-            if (!rec || !rec.el) continue;
-            if (keep.has(i) && rec.el.parentNode === container) {
-              anchor = rec.el;
-              continue;
+
+          if (orderMaintained) {
+            // All surviving elements are already in their correct relative positions in the DOM!
+            // No DOM moves required!
+          } else {
+            // Check for exact 2-element swap fast-path
+            let swap1 = -1, swap2 = -1, isSwap = false;
+            if (renderedRecords.length === nextRecords.length) {
+              isSwap = true;
+              for (let i = 0; i < nextRecords.length; i++) {
+                if (renderedRecords[i].key !== nextRecords[i].key) {
+                  if (swap1 === -1) {
+                    swap1 = i;
+                  } else if (swap2 === -1) {
+                    swap2 = i;
+                    if (renderedRecords[swap1].key !== nextRecords[swap2].key ||
+                        renderedRecords[swap2].key !== nextRecords[swap1].key) {
+                      isSwap = false;
+                      break;
+                    }
+                  } else {
+                    isSwap = false;
+                    break;
+                  }
+                }
+              }
             }
-            if (rec.el.parentNode !== container || rec.el !== anchor) {
-              try {
-                container.insertBefore(rec.el, anchor);
+
+            if (isSwap && swap1 !== -1 && swap2 !== -1) {
+              const el1 = renderedRecords[swap1].el;
+              const el2 = renderedRecords[swap2].el;
+              if (el1 && el2 && el1.parentNode === container && el2.parentNode === container) {
+                const s1 = el1.nextSibling;
+                const s2 = el2.nextSibling;
+                if (s1 === el2) {
+                  container.insertBefore(el2, el1);
+                } else if (s2 === el1) {
+                  container.insertBefore(el1, el2);
+                } else {
+                  container.insertBefore(el2, s1);
+                  container.insertBefore(el1, s2);
+                }
                 Profiler.recordDomOp('move');
-              } catch (_) {}
+                Profiler.recordDomOp('move');
+              }
+            } else {
+              // v2 true LIS minimal-move reorder: swap-2-in-1000 → ~2 moves, not O(n).
+              const posOfEl = new Map();
+              let pi = 0;
+              for (let n = container.firstElementChild; n; n = n.nextElementSibling) {
+                posOfEl.set(n, pi++);
+              }
+              const positions = new Array(nextRecords.length);
+              for (let i = 0; i < nextRecords.length; i++) {
+                const rec = nextRecords[i];
+                if (!rec || !rec.el || rec.el.parentNode !== container) { positions[i] = -1; continue; }
+                const p = posOfEl.get(rec.el);
+                positions[i] = (p === undefined) ? -1 : p;
+              }
+              const keep = lisKeepSet(positions);
+              let anchor = null;
+              for (let i = nextRecords.length - 1; i >= 0; i--) {
+                const rec = nextRecords[i];
+                if (!rec || !rec.el) continue;
+                if (keep.has(i) && rec.el.parentNode === container) {
+                  anchor = rec.el;
+                  continue;
+                }
+                if (rec.el.parentNode !== container || rec.el !== anchor) {
+                  try {
+                    container.insertBefore(rec.el, anchor);
+                    Profiler.recordDomOp('move');
+                  } catch (_) {}
+                }
+                anchor = rec.el;
+              }
             }
-            anchor = rec.el;
           }
         }
 
@@ -2816,6 +2940,30 @@
           }
           return out;
         };
+      } else if (numGetters === 4) {
+        const c0 = chunks[0], c1 = chunks[1], c2 = chunks[2], c3 = chunks[3], c4 = chunks[4];
+        const g0 = getters[0], g1 = getters[1], g2 = getters[2], g3 = getters[3];
+        renderFn = function (items, startIdx, keys) {
+          let out = '';
+          const len = items.length;
+          for (let i = 0; i < len; i++) {
+            const item = items[i], idx = startIdx + i, k = keys[i];
+            out += c0 + g0(item, idx, k) + c1 + g1(item, idx, k) + c2 + g2(item, idx, k) + c3 + g3(item, idx, k) + c4;
+          }
+          return out;
+        };
+      } else if (numGetters === 5) {
+        const c0 = chunks[0], c1 = chunks[1], c2 = chunks[2], c3 = chunks[3], c4 = chunks[4], c5 = chunks[5];
+        const g0 = getters[0], g1 = getters[1], g2 = getters[2], g3 = getters[3], g4 = getters[4];
+        renderFn = function (items, startIdx, keys) {
+          let out = '';
+          const len = items.length;
+          for (let i = 0; i < len; i++) {
+            const item = items[i], idx = startIdx + i, k = keys[i];
+            out += c0 + g0(item, idx, k) + c1 + g1(item, idx, k) + c2 + g2(item, idx, k) + c3 + g3(item, idx, k) + c4 + g4(item, idx, k) + c5;
+          }
+          return out;
+        };
       } else {
         renderFn = function (items, startIdx, keys) {
           let out = '';
@@ -2892,60 +3040,243 @@
       return frag;
     },
 
-    /** Surgical in-place DOM update of a row without recreation.
-     *  Returns true if patched in place, false if caller should re-create. */
-    updateItemDOM(el, children, itemVar, item, index) {
-      if (!el) return false;
-      // Fast path: single child
-      if (children && children.length === 1) {
-        const childNode = children[0];
-        // Structural change (different tag/type or child count) → recreate
-        const interpolated = this.interpolateItemNode(childNode, itemVar, item, index);
-        const expectedTag = (interpolated.tag || interpolated.type || '').toLowerCase();
-        const actualTag = (el.tagName || '').toLowerCase();
-        if (expectedTag && actualTag && expectedTag !== actualTag &&
-            !['component', 'def', 'if', 'elif', 'else', 'each', 'virtual-each'].includes(interpolated.type)) {
-          return false;
+    /**
+     * Compile a static row template into a high-speed surgical DOM patcher.
+     * Pre-indexes paths to dynamic text nodes and attributes.
+     * When updating an existing row element, executes direct pointer updates in microseconds
+     * with zero AST traversal and 100% correctness for arbitrarily nested elements.
+     */
+    compileRowPatcher(children, itemVar) {
+      if (!children || !children.length) return null;
+      const patches = [];
+
+      function compileGetter(rawStr) {
+        if (rawStr == null || rawStr === '') return () => '';
+        if (typeof rawStr !== 'string' || rawStr.indexOf('{') === -1) {
+          const s = String(rawStr);
+          return () => s;
         }
-        if (interpolated.text != null && el.firstChild && el.firstChild.nodeType === 3) {
+        const re = /\{([\w.$-]+)\}/g;
+        const chunks = [];
+        const getters = [];
+        let lastIdx = 0;
+        let m;
+        while ((m = re.exec(rawStr)) !== null) {
+          if (m.index > lastIdx) {
+            chunks.push(rawStr.slice(lastIdx, m.index));
+          } else {
+            chunks.push('');
+          }
+          const key = m[1];
+          if (key === `${itemVar}.index`) {
+            getters.push((item, i) => String(i));
+          } else if (key === itemVar) {
+            getters.push((item) => (typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item)));
+          } else if (key.startsWith(itemVar + '.')) {
+            const prop = key.slice(itemVar.length + 1);
+            getters.push((item) => (item != null && item[prop] !== undefined && item[prop] !== null ? String(item[prop]) : ''));
+          } else {
+            getters.push(() => {
+              const v = State.getPath(key);
+              return v != null ? String(v) : '';
+            });
+          }
+          lastIdx = re.lastIndex;
+        }
+        if (lastIdx < rawStr.length) {
+          chunks.push(rawStr.slice(lastIdx));
+        } else {
+          chunks.push('');
+        }
+
+        const numGetters = getters.length;
+        if (numGetters === 1 && chunks[0] === '' && chunks[1] === '') {
+          return getters[0];
+        }
+        if (numGetters === 1) {
+          const c0 = chunks[0], c1 = chunks[1], g0 = getters[0];
+          return (item, idx) => c0 + g0(item, idx) + c1;
+        }
+        if (numGetters === 2) {
+          const c0 = chunks[0], c1 = chunks[1], c2 = chunks[2], g0 = getters[0], g1 = getters[1];
+          return (item, idx) => c0 + g0(item, idx) + c1 + g1(item, idx) + c2;
+        }
+        if (numGetters === 3) {
+          const c0 = chunks[0], c1 = chunks[1], c2 = chunks[2], c3 = chunks[3], g0 = getters[0], g1 = getters[1], g2 = getters[2];
+          return (item, idx) => c0 + g0(item, idx) + c1 + g1(item, idx) + c2 + g2(item, idx) + c3;
+        }
+        return (item, idx) => {
+          let res = chunks[0];
+          for (let g = 0; g < numGetters; g++) {
+            res += getters[g](item, idx) + chunks[g + 1];
+          }
+          return res;
+        };
+      }
+
+      function analyze(node, path) {
+        if (!node) return;
+
+        // Dynamic text bindings
+        if (node.text != null && typeof node.text === 'string' && node.text.indexOf('{') !== -1) {
+          patches.push({
+            path: path.slice(),
+            type: 'text',
+            getter: compileGetter(node.text)
+          });
+        }
+
+        // Dynamic attribute/class modifiers
+        if (Array.isArray(node.modifiers)) {
+          for (let m = 0; m < node.modifiers.length; m++) {
+            const mod = String(node.modifiers[m]);
+            if (mod.indexOf('{') !== -1 && mod.includes('=')) {
+              const eq = mod.indexOf('=');
+              const attr = mod.slice(0, eq).trim();
+              const rawVal = mod.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+              patches.push({
+                path: path.slice(),
+                type: attr === 'class' ? 'class' : 'attr',
+                attrName: attr,
+                getter: compileGetter(rawVal)
+              });
+            }
+          }
+        }
+
+        // Children traversal
+        if (node.children && node.children.length > 0) {
+          for (let c = 0; c < node.children.length; c++) {
+            path.push(c);
+            analyze(node.children[c], path);
+            path.pop();
+          }
+        }
+      }
+
+      const multi = children.length > 1;
+      if (!multi) {
+        analyze(children[0], []);
+      } else {
+        for (let c = 0; c < children.length; c++) {
+          analyze(children[c], [c]);
+        }
+      }
+
+      return function patch(rootEl, item, index) {
+        if (!rootEl) return false;
+        for (let i = 0; i < patches.length; i++) {
+          const p = patches[i];
+          let target = rootEl;
+          const pPath = p.path;
+          for (let k = 0; k < pPath.length; k++) {
+            if (!target || !target.children) return false;
+            target = target.children[pPath[k]];
+          }
+          if (!target) return false;
+
+          const nextVal = p.getter(item, index);
+          if (p.type === 'text') {
+            const hasChildNodes = Boolean(target.childNodes);
+            const childNodesLen = hasChildNodes ? target.childNodes.length : (target.firstChild ? 1 : 0);
+            if (target.firstChild && target.firstChild.nodeType === 3 && childNodesLen <= 1) {
+              if (target.firstChild.nodeValue !== nextVal) {
+                target.firstChild.nodeValue = nextVal;
+                Profiler.recordDomOp('text');
+              }
+            } else if (childNodesLen === 0) {
+              target.textContent = nextVal;
+              Profiler.recordDomOp('text');
+            } else if (target.textContent !== nextVal) {
+              target.textContent = nextVal;
+              Profiler.recordDomOp('text');
+            }
+          } else if (p.type === 'class') {
+            if (target.className !== nextVal) {
+              target.className = nextVal;
+              Profiler.recordDomOp('attr');
+            }
+          } else if (p.type === 'attr') {
+            if (p.attrName === 'style' && target.style) {
+              if (target.style.cssText !== nextVal) {
+                target.style.cssText = nextVal;
+                Profiler.recordDomOp('attr');
+              }
+            } else if (target.getAttribute && target.getAttribute(p.attrName) !== nextVal) {
+              target.setAttribute(p.attrName, nextVal);
+              Profiler.recordDomOp('attr');
+            }
+          }
+        }
+        return true;
+      };
+    },
+
+    /** General recursive patcher for dynamic or non-static templates. */
+    patchNodeDOM(el, node, itemVar, item, index) {
+      if (!el || !node) return false;
+      const interpolated = this.interpolateItemNode(node, itemVar, item, index);
+      const expectedTag = (interpolated.tag || interpolated.type || '').toLowerCase();
+      const actualTag = (el.tagName || '').toLowerCase();
+      if (expectedTag && actualTag && expectedTag !== actualTag &&
+          !['component', 'def', 'if', 'elif', 'else', 'each', 'virtual-each'].includes(interpolated.type)) {
+        return false;
+      }
+      if (interpolated.text != null) {
+        if (el.firstChild && el.firstChild.nodeType === 3 && el.childNodes.length === 1) {
           if (el.firstChild.nodeValue !== interpolated.text) {
             el.firstChild.nodeValue = interpolated.text;
             Profiler.recordDomOp('text');
           }
-        } else if (interpolated.text != null) {
-          if (el.textContent !== interpolated.text) {
-            el.textContent = interpolated.text;
-            Profiler.recordDomOp('text');
+        } else if (el.textContent !== interpolated.text) {
+          el.textContent = interpolated.text;
+          Profiler.recordDomOp('text');
+        }
+      }
+      if (Array.isArray(interpolated.modifiers)) {
+        this.applyModifiers(el, interpolated.modifiers);
+      }
+      if (node.children && node.children.length > 0) {
+        const elKids = el.children;
+        if (!elKids || elKids.length !== node.children.length) return false;
+        for (let c = 0; c < node.children.length; c++) {
+          if (!this.patchNodeDOM(elKids[c], node.children[c], itemVar, item, index)) {
+            return false;
           }
         }
-        if (Array.isArray(interpolated.modifiers)) {
-          this.applyModifiers(el, interpolated.modifiers);
+      }
+      return true;
+    },
+
+    /** Surgical in-place DOM update of a row without recreation.
+     *  Returns true if patched in place, false if caller should re-create. */
+    updateItemDOM(el, children, itemVar, item, index) {
+      if (!el || !children || !children.length) return false;
+
+      // Fast-path: compiled surgical row patcher for static templates
+      if (this.isStaticRowTemplate(children, itemVar)) {
+        if (!children._bzPatcher) {
+          children._bzPatcher = this.compileRowPatcher(children, itemVar);
         }
-        return true;
-      } else if (children && children.length > 1) {
-        // Multi-child row: child count change → recreate
-        // Note: single-child rows render directly; multi-child rows render inside a wrapper div
-        const wrapCount = el.classList && el.classList.contains('bz-each') ? -1 : el.children.length;
-        if (wrapCount !== -1 && wrapCount !== children.length) return false;
-        const targetChildren = (el.children.length === children.length) ? el.children : (el.children[0] ? el.children : []);
-        // Multi-child row: update each child element
-        for (let c = 0; c < children.length && c < el.children.length; c++) {
-          const childNode = children[c];
-          const childEl = el.children[c];
-          const interpolated = this.interpolateItemNode(childNode, itemVar, item, index);
-          if (interpolated.text != null && childEl.firstChild && childEl.firstChild.nodeType === 3) {
-            if (childEl.firstChild.nodeValue !== interpolated.text) {
-              childEl.firstChild.nodeValue = interpolated.text;
-              Profiler.recordDomOp('text');
-            }
-          }
-          if (Array.isArray(interpolated.modifiers)) {
-            this.applyModifiers(childEl, interpolated.modifiers);
+        if (children._bzPatcher) {
+          const success = children._bzPatcher(el, item, index);
+          if (success) return true;
+        }
+      }
+
+      // General recursive fallback
+      if (children.length === 1) {
+        return this.patchNodeDOM(el, children[0], itemVar, item, index);
+      } else {
+        const elKids = (el.classList && el.classList.contains('bz-each')) ? el.children : (el.children && el.children.length === children.length ? el.children : []);
+        if (!elKids || elKids.length !== children.length) return false;
+        for (let c = 0; c < children.length; c++) {
+          if (!this.patchNodeDOM(elKids[c], children[c], itemVar, item, index)) {
+            return false;
           }
         }
         return true;
       }
-      return false;
     },
 
     interpolateItemNode(node, itemVar, item, index, extraProps) {
@@ -4834,8 +5165,11 @@
       isStaticRowTemplate(children, itemVar) { return Renderer.isStaticRowTemplate(children, itemVar); },
       itemNodeToHtml(node, itemVar, item, index, key) { return Renderer.itemNodeToHtml(node, itemVar, item, index, key); },
       renderRowsHtml(children, itemVar, items, startIdx, keyProp) { return Renderer.renderRowsHtml(children, itemVar, items, startIdx, keyProp); },
-      compileRowSerializer(children, itemVar, keyProp, options) { return Renderer.compileRowSerializer(children, itemVar, keyProp, options); }
+      compileRowSerializer(children, itemVar, keyProp, options) { return Renderer.compileRowSerializer(children, itemVar, keyProp, options); },
+      compileRowPatcher(children, itemVar) { return Renderer.compileRowPatcher(children, itemVar); },
+      updateItemDOM(el, children, itemVar, item, index) { return Renderer.updateItemDOM(el, children, itemVar, item, index); }
     },
+    Renderer,
 
     parse(source, opts) { return Parser.parse(source, opts); }
   };

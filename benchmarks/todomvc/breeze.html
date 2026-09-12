@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breeze TodoMVC Benchmark</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .btn { padding: 4px 8px; margin: 2px; cursor: pointer; }
+    .completed { text-decoration: line-through; color: #888; }
+    .todo-item { display: flex; align-items: center; padding: 4px; border-bottom: 1px solid #eee; }
+    .todo-title { flex: 1; margin-left: 8px; }
+  </style>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    Breeze.mount(`
+@app "Breeze TodoMVC"
+@state todos = []
+@state filter = "all"
+@section #main
+  h1 "TodoMVC Benchmark"
+  div.controls
+    button "Batch Create 100" #btn-create [btn]
+    button "Toggle 50 Completed" #btn-toggle [btn]
+    button "Filter Active" #btn-filter-active [btn]
+    button "Filter Completed" #btn-filter-completed [btn]
+    button "Filter All" #btn-filter-all [btn]
+    button "Edit 20 Items" #btn-edit [btn]
+    button "Clear Completed" #btn-clear-completed [btn]
+    button "Clear All" #btn-clear-all [btn]
+  div#todo-list
+    @each todo in todos [key=id]
+      div.todo-item [class="{todo.cls}"]
+        span.todo-title "{todo.title}"
+`, '#app');
+
+    let allItems = [];
+    let curFilter = 'all';
+
+    function applyFilter() {
+      if (curFilter === 'active') {
+        Breeze.setState('todos', allItems.filter(t => !t.completed));
+      } else if (curFilter === 'completed') {
+        Breeze.setState('todos', allItems.filter(t => t.completed));
+      } else {
+        Breeze.setState('todos', allItems.slice());
+      }
+    }
+
+    document.getElementById('btn-create').addEventListener('click', () => {
+      allItems = new Array(100);
+      for (let i = 0; i < 100; i++) {
+        allItems[i] = {
+          id: i + 1,
+          title: 'Todo task #' + (i + 1),
+          completed: false,
+          cls: ''
+        };
+      }
+      curFilter = 'all';
+      applyFilter();
+    });
+
+    document.getElementById('btn-toggle').addEventListener('click', () => {
+      const next = allItems.slice();
+      for (let i = 0; i < next.length; i += 2) {
+        const comp = !next[i].completed;
+        next[i] = {
+          ...next[i],
+          completed: comp,
+          cls: comp ? 'completed' : ''
+        };
+      }
+      allItems = next;
+      applyFilter();
+    });
+
+    document.getElementById('btn-filter-active').addEventListener('click', () => {
+      curFilter = 'active';
+      applyFilter();
+    });
+
+    document.getElementById('btn-filter-completed').addEventListener('click', () => {
+      curFilter = 'completed';
+      applyFilter();
+    });
+
+    document.getElementById('btn-filter-all').addEventListener('click', () => {
+      curFilter = 'all';
+      applyFilter();
+    });
+
+    document.getElementById('btn-edit').addEventListener('click', () => {
+      const next = allItems.slice();
+      for (let i = 0; i < 20 && i < next.length; i++) {
+        next[i] = {
+          ...next[i],
+          title: next[i].title + ' (edited)'
+        };
+      }
+      allItems = next;
+      applyFilter();
+    });
+
+    document.getElementById('btn-clear-completed').addEventListener('click', () => {
+      allItems = allItems.filter(t => !t.completed);
+      applyFilter();
+    });
+
+    document.getElementById('btn-clear-all').addEventListener('click', () => {
+      allItems = [];
+      Breeze.setState('todos', []);
+    });
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

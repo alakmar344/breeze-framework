@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vue TodoMVC Benchmark</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    .btn { padding: 4px 8px; margin: 2px; cursor: pointer; }
+    .completed { text-decoration: line-through; color: #888; }
+    .todo-item { display: flex; align-items: center; padding: 4px; border-bottom: 1px solid #eee; }
+    .todo-title { flex: 1; margin-left: 8px; }
+  </style>
+  <script src="/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app">
+    <h1>TodoMVC Benchmark</h1>
+    <div class="controls">
+      <button id="btn-create" class="btn" @click="create">Batch Create 100</button>
+      <button id="btn-toggle" class="btn" @click="toggle">Toggle 50 Completed</button>
+      <button id="btn-filter-active" class="btn" @click="filter = 'active'">Filter Active</button>
+      <button id="btn-filter-completed" class="btn" @click="filter = 'completed'">Filter Completed</button>
+      <button id="btn-filter-all" class="btn" @click="filter = 'all'">Filter All</button>
+      <button id="btn-edit" class="btn" @click="edit">Edit 20 Items</button>
+      <button id="btn-clear-completed" class="btn" @click="clearCompleted">Clear Completed</button>
+      <button id="btn-clear-all" class="btn" @click="clearAll">Clear All</button>
+    </div>
+    <div id="todo-list">
+      <div
+        v-for="item in visibleItems"
+        :key="item.id"
+        :class="['todo-item', { completed: item.completed }]"
+      >
+        <span class="todo-title">{{ item.title }}</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    const { createApp, ref, computed, shallowRef } = Vue;
+
+    const app = createApp({
+      setup() {
+        const items = shallowRef([]);
+        const filter = ref('all');
+
+        const visibleItems = computed(() => {
+          if (filter.value === 'active') return items.value.filter(t => !t.completed);
+          if (filter.value === 'completed') return items.value.filter(t => t.completed);
+          return items.value;
+        });
+
+        const create = () => {
+          const arr = new Array(100);
+          for (let i = 0; i < 100; i++) {
+            arr[i] = { id: i + 1, title: 'Todo task #' + (i + 1), completed: false };
+          }
+          filter.value = 'all';
+          items.value = arr;
+        };
+
+        const toggle = () => {
+          const next = items.value.slice();
+          for (let i = 0; i < next.length; i += 2) {
+            next[i] = { ...next[i], completed: !next[i].completed };
+          }
+          items.value = next;
+        };
+
+        const edit = () => {
+          const next = items.value.slice();
+          for (let i = 0; i < 20 && i < next.length; i++) {
+            next[i] = { ...next[i], title: next[i].title + ' (edited)' };
+          }
+          items.value = next;
+        };
+
+        const clearCompleted = () => {
+          items.value = items.value.filter(t => !t.completed);
+        };
+
+        const clearAll = () => {
+          items.value = [];
+        };
+
+        return { items, filter, visibleItems, create, toggle, edit, clearCompleted, clearAll };
+      }
+    });
+
+    app.mount('#app');
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

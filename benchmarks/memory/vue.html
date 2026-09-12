@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vue Memory Leak Benchmark</title>
+  <script src="/vendor/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { createApp, ref } = window.Vue;
+    let vueApp = null;
+    let itemsRef = null;
+
+    window.__mount1000 = function() {
+      const items = new Array(1000);
+      for (let i = 0; i < 1000; i++) {
+        items[i] = { id: i, count: 0, text: 'Item ' + i, active: '' };
+      }
+      itemsRef = ref(items);
+
+      vueApp = createApp({
+        setup() {
+          return { items: itemsRef };
+        },
+        template: `
+          <div id="container">
+            <div v-for="it in items" :key="it.id" :class="['card', it.active]">
+              <span class="title">{{ it.text }}</span>
+              <span class="count">{{ it.count }}</span>
+              <button @click="it.count++">Click</button>
+            </div>
+          </div>
+        `
+      });
+      vueApp.mount('#app');
+    };
+
+    window.__runUpdates = function(numUpdates = 25) {
+      if (!itemsRef) return;
+      for (let c = 1; c <= numUpdates; c++) {
+        const prev = itemsRef.value;
+        const next = new Array(prev.length);
+        for (let i = 0; i < prev.length; i++) {
+          const it = prev[i];
+          next[i] = {
+            id: it.id,
+            count: it.count + 1,
+            text: 'Updated ' + c + '-' + it.id,
+            active: (c % 2 === 0) ? 'is-active' : ''
+          };
+        }
+        itemsRef.value = next;
+      }
+    };
+    window.__update200 = window.__runUpdates;
+
+    window.__unmountAll = function() {
+      if (vueApp) {
+        vueApp.unmount();
+        vueApp = null;
+        itemsRef = null;
+      }
+      const app = document.getElementById('app');
+      if (app) app.innerHTML = '';
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>

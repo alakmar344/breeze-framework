@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breeze Memory Leak Benchmark</title>
+  <script src="/breeze.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    let mounted = false;
+
+    window.__mount1000 = function() {
+      const items = new Array(1000);
+      for (let i = 0; i < 1000; i++) {
+        items[i] = { id: i, count: 0, text: 'Item ' + i, active: '' };
+      }
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      Breeze.mount(`
+@app "Memory Benchmark"
+@state items = []
+@section #main
+  div#container
+    @each item in items [key=id]
+      div.card [class="{item.active}"]
+        span.title "{item.text}"
+        span.count "{item.count}"
+        button "Click" @click="item.count = item.count + 1"
+`, '#app');
+      Breeze.setState('items', items);
+      mounted = true;
+    };
+
+    window.__runUpdates = function(numUpdates = 25) {
+      if (!mounted) return;
+      for (let c = 1; c <= numUpdates; c++) {
+        const items = Breeze.getState('items') || [];
+        const next = new Array(items.length);
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          next[i] = {
+            id: it.id,
+            count: it.count + 1,
+            text: 'Updated ' + c + '-' + it.id,
+            active: (c % 2 === 0) ? 'is-active' : ''
+          };
+        }
+        Breeze.setState('items', next);
+      }
+    };
+    window.__update200 = window.__runUpdates;
+
+    window.__unmountAll = function() {
+      if (!mounted) return;
+      Breeze.setState('items', []);
+      const app = document.getElementById('app');
+      if (app) app.innerHTML = '';
+      mounted = false;
+    };
+
+    window.__framework_ready = true;
+  </script>
+</body>
+</html>
