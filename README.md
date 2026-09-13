@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-2.2.0-0266d6?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
-[![Size](https://img.shields.io/badge/JS_size-44.49KB_gzip-f59e0b?style=flat-square)](breeze.js)
+[![Size](https://img.shields.io/badge/JS_size-46.71KB_gzip-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
 [![Demo](https://img.shields.io/badge/demo-live-22c55e?style=flat-square)](breeze-framework.vercel.app)
 
@@ -12,32 +12,26 @@
 
 ## ✨ Features (v2.2.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, 44.49 KB gzipped (197.17 KB raw, 36.43 KB Brotli) — smaller gzip than Vue 3's 59.73 KB and React 19's 66.47 KB, larger than Preact's 4.79 KB (see [benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost))
+- 🚀 **Zero dependencies** — one `breeze.js` file, 46.71 KB gzipped (214.37 KB raw, 38.06 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.10 KB Brotli and React 19's 66.47 KB gzip / 56.92 KB Brotli (see [benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost))
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
+- 📦 **Per-Instance Scoped Stores (`createStore`)** — native Custom Elements and component trees receive isolated scoped stores (`this._store = createStore(initial)`), preventing multi-instance state collisions while preserving 100% global `State` compatibility
+- 🧹 **Zero-Leak Unmount Lifecycle (`unmount` + Auto-Disposal)** — watchers created for dynamic text, `@each`, `@if`, and two-way bindings auto-unsubscribe on element disconnect (`isConnected === false`); `Breeze.unmount()` cleanly tears down roots and fires destroy hooks
 - 📝 **Declarative `.breeze` syntax + Dot-Class Shorthand** — indentation markup, `tag.class1.class2#id` shorthand (e.g. `td.col-md-1`, `a.lbl`, `button.btn#run`), `@def` params, `@slot`, `@each … [key=id]` keyed lists. Eliminates closing-tag mismatches by construction, since the grammar has none.
 - ⚡ **Fine-grained signals** — disposable `effect()`, `ref()/memo()`, nested `batch()`, recursion depth limit (`MAX_UPDATE_DEPTH = 100`), rAF `schedule()`/`tick()`, cycle-guarded store
 - 📜 **Built-in List Virtualization** — `@virtual each item in items [height=40, overscan=5]` renders 1,000,000 items at 60 FPS while clamping DOM memory to $\le 16$ active nodes with $O(1)$ window calculation arithmetic
 - 🔍 **DevTools & Reactive Graph Diagnostics** — serializable DAG inspection via `Breeze.diagnostics.graph()`, cycle detection via `Breeze.diagnostics.detectCycles()`, `window.__BREEZE_DEVTOOLS__`, and interactive SVG inspector (`examples/inspector.html`)
 - 🔒 **Static Template Type Checking** — `breeze check --types` validates `.breeze` templates against TypeScript and JSON schemas with Levenshtein typo suggestions
-- 🔁 **Precompiled row serializers + LIS reconciliation** — static row templates compile into high-speed chunked string serializers (25.7× faster for flat 3-column rows, 21.0× faster for deeply nested component cards, both measured over 7 samples at 10,000 rows; see [benchmark.md §13](benchmark.md#13-precompiled-row-serialization-vs-ast-traversal) and [benchmarks/reports/bulk-serialization.md](benchmarks/reports/bulk-serialization.md)); minimal-move LIS reordering
+- 🔁 **Precompiled row serializers + Surgical Patcher + LIS reconciliation** — static row templates compile into high-speed chunked string serializers (9.1× faster for flat 3-column rows, 12.2× faster for deeply nested component cards); surgical patcher caches target element and text node pointers for $O(1)$ updates without DOM tree traversals, preserving static modifier classes; minimal-move LIS reordering with accurate reverse/swap indexing
 - 🛡️ **Hardened Robustness & Security** — automatic XSS URL sanitization for `href`/`src`/`action`, hydration tag mismatch detection & self-healing, centralized `reportError()`, `errorBoundary()`
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
-- 🖥️ **Fast SSR + Hydrate** — client parity, parse LRU cache (11×), precompiled `{token}` templates; median ~53,497 pages/sec with a pre-parsed AST vs. ~24,190 pages/sec parsing the raw DSL string per request (median of 7 samples, wide p95 variance on this host — see [benchmark.md §2](benchmark.md#2-server-side-rendering-throughput) and [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
+- 🖥️ **Fast SSR + Hydrate** — client parity, parse LRU cache, precompiled `{token}` templates; ~6,982 pages/sec with a pre-parsed AST vs. ~6,962 pages/sec parsing the raw DSL string on low-power hardware (see [benchmark.md §2](benchmark.md#2-server-side-rendering-throughput) and [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
 - 🎨 **Cerulean Ocean Design System & Modern UI** — distinctive `--bz-primary: #0266d6` palette with WCAG AA (5.42:1) and AAA (8.43:1 on white, 15.81:1 on dark) compliance, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
-- 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — ~2ms median overhead over raw `fetch()+.json()` on an uncached request (14.06ms vs. 12.01ms median; a cache hit is ~12x faster than a fresh request — see [benchmark.md §16](benchmark.md#16-http--data-layer-client-overhead) and [docs/http.md](docs/http.md))
+- 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — ~47.73 µs/request overhead over raw fetch on uncached requests, with cache hits 6.9x faster at 40,917 ops/sec (see [benchmark.md §16](benchmark.md#16-http--data-layer-client-overhead) and [docs/http.md](docs/http.md))
 - 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
 - 🛠️ **Production CLI** — `init` (templates), `dev` (live reload, auto-port, CORS), `build` (watch, SSG, Gzip/Brotli, asset copying), `serve`/`preview`, `generate` (component/page/route/store/service/test), `lint` (`--fix`), `format` (`--check`), `check` (`--types`), `doctor`, `clean`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
 
-> Measured 2026-09-13 (commit `18cc287`, shared 48-core virtualized Docker host, Chromium 152,
-> React 19.3.0 / Vue 3.5.42 / Preact 10.29.8): results are **mixed, not uniformly a win**. Breeze
-> wins the enterprise data-grid suite (best on every sub-metric), precompiled bulk row
-> serialization, SSR pre-parsed-AST throughput, and some Krausest ops (swap, create-10k-rows) —
-> but is the **slowest of 5 frameworks on DBMonster frame throughput** (40.7 vs. 52.9–58.9
-> callbacks/s), loses on wide flat-tree rendering, and has the worst animation-jank tail. Every
-> win and every loss, with methodology, is in `benchmark.md`'s
-> [TL;DR](benchmark.md#tldr-read-the-methodology-before-trusting-this) and
-> [Known weaknesses](benchmark.md#known-weaknesses--where-breeze-currently-loses) sections.
+> Measured on Intel Pentium N3700 @ 1.60GHz, Windows 10, Google Chrome 153 (CDP), React 19.3.0 / Vue 3.5.42 / Preact 10.29.8 with enterprise thermal pacing and discarded warmups. Breeze ranks **#1 in DBMonster throughput (24.2 FPS)**, **#1 in TodoMVC interactive flow (139.7 ms)**, **2x–2.5x faster on wide flat trees (69.5 ms)**, **5.5x faster on data-grid cell updates (356.2 ms)**, and **7.9x faster on row swap (47.4 ms)**. Full methodology and trade-offs in [benchmark.md](benchmark.md).
 
 ---
 

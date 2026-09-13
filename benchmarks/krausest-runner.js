@@ -314,9 +314,11 @@ async function main() {
     console.log(`| **${label}** | **${bz}** | ${van} | ${pre} | ${vue} | ${rct} |`);
   }
 
-  const outJson = path.join(__dirname, 'results.json');
-  fs.writeFileSync(outJson, JSON.stringify(allResults, null, 2), 'utf8');
-  console.log(`\nRaw results saved to: ${outJson}\n`);
+  if (require.main === module) {
+    const outJson = path.join(__dirname, 'results.json');
+    fs.writeFileSync(outJson, JSON.stringify(allResults, null, 2), 'utf8');
+    console.log(`\nRaw results saved to: ${outJson}\n`);
+  }
 
   return allResults;
 }
