@@ -24,8 +24,8 @@ const gridDir = path.join(__dirname, 'datagrid');
 
 const frameworks = ['breeze', 'vanillajs', 'preact', 'vue', 'react'];
 const actions = ['render', 'sort', 'filter', 'reset', 'update'];
-const PORT = 4900;
-const CDP_PORT = 9344;
+const PORT = 4902;
+const CDP_PORT = 9346;
 
 const server = http.createServer((req, res) => {
   const reqPath = req.url.split('?')[0];

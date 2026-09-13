@@ -21,11 +21,24 @@ const breezeCss = fs.readFileSync(path.join(__dirname, 'breeze.css'), 'utf8');
 const breezeJs = fs.readFileSync(path.join(__dirname, 'breeze.js'), 'utf8');
 
 function bench(name, fn, iterations = 100) {
+  // Enterprise methodology: discard cold JIT warmup cycles
+  const warmup = Math.min(10, Math.max(3, Math.floor(iterations * 0.1)));
+  for (let w = 0; w < warmup; w++) fn();
+
+  const samples = [];
   const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn();
+  for (let i = 0; i < iterations; i++) {
+    const t0 = performance.now();
+    fn();
+    samples.push(performance.now() - t0);
+  }
   const ms = performance.now() - start;
-  const avg = (ms / iterations).toFixed(2);
-  console.log(`${name.padEnd(35)} ${ms.toFixed(1)}ms total  (${avg}ms/iter)`);
+  samples.sort((a, b) => a - b);
+  const median = samples[Math.floor(samples.length / 2)].toFixed(2);
+  const p95 = samples[Math.floor(samples.length * 0.95)].toFixed(2);
+  const min = samples[0].toFixed(2);
+  const max = samples[samples.length - 1].toFixed(2);
+  console.log(`${name.padEnd(35)} ${ms.toFixed(1)}ms total  (median: ${median}ms, p95: ${p95}ms, range: [${min}–${max}])`);
   return ms;
 }
 
