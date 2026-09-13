@@ -19,16 +19,16 @@ be silently overwritten the next time someone runs the build script.
 | 3 | `reactive.js` | **The tiny reactive core** — signals, computed, effects, batching, disposal. Everything else is built on top of this. |
 | 4 | `parser.js` | `.breeze` → AST, with the LRU parse cache and codeframe diagnostics |
 | 5 | `row-compiler.js` | Compile-time detection of static `@each`/`@virtual each` row templates into fast chunked string serializers |
-| 6 | `state.js` | The global reactive store, watchers, cycle-guarded computeds, signal sync |
+| 6 | `state.js` | The reactive state store: `createStore()` factory for isolated per-component stores, global `State`, `watch()` with unsubscribe disposal, cycle-guarded computeds, signal sync |
 | 7 | `virtual-list.js` | `@virtual each` windowed-list arithmetic |
-| 8 | `renderer.js` | AST → DOM: keyed LIS reconciliation, append fast-path, `@if`/`@elif`/`@else` chains, component params, `@show`/`@model`/`@ref`/`@cloak`/`@transition` |
+| 8 | `renderer.js` | AST → DOM: keyed LIS reconciliation, append fast-path, surgical row patcher pointer caching, auto-unsubscribing watchers on disconnect, `@if`/`@elif`/`@else` chains, component params, `@show`/`@model`/`@ref`/`@cloak`/`@transition` |
 | 9 | `router.js` | Hash/history routing, `:id`/`:id?`/`*`, outlet rendering, async guards, compiled-regex cache |
-| 10 | `registries.js` | Plugin/action/method registries |
+| 10 | `registries.js` | Plugin/action/method registries and `Lifecycle` mount/unmount triggers |
 | 11 | `dx.js` | Developer-experience surface: context (`provide`/`inject`), `refs`, `suspense`, `errorBoundary`, `forms`, `i18n`, `a11y`, `directive()`, `testing` helpers |
 | 12 | `ssr.js` | `renderToString()` — parity string rendering of chains/components/ids/attrs |
 | 13 | `hydration.js` | Non-destructive client hydration of server-rendered markup, with mismatch detection/self-healing |
-| 14 | `webcomponents.js` | `Breeze.defineElement()` — wraps a `.breeze` template in a native Custom Element class |
-| 15 | `api.js` | The public `BreezeAPI` surface — the object every other layer's exports get attached to as `Breeze.*` |
+| 14 | `webcomponents.js` | `Breeze.defineElement()` — wraps a `.breeze` template in a native Custom Element class with isolated scoped store and cleanup on disconnect |
+| 15 | `api.js` | The public `BreezeAPI` surface — the object every other layer's exports get attached to as `Breeze.*` (including `createStore`, `unmount`, `unwatch`) |
 
 Read top to bottom, this is the dependency direction: a minimal reactive core (`reactive.js`) is
 extended by a parser and a state store, which the renderer and router build on, which SSR/hydration

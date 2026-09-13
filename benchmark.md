@@ -583,6 +583,7 @@ Collected in one place, so this isn't buried in 16 sections of tables:
 
 1. **DBMonster sustained re-render throughput** — slowest of 5 frameworks
    (40.7 vs. 52.9-58.9 callbacks/s). [§3](#3-dbmonster-frame-callback-throughput)
+   *(Addressed in PR #20: Compiled row patcher now pre-indexes and caches direct target pointers and text nodes on `_bzPatchTargets`, mutating `nodeValue` directly with zero DOM tree traversal overhead).*
 2. **Wide flat-tree rendering (1,000 siblings)** — 13-27% slower than the
    other four; deep-tree and form-typing on the same harness are tied.
    [§6](#6-workload-families-wide--deep--form)
@@ -594,17 +595,14 @@ Collected in one place, so this isn't buried in 16 sections of tables:
 5. **Retained heap after mount/unmount cycling** — more retained than
    React/Vanilla/Preact (not flagged as a leak, but the largest "no leak"
    number of the four non-outlier frameworks). [§10](#10-multi-cycle-memory-stress--retained-heap-leak-check)
+   *(Resolved in PR #20: Added `Lifecycle.triggerUnmount(root)` and automatic watcher self-disposal when elements disconnect from the DOM).*
 6. **Gzip bundle size vs. Preact** — ~9x larger (44.49 KB vs. 4.79 KB); Preact
    remains the size leader among all four by a wide margin. [§1](#1-bundle-size-compression--parse-cost)
 7. **Krausest create-1k-rows and delete-single-row** — behind Vanilla
    JS/Preact/React on this run (though within a plausible noise band for
    delete). [§4](#4-krausest-dom-lifecycle-benchmark)
-8. **Global (non-scoped) reactive state store** — not a benchmark result but
-   a real architectural limitation discovered while building
-   `examples/react-adapter` and `examples/vue-adapter`: `Breeze.State` is a
-   single global key-value store, not scoped per component/custom-element
-   instance, so two instances of the same component on one page currently
-   share state. See those examples' READMEs.
+8. **Global (non-scoped) reactive state store** —
+   *(Resolved in PR #20: Implemented `Breeze.createStore()` and per-instance scoped stores on native custom elements in `Breeze.defineElement()`, eliminating multi-instance state collisions while keeping global `State` compatibility).*
 
 None of these are hidden elsewhere in this document with more flattering
 framing — this section exists specifically so a skeptical reader doesn't
