@@ -144,6 +144,19 @@ export interface BreezeStore<T> {
   reset(): void;
 }
 
+export interface BreezeScopedStore {
+  get<T = any>(key: string): T;
+  set<T = any>(key: string, value: T): void;
+  getPath(path: string): any;
+  getAll(): Record<string, any>;
+  watch<T = any>(key: string, fn: (next: T, prev: T) => void): () => void;
+  unwatch(key: string, fn: Function): void;
+  computed(key: string, deps: string[], fn: (...args: any[]) => any): void;
+  push<T = any>(key: string, item: T): void;
+  remove(key: string, index: number): void;
+  reset(): void;
+}
+
 export interface SuspenseHandle<T> {
   state: BreezeSignal<'pending' | 'ready' | 'error'>;
   data: BreezeSignal<T | null>;
@@ -285,10 +298,13 @@ export interface BreezeAPI {
   // App Mount & Boot
   init(sourceUrl: string, rootSelector?: string): Promise<BreezeAPI>;
   mount(source: string, rootSelector?: string | Element): BreezeAPI;
+  unmount(rootSelector?: string | Element): BreezeAPI;
 
   // Reactive State Store
   state<T = any>(key: string, initialValue?: T): BreezeStateController<T>;
-  watch<T = any>(key: string, callback: (next: T, prev: T) => void): BreezeAPI;
+  createStore(initial?: Record<string, any>): BreezeScopedStore;
+  watch<T = any>(key: string, callback: (next: T, prev: T) => void): () => void;
+  unwatch(key: string, callback: Function): BreezeAPI;
   getState<T = any>(key: string): T;
   setState<T = any>(key: string, value: T): BreezeAPI;
   push<T = any>(key: string, item: T): BreezeAPI;

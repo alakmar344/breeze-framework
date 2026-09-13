@@ -21,6 +21,7 @@
 (function (global) {
   'use strict';
 
+
   // ═══════════════════════════════════════════════════════════════════════
   // PROFILER & DIAGNOSTICS
   // ═══════════════════════════════════════════════════════════════════════
@@ -207,6 +208,7 @@
     }
     return url;
   }
+
 
   // ═══════════════════════════════════════════════════════════════════════
   // SIGNALS — Fine-grained reactivity engine
@@ -1306,6 +1308,7 @@
   };
 
 
+
   // ═══════════════════════════════════════════════════════════════════════
   // SHARED CLASS MAP — single source of truth for Renderer.applyModifiers,
   // SSR parity and the static-row HTML fast path.
@@ -1455,6 +1458,7 @@
   }
 
 
+
   // ═══════════════════════════════════════════════════════════════════════
   // STATE — Reactive store with signals, watchers, & batching
   // ═══════════════════════════════════════════════════════════════════════
@@ -1466,118 +1470,185 @@
     return segment === '__proto__' || segment === 'constructor' || segment === 'prototype';
   }
 
-  const State = {
-    _store:    {},
-    _watchers: {},
-    _computed: {},
-    _signals:  {},
-    _computing: null,
+  function createStore(initial = {}) {
+    const initialClone = () => {
+      try {
+        return JSON.parse(JSON.stringify(initial));
+      } catch (_) {
+        return { ...initial };
+      }
+    };
 
-    getPath(key) {
-      if (!key) return undefined;
-      const parts = String(key).split('.');
-      if (parts.some(isUnsafeKeySegment)) return undefined;
-      let v = this._store[parts[0]];
-      for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
-      return v;
-    },
+    const store = {
+      _store:    initialClone(),
+      _watchers: {},
+      _computed: {},
+      _signals:  {},
+      _computing: null,
 
-    set(key, value) {
-      if (isUnsafeKeySegment(key)) {
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn(`[Breeze] Refusing to set unsafe state key "${key}".`);
+      getPath(key) {
+        if (!key) return undefined;
+        const parts = String(key).split('.');
+        if (parts.some(isUnsafeKeySegment)) return undefined;
+        let v = this._store[parts[0]];
+        for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
+        return v;
+      },
+
+      set(key, value) {
+        if (isUnsafeKeySegment(key)) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn(`[Breeze] Refusing to set unsafe state key "${key}".`);
+          }
+          return;
         }
-        return;
-      }
-      const prev = this._store[key];
-      if (Object.is(prev, value)) {
-        // Still refresh computed that depend on it? No — same value, skip work.
-        return;
-      }
-      this._store[key] = value;
 
-      // Keep bound signal in sync (created via Breeze.state), avoiding echo loops
-      if (this._signals[key]) {
-        try {
-          const sig = this._signals[key];
-          const syncing = sig._bzSyncing && sig._bzSyncing();
-          if (!syncing && sig.peek() !== value) sig.value = value;
-        } catch (_) {
-          try { this._signals[key].value = value; } catch (_) {}
-        }
-      }
-
-      // Run registered watchers
-      (this._watchers[key] || []).slice().forEach(fn => fn(value, prev));
-
-      // Refresh DOM text bindings
-      Renderer.updateBindings(key, value);
-
-      // Re-evaluate computed values (with cycle guard)
-      if (!this._computing) this._computing = new Set();
-      Object.keys(this._computed).forEach(cKey => {
-        const c = this._computed[cKey];
-        if (c.deps.includes(key)) {
-          if (this._computing.has(cKey)) {
-            if (typeof console !== 'undefined' && console.warn) {
-              console.warn(`[Breeze] Cyclic computed dependency detected for "${cKey}" — skipping re-evaluation.`);
+        if (typeof key === 'string' && key.includes('.')) {
+          const parts = key.split('.');
+          if (parts.some(isUnsafeKeySegment)) return;
+          let cur = this._store;
+          for (let p = 0; p < parts.length - 1; p++) {
+            if (cur[parts[p]] == null || typeof cur[parts[p]] !== 'object') {
+              cur[parts[p]] = {};
             }
-            return;
+            cur = cur[parts[p]];
           }
-          this._computing.add(cKey);
+          const lastProp = parts[parts.length - 1];
+          const prev = cur[lastProp];
+          if (Object.is(prev, value)) return;
+          cur[lastProp] = value;
+          const topKey = parts[0];
+          const watchers = this._watchers[topKey];
+          if (watchers && watchers.length) {
+            watchers.slice().forEach(fn => fn(this._store[topKey], this._store[topKey]));
+          }
+          if (this._watchers[key]) {
+            this._watchers[key].slice().forEach(fn => fn(value, prev));
+          }
+          if (this !== State && typeof State !== 'undefined' && State._watchers && State._watchers[topKey]) {
+            State._watchers[topKey].slice().forEach(fn => fn(this._store[topKey], this._store[topKey]));
+          }
+          Renderer.updateBindings(topKey, this._store[topKey], this);
+          return;
+        }
+
+        const prev = this._store[key];
+        if (Object.is(prev, value)) {
+          return;
+        }
+        this._store[key] = value;
+
+        // Keep bound signal in sync (created via Breeze.state), avoiding echo loops
+        if (this._signals[key]) {
           try {
-            const next = c.fn(...c.deps.map(d => State._store[d]));
-            // Avoid infinite recursion: only set if changed (shallow, NaN-safe)
-            if (!Object.is(next, State._store[cKey])) State.set(cKey, next);
-          } finally {
-            this._computing.delete(cKey);
+            const sig = this._signals[key];
+            const syncing = sig._bzSyncing && sig._bzSyncing();
+            if (!syncing && sig.peek() !== value) sig.value = value;
+          } catch (_) {
+            try { this._signals[key].value = value; } catch (_) {}
           }
         }
-      });
-    },
 
-    get(key) { return this._store[key]; },
-
-    getAll() { return { ...this._store }; },
-
-    watch(key, fn) {
-      if (!this._watchers[key]) this._watchers[key] = [];
-      this._watchers[key].push(fn);
-    },
-
-    computed(key, deps, fn) {
-      if (deps.includes(key)) {
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn(`[Breeze] Computed "${key}" depends on itself — skipped.`);
+        // Run registered watchers
+        const watchers = this._watchers[key];
+        if (watchers && watchers.length) {
+          watchers.slice().forEach(fn => fn(value, prev));
         }
-        return;
+
+        // If this is a scoped store, also notify global watchers if any exist
+        if (this !== State && typeof State !== 'undefined' && State._watchers && State._watchers[key]) {
+          State._watchers[key].slice().forEach(fn => fn(value, prev));
+        }
+
+        // Refresh DOM text bindings
+        Renderer.updateBindings(key, value, this);
+
+        // Re-evaluate computed values (with cycle guard)
+        if (!this._computing) this._computing = new Set();
+        Object.keys(this._computed).forEach(cKey => {
+          const c = this._computed[cKey];
+          if (c.deps.includes(key)) {
+            if (this._computing.has(cKey)) {
+              if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`[Breeze] Cyclic computed dependency detected for "${cKey}" — skipping re-evaluation.`);
+              }
+              return;
+            }
+            this._computing.add(cKey);
+            try {
+              const next = c.fn(...c.deps.map(d => this._store[d]));
+              // Avoid infinite recursion: only set if changed (shallow, NaN-safe)
+              if (!Object.is(next, this._store[cKey])) this.set(cKey, next);
+            } finally {
+              this._computing.delete(cKey);
+            }
+          }
+        });
+      },
+
+      get(key) { return this._store[key]; },
+
+      getAll() { return { ...this._store }; },
+
+      watch(key, fn) {
+        if (!this._watchers[key]) this._watchers[key] = [];
+        this._watchers[key].push(fn);
+        return () => {
+          const arr = this._watchers[key];
+          if (arr) {
+            const idx = arr.indexOf(fn);
+            if (idx !== -1) arr.splice(idx, 1);
+          }
+        };
+      },
+
+      unwatch(key, fn) {
+        const arr = this._watchers[key];
+        if (arr) {
+          const idx = arr.indexOf(fn);
+          if (idx !== -1) arr.splice(idx, 1);
+        }
+      },
+
+      computed(key, deps, fn) {
+        if (deps.includes(key)) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn(`[Breeze] Computed "${key}" depends on itself — skipped.`);
+          }
+          return;
+        }
+        this._computed[key] = { deps, fn };
+        this._store[key] = fn(...deps.map(d => this._store[d]));
+      },
+
+      push(key, item) {
+        const arr = Array.isArray(this._store[key]) ? [...this._store[key]] : [];
+        arr.push(item);
+        this.set(key, arr);
+      },
+
+      remove(key, index) {
+        if (!Array.isArray(this._store[key])) return;
+        const arr = [...this._store[key]];
+        arr.splice(index, 1);
+        this.set(key, arr);
+      },
+
+      reset() {
+        this._store = initialClone();
+        this._watchers = {};
+        this._computed = {};
+        this._signals = {};
+        this._computing = new Set();
+        if (this === State) {
+          Renderer._bindings = {};
+        }
       }
-      this._computed[key] = { deps, fn };
-      this._store[key] = fn(...deps.map(d => this._store[d]));
-    },
+    };
+    return store;
+  }
 
-    push(key, item) {
-      const arr = Array.isArray(this._store[key]) ? [...this._store[key]] : [];
-      arr.push(item);
-      this.set(key, arr);
-    },
-
-    remove(key, index) {
-      if (!Array.isArray(this._store[key])) return;
-      const arr = [...this._store[key]];
-      arr.splice(index, 1);
-      this.set(key, arr);
-    },
-
-    reset() {
-      this._store = {};
-      this._watchers = {};
-      this._computed = {};
-      this._signals = {};
-      this._computing = new Set();
-      Renderer._bindings = {};
-    }
-  };
+  const State = createStore();
 
 
   // ── Pure Virtual-List Math Helper (Safe in Node & Browser) ───────────
@@ -1616,6 +1687,14 @@
     };
   }
 
+
+  const BZ_SEMANTIC_CLASS_MAP = {
+    form: 'bz-form', input: 'bz-input', textarea: 'bz-textarea',
+    select: 'bz-select', label: 'bz-label',
+    table: 'bz-table', tbody: 'bz-tbody', tr: 'bz-tr', td: 'bz-td', th: 'bz-th',
+    ul: 'bz-list', ol: 'bz-list'
+  };
+
   // ═══════════════════════════════════════════════════════════════════════
   // RENDERER — Converts AST into DOM with Keyed Reconciliation
   // ═══════════════════════════════════════════════════════════════════════
@@ -1625,42 +1704,47 @@
     _root: null,
 
     /** Full render pass */
-    render(ast, root) {
+    render(ast, root, options = {}) {
       const t0 = (typeof performance !== 'undefined') ? performance.now() : 0;
       this._root     = root;
+      const store = (options && options.store) || State;
+      if (root) root._bzStore = store;
       this._bindings = {};
-      root.innerHTML = '';
-      this.renderChildrenWithChains(ast, root);
+      if (root) root.innerHTML = '';
+      this.renderChildrenWithChains(ast, root, store);
       if (t0) Profiler.recordRender(performance.now() - t0);
     },
 
     /** Render a sibling list, grouping @if/@elif/@else chains so elif/else aren't orphaned */
-    renderChildrenWithChains(children, parentEl) {
+    renderChildrenWithChains(children, parentEl, store) {
       if (!children) return;
+      const s = store || (parentEl && parentEl._bzStore) || State;
       for (let idx = 0; idx < children.length; idx++) {
         const node = children[idx];
         if (!node) continue;
         if (node.type === 'elif' || node.type === 'else') {
           // Orphaned (no preceding @if at this level) — render standalone via renderNode
-          const el = this.renderNode(node, null);
+          const el = this.renderNode(node, null, s);
           if (el && parentEl) parentEl.appendChild(el);
           continue;
         }
         if (node.type === 'if') {
           const chain = { siblings: children, index: idx, consumed: 0 };
-          const el = this.renderNode(node, chain);
+          const el = this.renderNode(node, chain, s);
           if (el && parentEl) parentEl.appendChild(el);
           if (chain.consumed) idx += chain.consumed;
           continue;
         }
-        const el = this.renderNode(node, null);
+        const el = this.renderNode(node, null, s);
         if (el && parentEl) parentEl.appendChild(el);
       }
     },
 
     /** Dispatch a single node to the right render method */
-    renderNode(node, chain) {
+    renderNode(node, chain, store) {
       if (!node) return null;
+      const s = store || (this._root && this._root._bzStore) || State;
+      let resEl = null;
       switch (node.type) {
         case 'theme':     this.applyTheme(node.props);                   return null;
         case 'seo':       this.applySEO(node.props);                     return null;
@@ -1668,65 +1752,75 @@
         case 'aeo':       this.applyAEO(node.props);                     return null;
         case 'geo':       this.applyGEO(node.props);                     return null;
         case 'app':       if (typeof document !== 'undefined') document.title = node.text || 'Breeze App'; return null;
-        case 'state':     State.set(node.key, node.value);               return null;
+        case 'state':     s.set(node.key, node.value);                   return null;
         case 'style':     this.injectStyle(node.text);                   return null;
         case 'def':       return null; // Component definition, instantiated on call
-        case 'component': return this.renderComponent(node);
-        case 'nav':       return this.renderNav(node);
-        case 'section':   return this.renderSection(node);
-        case 'footer':    return this.renderFooter(node);
-        case 'header':    return this.renderHeader(node);
-        case 'main':      return this.renderMain(node);
-        case 'link':      return this.renderLink(node);
-        case 'card':      return this.renderCard(node);
-        case 'button':    return this.renderButton(node);
-        case 'each':         return this.renderEach(node);
-        case 'virtual-each': return this.renderVirtualEach(node);
-        case 'if':        return this.renderIfChain(node, chain);
+        case 'component': resEl = this.renderComponent(node, s); break;
+        case 'nav':       resEl = this.renderNav(node, s); break;
+        case 'section':   resEl = this.renderSection(node, s); break;
+        case 'footer':    resEl = this.renderFooter(node, s); break;
+        case 'header':    resEl = this.renderHeader(node, s); break;
+        case 'main':      resEl = this.renderMain(node, s); break;
+        case 'link':      resEl = this.renderLink(node, s); break;
+        case 'card':      resEl = this.renderCard(node, s); break;
+        case 'button':    resEl = this.renderButton(node, s); break;
+        case 'each':         resEl = this.renderEach(node, s); break;
+        case 'virtual-each': resEl = this.renderVirtualEach(node, s); break;
+        case 'if':        resEl = this.renderIfChain(node, chain, s); break;
         case 'elif':
           // Standalone elif (no parent if) — render as its own condition
-          return this.renderIfChain({ type: 'if', conditionKey: node.conditionKey, negate: node.negate, children: node.children }, null);
+          resEl = this.renderIfChain({ type: 'if', conditionKey: node.conditionKey, negate: node.negate, children: node.children }, null, s);
+          break;
         case 'else':
-          if (chain && chain.elseTaken) return this.renderElseBlock(node);
+          if (chain && chain.elseTaken) { resEl = this.renderElseBlock(node, s); break; }
           // Standalone else — always render
-          return this.renderElseBlock(node);
-        case 'error':     return this.renderError(node);
+          resEl = this.renderElseBlock(node, s); break;
+        case 'error':     resEl = this.renderError(node, s); break;
         case 'slot':      return null; // Only meaningful inside renderComponent
-        case 'portal':    return this.renderPortal(node);
+        case 'portal':    resEl = this.renderPortal(node, s); break;
         default:
-          if (/^[a-z][\w-]*$/.test(node.type)) return this.renderElement(node);
-          return null;
+          if (/^[a-z][\w-]*$/.test(node.type)) resEl = this.renderElement(node, s);
+          break;
       }
+      if (resEl && typeof resEl === 'object') {
+        resEl._bzStore = s;
+      }
+      return resEl;
     },
 
-    renderError(node) {
+    renderError(node, store) {
       if (typeof document === 'undefined') return null;
+      const s = store || (this._root && this._root._bzStore) || State;
       const div = document.createElement('div');
       div.className = 'bz-alert bz-alert-danger';
       div.setAttribute('role', 'alert');
-      if (node.text) this.setTextWithBindings(div, node.text);
+      div._bzStore = s;
+      if (node.text) this.setTextWithBindings(div, node.text, s);
       (node.children || []).forEach(child => {
-        const el = this.renderNode(child);
+        const el = this.renderNode(child, null, s);
         if (el) div.appendChild(el);
       });
       Profiler.recordDomOp('create');
       return div;
     },
 
-    renderElseBlock(node) {
+    renderElseBlock(node, store) {
       if (typeof document === 'undefined') return null;
+      const s = store || (this._root && this._root._bzStore) || State;
       const wrap = document.createElement('div');
       wrap.className = 'bz-if bz-else';
+      wrap._bzStore = s;
       (node.children || []).forEach(child => {
-        const el = this.renderNode(child);
+        const el = this.renderNode(child, null, s);
         if (el) wrap.appendChild(el);
       });
       return wrap;
     },
 
-    renderPortal(node) {
+    renderPortal(node, store) {
       // v2 portal/teleport: render children into target selector, leave anchor comment
       if (typeof document === 'undefined') return null;
+      const s = store || (this._root && this._root._bzStore) || State;
       const anchor = document.createComment('bz-portal');
       const target = typeof node.target === 'string'
         ? document.querySelector(node.target)
@@ -1737,7 +1831,7 @@
         const host = (typeof node.target === 'string' ? document.querySelector(node.target) : null) || target || document.body;
         kids.forEach(child => {
           try {
-            const el = this.renderNode(child);
+            const el = this.renderNode(child, null, s);
             if (el) host.appendChild(el);
           } catch (_) {}
         });
@@ -1873,15 +1967,17 @@
 
     // ── Components ────────────────────────────────────────────────────
 
-    renderComponent(node) {
+    renderComponent(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const def = Parser._components[node.name] || Components.get(node.name);
       if (!def) {
         // Fallback to div if undefined
-        return this.renderElement(node);
+        return this.renderElement(node, s);
       }
 
       const container = document.createElement('div');
       container.className = `bz-component bz-${node.name.toLowerCase()}`;
+      container._bzStore = s;
       if (node.id) container.id = node.id;
       this.applyModifiers(container, node.modifiers || []);
 
@@ -1918,7 +2014,10 @@
       // If registered component has JS setup/render hooks
       if (typeof def.render === 'function') {
         const res = def.render({ props, children: node.children });
-        if (res instanceof HTMLElement) container.appendChild(res);
+        if (res instanceof HTMLElement) {
+          res._bzStore = s;
+          container.appendChild(res);
+        }
         return container;
       }
 
@@ -1944,11 +2043,11 @@
         def.children.forEach(child => {
           if (child.type === 'slot') {
             (node.children || []).forEach(slotChild => {
-              const el = this.renderNode(slotChild);
+              const el = this.renderNode(slotChild, null, s);
               if (el) container.appendChild(el);
             });
           } else {
-            const el = this.renderNode(interpNode(child));
+            const el = this.renderNode(interpNode(child), null, s);
             if (el) container.appendChild(el);
           }
         });
@@ -1958,20 +2057,24 @@
 
     // ── Layout elements ───────────────────────────────────────────────
 
-    renderNav(node) {
+    renderNav(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const nav = document.createElement('nav');
       nav.className = 'bz-nav';
+      nav._bzStore = s;
       if (node.id) nav.id = node.id;
       this.applyModifiers(nav, node.modifiers || []);
 
       const brand = document.createElement('div');
       brand.className = 'bz-nav-brand';
+      brand._bzStore = s;
       if (node.text) brand.textContent = node.text;
       nav.appendChild(brand);
 
       const links = document.createElement('div');
       links.className = 'bz-nav-links';
-      this.renderChildrenWithChains(node.children || [], links);
+      links._bzStore = s;
+      this.renderChildrenWithChains(node.children || [], links, s);
       nav.appendChild(links);
 
       const hamburger = document.createElement('button');
@@ -1986,49 +2089,59 @@
       return nav;
     },
 
-    renderSection(node) {
+    renderSection(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const section = document.createElement('section');
       section.className = 'bz-section';
+      section._bzStore = s;
       if (node.id) section.id = node.id;
       this.applyModifiers(section, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], section);
+      this.renderChildrenWithChains(node.children || [], section, s);
       Profiler.recordDomOp('create');
       return section;
     },
 
-    renderFooter(node) {
+    renderFooter(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const footer = document.createElement('footer');
       footer.className = 'bz-footer';
+      footer._bzStore = s;
       if (node.id) footer.id = node.id;
       this.applyModifiers(footer, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], footer);
+      this.renderChildrenWithChains(node.children || [], footer, s);
       Profiler.recordDomOp('create');
       return footer;
     },
 
-    renderHeader(node) {
+    renderHeader(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const header = document.createElement('header');
       header.className = 'bz-header';
+      header._bzStore = s;
       if (node.id) header.id = node.id;
       this.applyModifiers(header, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], header);
+      this.renderChildrenWithChains(node.children || [], header, s);
       Profiler.recordDomOp('create');
       return header;
     },
 
-    renderMain(node) {
+    renderMain(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const main = document.createElement('main');
       main.className = 'bz-main';
+      main._bzStore = s;
       if (node.id) main.id = node.id;
       this.applyModifiers(main, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], main);
+      this.renderChildrenWithChains(node.children || [], main, s);
       Profiler.recordDomOp('create');
       return main;
     },
 
-    renderLink(node) {
+    renderLink(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const a = document.createElement('a');
       a.className = 'bz-nav-link';
+      a._bzStore = s;
       if (node.id) a.id = node.id;
       if (node.text) a.textContent = node.text;
       this.applyModifiers(a, node.modifiers || []);
@@ -2045,54 +2158,57 @@
       return a;
     },
 
-    renderCard(node) {
+    renderCard(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const div = document.createElement('div');
       div.className = 'bz-card';
+      div._bzStore = s;
       if (node.id) div.id = node.id;
       this.applyModifiers(div, node.modifiers || []);
-      if (node.text) this.setTextWithBindings(div, node.text);
-      this.renderChildrenWithChains(node.children || [], div);
+      if (node.text) this.setTextWithBindings(div, node.text, s);
+      this.renderChildrenWithChains(node.children || [], div, s);
       Profiler.recordDomOp('create');
       return div;
     },
 
-    renderButton(node) {
+    renderButton(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const btn = document.createElement('button');
       btn.className = 'bz-btn';
+      btn._bzStore = s;
       if (node.id) btn.id = node.id;
-      if (node.text) this.setTextWithBindings(btn, node.text);
+      if (node.text) this.setTextWithBindings(btn, node.text, s);
       this.applyModifiers(btn, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], btn);
+      this.renderChildrenWithChains(node.children || [], btn, s);
       Profiler.recordDomOp('create');
       return btn;
     },
 
-    renderElement(node) {
+    renderElement(node, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const tag = node.tag || node.type || 'div';
       const el  = document.createElement(tag);
+      el._bzStore = s;
       if (node.id) el.id = node.id;
 
-      const semanticClass = {
-        form: 'bz-form', input: 'bz-input', textarea: 'bz-textarea',
-        select: 'bz-select', label: 'bz-label',
-        table: 'bz-table', tbody: 'bz-tbody', tr: 'bz-tr', td: 'bz-td', th: 'bz-th',
-        ul: 'bz-list', ol: 'bz-list'
-      }[tag];
+      const semanticClass = BZ_SEMANTIC_CLASS_MAP[tag];
       if (semanticClass) el.classList.add(semanticClass);
 
-      if (node.text != null) this.setTextWithBindings(el, node.text);
+      if (node.text != null) this.setTextWithBindings(el, node.text, s);
       this.applyModifiers(el, node.modifiers || []);
-      this.renderChildrenWithChains(node.children || [], el);
+      this.renderChildrenWithChains(node.children || [], el, s);
       Profiler.recordDomOp('create');
       return el;
     },
 
     // ── High-Performance Keyed List Reconciliation Engine ─────────────
 
-    renderEach(node) {
+    renderEach(node, parentStore) {
+      const store = parentStore || (this._root && this._root._bzStore) || State;
       const isTable = (node.children && node.children.length === 1 && (node.children[0].tag === 'tr' || node.children[0].type === 'tr'));
       const container = document.createElement(isTable ? 'tbody' : 'div');
       container.className = 'bz-each';
+      container._bzStore = store;
       if (node.id) container.id = node.id;
       if (node.modifiers) this.applyModifiers(container, node.modifiers);
 
@@ -2100,7 +2216,7 @@
       const listKey = node.listKey;
       const keyProp = node.keyProp || 'id';
 
-      // Rendered row cache: records of { key, el, item, index }
+      // Rendered row cache: records of { key, el, item, index, oldIndex }
       let renderedRecords = [];
       let recordMap = new Map();
 
@@ -2117,7 +2233,7 @@
       });
 
       const getList = () => {
-        const v = State.getPath(listKey);
+        const v = store.getPath(listKey);
         return Array.isArray(v) ? v : (v || []);
       };
       const baseWatchKey = String(listKey).split('.')[0];
@@ -2131,21 +2247,11 @@
         }
         return node._bzStatic;
       };
-
-      const adoptFragmentRows = (frag, recs) => {
-        let cur = frag.firstElementChild;
-        for (let i = 0; i < recs.length; i++) {
-          const rec = recs[i];
-          if (!cur) {
-            const built = Renderer.renderItemChildren(node.children, itemVar, rec.item, rec.index);
-            if (built) { frag.appendChild(built); cur = built; }
-          }
-          rec.el = cur;
-          if (cur) {
-            cur._bzItemKey = rec.key;
-            cur = cur.nextElementSibling;
-          }
+      const usesIndex = () => {
+        if (node._bzUsesIndex === undefined) {
+          node._bzUsesIndex = Renderer.rowTemplateUsesIndex(node.children, itemVar);
         }
+        return node._bzUsesIndex;
       };
 
       const reconcile = () => {
@@ -2172,9 +2278,10 @@
             let cur = container.firstElementChild;
             for (let i = 0; i < items.length; i++) {
               const key = keys[i];
-              const rec = { key, el: cur, item: items[i], index: i };
+              const rec = { key, el: cur, item: items[i], index: i, oldIndex: -1 };
               if (cur) {
                 cur._bzItemKey = key;
+                cur._bzStore = store;
                 cur = cur.nextElementSibling;
               }
               nextRecords[i] = rec;
@@ -2189,10 +2296,10 @@
           for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const key = keyOf(item, i);
-            const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
+            const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i, keyProp, key, store);
             if (rowEl) {
               frag.appendChild(rowEl);
-              const rec = { key, el: rowEl, item, index: i };
+              const rec = { key, el: rowEl, item, index: i, oldIndex: -1 };
               nextRecords[i] = rec;
               recordMap.set(key, rec);
             }
@@ -2228,9 +2335,10 @@
           for (let i = 0; i < tailItems.length; i++) {
             const item = tailItems[i];
             const key = built.keys[i];
-            const rec = { key, el: cur, item, index: tailStart + i };
+            const rec = { key, el: cur, item, index: tailStart + i, oldIndex: -1 };
             if (cur) {
               cur._bzItemKey = key;
+              cur._bzStore = store;
               cur = cur.nextElementSibling;
             }
             renderedRecords.push(rec);
@@ -2250,13 +2358,14 @@
             }
           }
           if (keysMatch) {
+            const idxNeeded = usesIndex();
             for (let i = 0; i < items.length; i++) {
               const rec = renderedRecords[i];
               const item = items[i];
-              if (rec.item !== item || rec.index !== i) {
-                const patched = Renderer.updateItemDOM(rec.el, node.children, itemVar, item, i);
+              if (rec.item !== item || (idxNeeded && rec.index !== i)) {
+                const patched = Renderer.updateItemDOM(rec.el, node.children, itemVar, item, i, store);
                 if (!patched) {
-                  const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
+                  const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i, keyProp, rec.key, store);
                   if (rec.el && rec.el.parentNode === container) {
                     container.replaceChild(rowEl, rec.el);
                     Profiler.recordDomOp('remove');
@@ -2276,6 +2385,7 @@
         const nextRecords = new Array(items.length);
         const nextKeyMap = new Map();
         const seenKeys = new Set();
+        const idxNeeded = usesIndex();
 
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
@@ -2286,12 +2396,13 @@
           seenKeys.add(key);
           const existing = recordMap.get(key);
           if (existing && !nextKeyMap.has(key)) {
-            // Reused row! Check if item content or index changed
-            if (existing.item !== item || existing.index !== i) {
-              const patched = Renderer.updateItemDOM(existing.el, node.children, itemVar, item, i);
+            const oldIndex = existing.index;
+            // Reused row! Only patch if content changed or if index changed and template actually uses index
+            if (existing.item !== item || (idxNeeded && oldIndex !== i)) {
+              const patched = Renderer.updateItemDOM(existing.el, node.children, itemVar, item, i, store);
               if (!patched) {
                 // Structural change — recreate row
-                const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
+                const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i, keyProp, key, store);
                 if (existing.el && existing.el.parentNode === container) {
                   container.replaceChild(rowEl, existing.el);
                   Profiler.recordDomOp('remove');
@@ -2300,13 +2411,14 @@
                 existing.el = rowEl;
               }
               existing.item = item;
-              existing.index = i;
             }
+            existing.index = i;
+            existing.oldIndex = oldIndex;
             nextRecords[i] = existing;
           } else {
             // Newly added row!
-            const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i);
-            const rec = { key, el: rowEl, item, index: i };
+            const rowEl = Renderer.renderItemChildren(node.children, itemVar, item, i, keyProp, key, store);
+            const rec = { key, el: rowEl, item, index: i, oldIndex: -1 };
             nextRecords[i] = rec;
           }
           nextKeyMap.set(key, nextRecords[i]);
@@ -2347,9 +2459,8 @@
               orderMaintained = false;
               break;
             }
-            const oldRec = recordMap.get(rec.key);
-            const oldIdx = oldRec ? oldRec.index : undefined;
-            if (oldIdx === undefined || oldIdx < lastOldIdx) {
+            const oldIdx = (rec.oldIndex !== undefined && rec.oldIndex !== -1) ? rec.oldIndex : -1;
+            if (oldIdx === -1 || oldIdx < lastOldIdx) {
               orderMaintained = false;
               break;
             }
@@ -2440,15 +2551,25 @@
       };
 
       reconcile();
-      State.watch(baseWatchKey, () => reconcile());
+      const unwatch = store.watch(baseWatchKey, () => {
+        if (container.isConnected === false) {
+          unwatch();
+          renderedRecords = [];
+          recordMap.clear();
+          return;
+        }
+        reconcile();
+      });
       return container;
     },
 
-    renderVirtualEach(node) {
+    renderVirtualEach(node, parentStore) {
       if (typeof document === 'undefined') return null;
 
+      const store = parentStore || (this._root && this._root._bzStore) || State;
       const container = document.createElement('div');
       container.className = 'bz-each bz-virtual-each';
+      container._bzStore = store;
       if (node.id) container.id = node.id;
       if (node.modifiers) {
         const domMods = node.modifiers.filter(m => !m.startsWith('height=') && !m.startsWith('overscan=') && !m.startsWith('containerHeight=') && !m.startsWith('key='));
@@ -2490,7 +2611,7 @@
       });
 
       const getList = () => {
-        const v = State.getPath(listKey);
+        const v = store.getPath(listKey);
         return Array.isArray(v) ? v : (v || []);
       };
       const baseWatchKey = String(listKey).split('.')[0];
@@ -2547,7 +2668,7 @@
           const frag = document.createDocumentFragment();
           for (let i = 0; i < slice.length; i++) {
             const globalIdx = win.startIndex + i;
-            const rowEl = Renderer.renderItemChildren(node.children, itemVar, slice[i], globalIdx, keyProp);
+            const rowEl = Renderer.renderItemChildren(node.children, itemVar, slice[i], globalIdx, keyProp, undefined, store);
             if (rowEl) frag.appendChild(rowEl);
           }
           content.textContent = '';
@@ -2571,7 +2692,13 @@
       container.addEventListener('scroll', onScroll, { passive: true });
 
       renderSlice(true);
-      State.watch(baseWatchKey, () => renderSlice(true));
+      const unwatch = store.watch(baseWatchKey, () => {
+        if (container.isConnected === false) {
+          unwatch();
+          return;
+        }
+        renderSlice(true);
+      });
 
       container._bzVirtual = {
         renderSlice: () => renderSlice(true),
@@ -2587,14 +2714,16 @@
       return container;
     },
 
-    renderItemChildren(children, itemVar, item, index, keyProp, key) {
+    renderItemChildren(children, itemVar, item, index, keyProp, key, store) {
       if (!children || children.length === 0) return null;
+      const s = store || (this._root && this._root._bzStore) || State;
       const tagKey = (key !== undefined) ? key : ((typeof item === 'object' && item !== null) ? item.id : index);
       if (children.length === 1) {
         const itemNode = this.interpolateItemNode(children[0], itemVar, item, index);
-        const el = this.renderNode(itemNode);
+        const el = this.renderNode(itemNode, null, s);
         if (el) {
           el._bzItemKey = tagKey;
+          el._bzStore = s;
           try { el.dataset.bzKey = String(tagKey); } catch (_) {}
         }
         return el;
@@ -2602,9 +2731,10 @@
       const wrap = document.createElement('div');
       try { wrap.dataset.bzKey = String(tagKey); } catch (_) {}
       wrap._bzItemKey = tagKey;
+      wrap._bzStore = s;
       children.forEach(child => {
         const itemNode = this.interpolateItemNode(child, itemVar, item, index);
-        const el = this.renderNode(itemNode);
+        const el = this.renderNode(itemNode, null, s);
         if (el) wrap.appendChild(el);
       });
       return wrap;
@@ -2689,6 +2819,30 @@
         if (!this._nodeStatic(kids[i], itemVar)) return false;
       }
       return true;
+    },
+
+    rowTemplateUsesIndex(children, itemVar) {
+      if (!children || !children.length) return false;
+      const targetToken = `${itemVar}.index`;
+      const checkNode = (node) => {
+        if (!node) return false;
+        if (typeof node.text === 'string' && node.text.includes(targetToken)) return true;
+        if (Array.isArray(node.modifiers)) {
+          for (let i = 0; i < node.modifiers.length; i++) {
+            if (String(node.modifiers[i]).includes(targetToken)) return true;
+          }
+        }
+        if (Array.isArray(node.children)) {
+          for (let i = 0; i < node.children.length; i++) {
+            if (checkNode(node.children[i])) return true;
+          }
+        }
+        return false;
+      };
+      for (let i = 0; i < children.length; i++) {
+        if (checkNode(children[i])) return true;
+      }
+      return false;
     },
 
     /** Pure check (unit-testable, no DOM): can these row children use the HTML path? */
@@ -3040,7 +3194,6 @@
      * Returns a DocumentFragment with the row elements in order.
      */
     parseRowHtml(html, rootTag) {
-      const frag = document.createDocumentFragment();
       const tag = String(rootTag || 'div').toLowerCase();
       let host = null;
       let source = null;
@@ -3059,8 +3212,9 @@
       } else {
         host = document.createElement('template');
         host.innerHTML = html;
-        source = host.content;
+        return host.content;
       }
+      const frag = document.createDocumentFragment();
       while (source.firstChild) frag.appendChild(source.firstChild);
       return frag;
     },
@@ -3139,6 +3293,34 @@
         };
       }
 
+      function getNodeBaseClass(node) {
+        if (!node) return '';
+        let baseClass = '';
+
+        const mods = node.modifiers || [];
+        for (let i = 0; i < mods.length; i++) {
+          const raw = mods[i];
+          if (raw == null) continue;
+          const mod = String(raw).trim();
+          if (!mod || mod[0] === '@' || mod.startsWith('bind=') || mod.startsWith('bind:value=') || mod.startsWith('ref=')) continue;
+          const eq = mod.indexOf('=');
+          if (eq !== -1) {
+            const attr = mod.slice(0, eq).trim();
+            if (attr === 'class') {
+              const cv = mod.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+              if (cv.indexOf('{') === -1) {
+                baseClass += (baseClass ? ' ' : '') + cv;
+              }
+            }
+            continue;
+          }
+          if (BZ_BOOL_ATTRS.has(mod)) continue;
+          const cls = BZ_CLASS_MAP[mod] || `bz-${mod}`;
+          baseClass += (baseClass ? ' ' : '') + cls;
+        }
+        return baseClass;
+      }
+
       function analyze(node, path) {
         if (!node) return;
 
@@ -3153,6 +3335,7 @@
 
         // Dynamic attribute/class modifiers
         if (Array.isArray(node.modifiers)) {
+          const baseClass = getNodeBaseClass(node);
           for (let m = 0; m < node.modifiers.length; m++) {
             const mod = String(node.modifiers[m]);
             if (mod.indexOf('{') !== -1 && mod.includes('=')) {
@@ -3163,6 +3346,7 @@
                 path: path.slice(),
                 type: attr === 'class' ? 'class' : 'attr',
                 attrName: attr,
+                baseClass: attr === 'class' ? baseClass : '',
                 getter: compileGetter(rawVal)
               });
             }
@@ -3190,35 +3374,71 @@
 
       return function patch(rootEl, item, index) {
         if (!rootEl) return false;
+        let targets = rootEl._bzPatchTargets;
+        if (!targets || targets.length !== patches.length) {
+          targets = new Array(patches.length);
+          for (let i = 0; i < patches.length; i++) {
+            const p = patches[i];
+            let target = rootEl;
+            const pPath = p.path;
+            for (let k = 0; k < pPath.length; k++) {
+              if (!target || !target.children) { target = null; break; }
+              target = target.children[pPath[k]];
+            }
+            if (!target) return false;
+            let textNode = null;
+            if (p.type === 'text') {
+              const hasChildNodes = Boolean(target.childNodes);
+              const childNodesLen = hasChildNodes ? target.childNodes.length : (target.firstChild ? 1 : 0);
+              if (target.firstChild && target.firstChild.nodeType === 3 && childNodesLen <= 1) {
+                textNode = target.firstChild;
+              }
+            }
+            targets[i] = { target, textNode };
+          }
+          rootEl._bzPatchTargets = targets;
+        }
+
         for (let i = 0; i < patches.length; i++) {
           const p = patches[i];
-          let target = rootEl;
-          const pPath = p.path;
-          for (let k = 0; k < pPath.length; k++) {
-            if (!target || !target.children) return false;
-            target = target.children[pPath[k]];
-          }
+          const tInfo = targets[i];
+          const target = tInfo.target;
           if (!target) return false;
 
           const nextVal = p.getter(item, index);
           if (p.type === 'text') {
-            const hasChildNodes = Boolean(target.childNodes);
-            const childNodesLen = hasChildNodes ? target.childNodes.length : (target.firstChild ? 1 : 0);
-            if (target.firstChild && target.firstChild.nodeType === 3 && childNodesLen <= 1) {
-              if (target.firstChild.nodeValue !== nextVal) {
-                target.firstChild.nodeValue = nextVal;
+            if (tInfo.textNode) {
+              if (tInfo.textNode.nodeValue !== nextVal) {
+                tInfo.textNode.nodeValue = nextVal;
                 Profiler.recordDomOp('text');
               }
-            } else if (childNodesLen === 0) {
-              target.textContent = nextVal;
-              Profiler.recordDomOp('text');
-            } else if (target.textContent !== nextVal) {
-              target.textContent = nextVal;
-              Profiler.recordDomOp('text');
+            } else {
+              const hasChildNodes = Boolean(target.childNodes);
+              const childNodesLen = hasChildNodes ? target.childNodes.length : (target.firstChild ? 1 : 0);
+              if (target.firstChild && target.firstChild.nodeType === 3 && childNodesLen <= 1) {
+                tInfo.textNode = target.firstChild;
+                if (tInfo.textNode.nodeValue !== nextVal) {
+                  tInfo.textNode.nodeValue = nextVal;
+                  Profiler.recordDomOp('text');
+                }
+              } else if (childNodesLen === 0) {
+                target.textContent = nextVal;
+                if (target.firstChild && target.firstChild.nodeType === 3) {
+                  tInfo.textNode = target.firstChild;
+                }
+                Profiler.recordDomOp('text');
+              } else if (target.textContent !== nextVal) {
+                target.textContent = nextVal;
+                Profiler.recordDomOp('text');
+              }
             }
           } else if (p.type === 'class') {
-            if (target.className !== nextVal) {
-              target.className = nextVal;
+            const dynamicClass = nextVal ? nextVal.trim() : '';
+            const fullClass = p.baseClass
+              ? (dynamicClass ? p.baseClass + ' ' + dynamicClass : p.baseClass)
+              : dynamicClass;
+            if (target.className !== fullClass) {
+              target.className = fullClass;
               Profiler.recordDomOp('attr');
             }
           } else if (p.type === 'attr') {
@@ -3358,20 +3578,23 @@
 
     // ── Conditionals: @if, @elif, @else ───────────────────────────────
 
-    evalCondition(node) {
-      const val = State.getPath(node.conditionKey);
+    evalCondition(node, store) {
+      const s = store || State;
+      const val = s.getPath(node.conditionKey);
       let truthy = Boolean(val);
       if (node.negate) truthy = !truthy;
       return truthy;
     },
 
-    renderIf(node) {
-      return this.renderIfChain(node, null);
+    renderIf(node, store) {
+      return this.renderIfChain(node, null, store);
     },
 
-    renderIfChain(node, chain) {
+    renderIfChain(node, chain, store) {
+      const s = store || (this._root && this._root._bzStore) || State;
       const container = document.createElement('div');
       container.className = 'bz-if';
+      container._bzStore = s;
 
       // Collect sibling elif/else chain: caller passes {siblings, index} when rendering
       // flat AST lists (render() and section/footer/etc. iterate children). For direct
@@ -3399,28 +3622,37 @@
         container.innerHTML = '';
         let matched = false;
         for (let b = 0; b < branches.length; b++) {
-          if (this.evalCondition(branches[b].node)) {
-            this.renderChildrenWithChains(branches[b].node.children || [], container);
+          if (this.evalCondition(branches[b].node, s)) {
+            this.renderChildrenWithChains(branches[b].node.children || [], container, s);
             matched = true;
             break;
           }
         }
         if (!matched && elseNode) {
-          this.renderChildrenWithChains(elseNode.children || [], container);
+          this.renderChildrenWithChains(elseNode.children || [], container, s);
           matched = true;
         }
         container.style.display = matched ? '' : 'none';
       };
 
       update();
-      watchedKeys.forEach(k => State.watch(k, () => update()));
+      watchedKeys.forEach(k => {
+        const unwatch = s.watch(k, () => {
+          if (container.isConnected === false) {
+            unwatch();
+            return;
+          }
+          update();
+        });
+      });
       return container;
     },
 
     // ── Reactive text binding ─────────────────────────────────────────
 
-    setTextWithBindings(el, text) {
+    setTextWithBindings(el, text, store) {
       if (!text) return;
+      const s = store || (el && el._bzStore) || (this._root && this._root._bzStore) || State;
       const re = /\{([\w.]+)\}/g;
       let m;
       let hasBinding = false;
@@ -3428,16 +3660,17 @@
         hasBinding = true;
         const key = m[1].split('.')[0];
         if (!this._bindings[key]) this._bindings[key] = [];
-        this._bindings[key].push({ el, template: text });
+        this._bindings[key].push({ el, template: text, store: s });
       }
-      el.textContent = hasBinding ? this.resolveBindings(text) : text;
+      el.textContent = hasBinding ? this.resolveBindings(text, s) : text;
     },
 
-    resolveBindings(tpl) {
+    resolveBindings(tpl, store) {
       if (!tpl) return '';
+      const s = store || State;
       return tpl.replace(/\{([\w.]+)\}/g, (_, k) => {
         const parts = k.split('.');
-        let v = State.get(parts[0]);
+        let v = s.get(parts[0]);
         for (let p = 1; p < parts.length && v != null; p++) {
           v = v[parts[p]];
         }
@@ -3445,14 +3678,18 @@
       });
     },
 
-    updateBindings(key) {
+    updateBindings(key, value, targetStore) {
       const list = this._bindings[key];
       if (!list || !list.length) return;
       const alive = [];
       for (let i = 0; i < list.length; i++) {
         const b = list[i];
         if (b.el.isConnected === false) continue;
-        const newText = this.resolveBindings(b.template);
+        if (targetStore && b.store && b.store !== targetStore) {
+          alive.push(b);
+          continue;
+        }
+        const newText = this.resolveBindings(b.template, b.store);
         if (b.el.firstChild && b.el.childNodes.length === 1 && b.el.firstChild.nodeType === 3) {
           b.el.firstChild.nodeValue = newText;
         } else {
@@ -3468,8 +3705,8 @@
 
     applyModifiers(el, modifiers) {
       const classMap = BZ_CLASS_MAP;
-
       const BOOL_ATTRS = BZ_BOOL_ATTRS;
+      const store = (el && el._bzStore) || (this._root && this._root._bzStore) || State;
 
       modifiers.forEach(mod => {
         mod = mod.trim();
@@ -3481,17 +3718,21 @@
           const isCheck = el.type === 'checkbox';
           const isRadio = el.type === 'radio';
 
-          const curVal = State.get(key);
+          const curVal = store.get(key);
           if (isCheck) el.checked = Boolean(curVal);
           else if (isRadio) el.checked = (el.value === String(curVal));
           else el.value = curVal !== undefined ? String(curVal) : '';
 
           const evt = (isCheck || isRadio || el.tagName === 'SELECT') ? 'change' : 'input';
           el.addEventListener(evt, () => {
-            State.set(key, isCheck ? el.checked : el.value);
+            store.set(key, isCheck ? el.checked : el.value);
           });
 
-          State.watch(key, (val) => {
+          const unwatch = store.watch(key, (val) => {
+            if (el.isConnected === false) {
+              unwatch();
+              return;
+            }
             if (isCheck) el.checked = Boolean(val);
             else if (isRadio) el.checked = (el.value === String(val));
             else if (el.value !== String(val !== undefined ? val : '')) {
@@ -3514,23 +3755,33 @@
           const key = mod.slice(6).trim().replace(/^["']|["']$/g, '');
           const baseKey = key.split('.')[0];
           const apply = () => {
-            const v = State.getPath(key);
+            const v = store.getPath(key);
             el.style.display = v ? '' : 'none';
           };
           apply();
-          State.watch(baseKey, apply);
+          const unwatch = store.watch(baseKey, () => {
+            if (el.isConnected === false) {
+              unwatch();
+              return;
+            }
+            apply();
+          });
           return;
         }
         if (mod.startsWith('@model=')) {
           const key = mod.slice(7).trim().replace(/^["']|["']$/g, '');
-          const curVal = State.getPath(key);
+          const curVal = store.getPath(key);
           const baseKey = key.split('.')[0];
           if (el.type === 'checkbox') el.checked = Boolean(curVal);
           else el.value = curVal !== undefined ? String(curVal) : '';
           const evt = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
-          el.addEventListener(evt, () => State.set(baseKey, el.type === 'checkbox' ? el.checked : el.value));
-          State.watch(baseKey, (val) => {
-            const vv = (key.includes('.') ? State.getPath(key) : val);
+          el.addEventListener(evt, () => store.set(baseKey, el.type === 'checkbox' ? el.checked : el.value));
+          const unwatch = store.watch(baseKey, (val) => {
+            if (el.isConnected === false) {
+              unwatch();
+              return;
+            }
+            const vv = (key.includes('.') ? store.getPath(key) : val);
             if (el.type === 'checkbox') el.checked = Boolean(vv);
             else if (el.value !== String(vv !== undefined ? vv : '')) el.value = vv !== undefined ? String(vv) : '';
           });
@@ -3598,6 +3849,7 @@
 
     executeAction(action, event, el) {
       if (!action) return;
+      const store = (el && el._bzStore) || (this._root && this._root._bzStore) || State;
 
       const parseVal = (raw) => {
         let t = String(raw).trim();
@@ -3616,23 +3868,23 @@
         const inner = action.slice(action.indexOf('(') + 1, action.lastIndexOf(')'));
         const parts = splitTopArgs(inner);
         if (parts.length >= 2) {
-          State.set(parts[0].trim(), parseVal(parts.slice(1).join(',')));
+          store.set(parts[0].trim(), parseVal(parts.slice(1).join(',')));
           return;
         }
         let v = setM[2].trim();
         try { v = JSON.parse(v); } catch (e) { v = v.replace(/^["']|["']$/g, ''); }
-        State.set(setM[1], v);
+        store.set(setM[1], v);
         return;
       }
 
       const incrM = action.match(/^increment\(([\w.$-]+)\)$/);
-      if (incrM) { State.set(incrM[1], (State.getPath(incrM[1]) || 0) + 1); return; }
+      if (incrM) { store.set(incrM[1], (store.getPath(incrM[1]) || 0) + 1); return; }
 
       const decrM = action.match(/^decrement\(([\w.$-]+)\)$/);
-      if (decrM) { State.set(decrM[1], (State.getPath(decrM[1]) || 0) - 1); return; }
+      if (decrM) { store.set(decrM[1], (store.getPath(decrM[1]) || 0) - 1); return; }
 
       const togM = action.match(/^toggle\(([\w.$-]+)\)$/);
-      if (togM) { State.set(togM[1], !State.getPath(togM[1])); return; }
+      if (togM) { store.set(togM[1], !store.getPath(togM[1])); return; }
 
       const emitM = action.match(/^emit\(([^,)]+)(?:,\s*(.+))?\)$/);
       if (emitM) {
@@ -3647,18 +3899,18 @@
         const inner = action.slice(action.indexOf('(') + 1, action.lastIndexOf(')'));
         const parts = splitTopArgs(inner);
         if (parts.length >= 2) {
-          State.push(parts[0].trim(), parseVal(parts.slice(1).join(',')));
+          store.push(parts[0].trim(), parseVal(parts.slice(1).join(',')));
           return;
         }
         let v = pushM[2].trim();
         try { v = JSON.parse(v); } catch (e) { v = v.replace(/^["']|["']$/g, ''); }
-        State.push(pushM[1], v);
+        store.push(pushM[1], v);
         return;
       }
 
       const remM = action.match(/^remove\(([\w.$-]+),\s*(\d+)\)$/);
       if (remM) {
-        State.remove(remM[1], parseInt(remM[2], 10));
+        store.remove(remM[1], parseInt(remM[2], 10));
         return;
       }
 
@@ -3684,6 +3936,7 @@
       if (pluginAction) pluginAction(action, event, el);
     }
   };
+
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -3979,6 +4232,7 @@
   };
 
 
+
   // ═══════════════════════════════════════════════════════════════════════
   // COMPONENTS & LIFECYCLE
   // ═══════════════════════════════════════════════════════════════════════
@@ -4004,6 +4258,7 @@
 
     triggerMount(root)   { this._mountHooks.forEach(h => h(root)); },
     triggerDestroy()     { this._destroyHooks.forEach(h => h()); },
+    triggerUnmount(root) { this._destroyHooks.forEach(h => h(root)); },
     triggerUpdate(state) { this._updateHooks.forEach(h => h(state)); }
   };
 
@@ -4056,6 +4311,7 @@
       return null;
     }
   };
+
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4242,6 +4498,7 @@
       return (typeof fallback === 'function') ? fallback(e) : fallback;
     }
   }
+
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4602,6 +4859,7 @@
     return outParts.join('');
   }
 
+
   function hydrate(sourceOrAst, rootSelector) {
     rootSelector = rootSelector || '#app';
     const root = typeof rootSelector === 'string'
@@ -4724,6 +4982,7 @@
   }
 
 
+
   // ── Web Component Native Custom Element Interop ───────────────────
   function defineElement(tagName, template, options = {}) {
     if (typeof customElements === 'undefined') return;
@@ -4741,6 +5000,8 @@
         super();
         this._root = useShadow ? this.attachShadow({ mode: 'open' }) : this;
         this._mounted = false;
+        this._scoped = options.scoped !== false;
+        this._store = null;
       }
 
       connectedCallback() {
@@ -4753,9 +5014,15 @@
               try { initial[attr] = JSON.parse(val); } catch (_) { initial[attr] = val; }
             }
           });
-          Object.keys(initial).forEach(k => State.set(k, initial[k]));
+          this._store = this._scoped ? createStore(initial) : State;
+          this.store = this._store;
+          this.state = this._store;
+          this.watch = (k, fn) => this._store.watch(k, fn);
+          if (!this._scoped) {
+            Object.keys(initial).forEach(k => State.set(k, initial[k]));
+          }
           const ast = typeof template === 'string' ? Parser.parse(template) : template;
-          Renderer.render(ast, this._root);
+          Renderer.render(ast, this._root, { store: this._store });
           Lifecycle.triggerMount(this._root);
         }
         if (typeof options.connected === 'function') {
@@ -4765,6 +5032,9 @@
 
       disconnectedCallback() {
         Lifecycle.triggerUnmount(this._root);
+        if (this._store && this._scoped) {
+          this._store.reset();
+        }
         if (typeof options.disconnected === 'function') {
           options.disconnected.call(this);
         }
@@ -4774,7 +5044,8 @@
         if (oldVal !== newVal) {
           let val = newVal;
           try { val = JSON.parse(newVal); } catch (_) { val = newVal; }
-          State.set(name, val);
+          if (this._store) this._store.set(name, val);
+          else State.set(name, val);
         }
       }
     }
@@ -4782,6 +5053,7 @@
     customElements.define(tagName, BreezeCustomElement);
     return BreezeCustomElement;
   }
+
 
   // ═══════════════════════════════════════════════════════════════════════
   // PUBLIC API — The global `Breeze` object
@@ -5017,6 +5289,19 @@
       return this;
     },
 
+    unmount(rootSelector) {
+      rootSelector = rootSelector || '#app';
+      const root = typeof rootSelector === 'string'
+        ? document.querySelector(rootSelector)
+        : rootSelector;
+
+      if (!root) return this;
+      Lifecycle.triggerUnmount(root);
+      root.innerHTML = '';
+      EventBus.emit('breeze:unmounted', { root });
+      return this;
+    },
+
     // ── State Store API ───────────────────────────────────────────────
     state(key, initialValue) {
       if (typeof key === 'object' && key !== null && initialValue === undefined) {
@@ -5069,6 +5354,10 @@
       };
     },
 
+    createStore(initial) {
+      return createStore(initial);
+    },
+
     _resetForTests() {
       State.reset();
       Router.reset();
@@ -5081,7 +5370,11 @@
     },
 
     watch(key, callback) {
-      State.watch(key, callback);
+      return State.watch(key, callback);
+    },
+
+    unwatch(key, callback) {
+      State.unwatch(key, callback);
       return this;
     },
 

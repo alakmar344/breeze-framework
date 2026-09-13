@@ -1212,4 +1212,126 @@ describe('Breeze Framework Core', () => {
     assert.ok(res.html.includes('data-bz-key="102"'));
     assert.ok(res.html.includes('Second'));
   });
+
+  describe('v2.2 Scoped Stores, Unmount, and Robustness', () => {
+    it('createStore: creates isolated store instances that do not collide', () => {
+      const storeA = Breeze.createStore({ count: 10, user: { name: 'Alice' } });
+      const storeB = Breeze.createStore({ count: 20, user: { name: 'Bob' } });
+
+      assert.equal(storeA.get('count'), 10);
+      assert.equal(storeB.get('count'), 20);
+
+      storeA.set('count', 11);
+      assert.equal(storeA.get('count'), 11);
+      assert.equal(storeB.get('count'), 20);
+
+      storeB.set('user.name', 'Robert');
+      assert.equal(storeA.getPath('user.name'), 'Alice');
+      assert.equal(storeB.getPath('user.name'), 'Robert');
+
+      assert.equal(Breeze.getState('count'), undefined);
+    });
+
+    it('createStore: watch returns unsubscribe function and unwatch works', () => {
+      const store = Breeze.createStore({ val: 1 });
+      let calls1 = 0;
+      let calls2 = 0;
+
+      const unwatch1 = store.watch('val', () => { calls1++; });
+      const listener2 = () => { calls2++; };
+      store.watch('val', listener2);
+
+      store.set('val', 2);
+      assert.equal(calls1, 1);
+      assert.equal(calls2, 1);
+
+      unwatch1();
+      store.set('val', 3);
+      assert.equal(calls1, 1);
+      assert.equal(calls2, 2);
+
+      store.unwatch('val', listener2);
+      store.set('val', 4);
+      assert.equal(calls2, 2);
+    });
+
+    it('createStore: push, remove, and reset operate on scoped instance', () => {
+      const store = Breeze.createStore({ list: ['a', 'b'] });
+      store.push('list', 'c');
+      assert.deepEqual(store.get('list'), ['a', 'b', 'c']);
+
+      store.remove('list', 1);
+      assert.deepEqual(store.get('list'), ['a', 'c']);
+
+      store.reset();
+      assert.deepEqual(store.get('list'), ['a', 'b']);
+    });
+
+    it('Breeze.watch returns unsubscribe function and Breeze.unwatch works', () => {
+      Breeze._resetForTests();
+      let calls = 0;
+      const unwatch = Breeze.watch('globalKey', () => { calls++; });
+      Breeze.setState('globalKey', 'foo');
+      assert.equal(calls, 1);
+
+      unwatch();
+      Breeze.setState('globalKey', 'bar');
+      assert.equal(calls, 1);
+
+      const fn = () => { calls++; };
+      Breeze.watch('globalKey', fn);
+      Breeze.setState('globalKey', 'baz');
+      assert.equal(calls, 2);
+
+      Breeze.unwatch('globalKey', fn);
+      Breeze.setState('globalKey', 'qux');
+      assert.equal(calls, 2);
+    });
+
+    it('Breeze.unmount triggers lifecycle destroy hooks and emits event', () => {
+      let destroyed = false;
+      Breeze.onDestroy(() => { destroyed = true; });
+
+      const mockRoot = {
+        innerHTML: '<div>old content</div>',
+        childNodes: [],
+        children: []
+      };
+
+      let unmountedEvent = false;
+      Breeze.on('breeze:unmounted', (e) => {
+        if (e.root === mockRoot) unmountedEvent = true;
+      });
+
+      Breeze.unmount(mockRoot);
+      assert.equal(mockRoot.innerHTML, '');
+      assert.equal(destroyed, true);
+      assert.equal(unmountedEvent, true);
+    });
+
+    it('compileRowPatcher preserves static modifiers alongside dynamic class', () => {
+      const ast = Breeze.parse(`
+@each item in items [key=id]
+  tr [todo-item, class="{item.status}"]
+    td "{item.name}"
+`);
+      const eachNode = ast.find(n => n.type === 'each');
+      const patcher = Breeze.Renderer.compileRowPatcher(eachNode.children, 'item');
+
+      const tr = {
+        className: 'bz-todo-item active',
+        children: [
+          {
+            firstChild: { nodeType: 3, nodeValue: 'Old' },
+            childNodes: [{ nodeType: 3, nodeValue: 'Old' }]
+          }
+        ]
+      };
+
+      const ok = patcher(tr, { id: 1, status: 'completed', name: 'New' }, 0);
+      assert.equal(ok, true);
+      assert.equal(tr.className, 'bz-todo-item completed');
+      assert.equal(tr.children[0].firstChild.nodeValue, 'New');
+    });
+  });
 });

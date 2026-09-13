@@ -25,6 +25,7 @@ import { BreezeAPI } from './api.js';
 
     triggerMount(root)   { this._mountHooks.forEach(h => h(root)); },
     triggerDestroy()     { this._destroyHooks.forEach(h => h()); },
+    triggerUnmount(root) { this._destroyHooks.forEach(h => h(root)); },
     triggerUpdate(state) { this._updateHooks.forEach(h => h(state)); }
   };
 

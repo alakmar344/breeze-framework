@@ -1,5 +1,5 @@
 import { Parser } from './parser.js';
-import { State } from './state.js';
+import { State, createStore } from './state.js';
 import { Renderer } from './renderer.js';
 import { Lifecycle } from './registries.js';
 
@@ -20,6 +20,8 @@ import { Lifecycle } from './registries.js';
         super();
         this._root = useShadow ? this.attachShadow({ mode: 'open' }) : this;
         this._mounted = false;
+        this._scoped = options.scoped !== false;
+        this._store = null;
       }
 
       connectedCallback() {
@@ -32,9 +34,15 @@ import { Lifecycle } from './registries.js';
               try { initial[attr] = JSON.parse(val); } catch (_) { initial[attr] = val; }
             }
           });
-          Object.keys(initial).forEach(k => State.set(k, initial[k]));
+          this._store = this._scoped ? createStore(initial) : State;
+          this.store = this._store;
+          this.state = this._store;
+          this.watch = (k, fn) => this._store.watch(k, fn);
+          if (!this._scoped) {
+            Object.keys(initial).forEach(k => State.set(k, initial[k]));
+          }
           const ast = typeof template === 'string' ? Parser.parse(template) : template;
-          Renderer.render(ast, this._root);
+          Renderer.render(ast, this._root, { store: this._store });
           Lifecycle.triggerMount(this._root);
         }
         if (typeof options.connected === 'function') {
@@ -44,6 +52,9 @@ import { Lifecycle } from './registries.js';
 
       disconnectedCallback() {
         Lifecycle.triggerUnmount(this._root);
+        if (this._store && this._scoped) {
+          this._store.reset();
+        }
         if (typeof options.disconnected === 'function') {
           options.disconnected.call(this);
         }
@@ -53,7 +64,8 @@ import { Lifecycle } from './registries.js';
         if (oldVal !== newVal) {
           let val = newVal;
           try { val = JSON.parse(newVal); } catch (_) { val = newVal; }
-          State.set(name, val);
+          if (this._store) this._store.set(name, val);
+          else State.set(name, val);
         }
       }
     }
