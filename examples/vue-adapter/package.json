@@ -1,0 +1,23 @@
+{
+  "name": "breeze-vue-adapter-example",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Genuine interop example: a real Breeze custom element (Breeze.defineElement) mounted inside a real Vite + Vue 3 app. Not a rewrite of Breeze in Vue, and not a rewrite of Vue in Breeze.",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-breeze.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-breeze.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verify": "node scripts/copy-breeze.mjs && node verify.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "jsdom": "^30.0.1",
+    "vite": "^6.4.3"
+  }
+}

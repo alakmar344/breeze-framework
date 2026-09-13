@@ -59,35 +59,7 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-function resolveChromePath() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  const candidates = [
-    process.env.CHROME_BIN,
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  ].filter(Boolean);
-  for (const c of candidates) {
-    try { if (fs.existsSync(c)) return c; } catch (_) {}
-  }
-  return candidates[1];
-}
-
-async function waitForCdp(timeoutMs) {
-  const start = Date.now();
-  for (;;) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
-      if (res.ok) return;
-    } catch (_) {}
-    if (Date.now() - start > timeoutMs) throw new Error(`CDP not reachable on :${CDP_PORT}`);
-    await new Promise(r => setTimeout(r, 250));
-  }
-}
+const { resolveChromePath, waitForCdp: waitForCdpAt } = require('./lib/chrome.js');
 
 function pageBytes(fw) {
   const html = fs.readFileSync(path.join(pageDir, `${fw}.html`));
@@ -109,7 +81,14 @@ async function runPageLoad() {
     : args.includes('--desktop-only') ? ['desktop'] : ['desktop', 'mobile'];
 
   await new Promise(r => server.listen(PORT, r));
-  const chromeProc = spawn(resolveChromePath(), [
+  let resolvedChromePath;
+  try {
+    resolvedChromePath = resolveChromePath();
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+  const chromeProc = spawn(resolvedChromePath, [
     '--headless=new', `--remote-debugging-port=${CDP_PORT}`, '--disable-gpu',
     '--no-first-run', '--no-default-browser-check', '--js-flags=--expose-gc',
     `--user-data-dir=${path.join(os.tmpdir(), 'chrome-pageload-profile')}`
@@ -118,7 +97,7 @@ async function runPageLoad() {
 
   const results = {};
   try {
-    await waitForCdp(20000);
+    await waitForCdpAt(CDP_PORT, 20000);
     for (const mode of modes) {
       results[mode] = {};
       console.log(`\n==== page-load [${mode}] ====`);

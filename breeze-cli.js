@@ -223,6 +223,17 @@ function safeResolvePath(baseDir, reqPath) {
     if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
       return null;
     }
+    // Lexical containment isn't enough: a symlink living inside baseDir can
+    // point outside of it. Resolve real (symlink-free) paths and re-check
+    // containment so `ln -s /etc served-dir/escape` can't be used to read
+    // files outside the served directory.
+    let realBase;
+    try { realBase = fs.realpathSync(normalizedBase); } catch (_) { realBase = normalizedBase; }
+    let realResolved = resolved;
+    try { realResolved = fs.realpathSync(resolved); } catch (_) { /* target doesn't exist yet; lexical check above stands */ }
+    if (realResolved !== realBase && !realResolved.startsWith(realBase + path.sep)) {
+      return null;
+    }
     return resolved;
   } catch (_) {
     return null;

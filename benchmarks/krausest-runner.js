@@ -73,37 +73,16 @@ async function main() {
   const RUNS = parseInt(process.env.BZ_BENCH_RUNS || '7', 10) || 7;
   const { summarize } = require('./stats.js');
 
-  function resolveChromePath() {
-    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-    const candidates = [
-      process.env.CHROME_BIN,
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    ].filter(Boolean);
-    for (const c of candidates) {
-      try { if (fs.existsSync(c)) return c; } catch (_) {}
-    }
-    // PATH lookup
-    try {
-      const { execSync } = require('child_process');
-      const cmd = process.platform === 'win32' ? 'where chrome' : 'which google-chrome || which chromium || which chromium-browser || which chrome';
-      const out = execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-      if (out.length) return out[0];
-    } catch (_) {}
-    return candidates[1];
-  }
+  const { resolveChromePath, waitForCdp: waitForCdpAt } = require('./lib/chrome.js');
 
-  const chromePath = resolveChromePath();
-  const profileDir = path.join(os.tmpdir(), 'chrome-krausest-profile');
-  if (!fs.existsSync(chromePath)) {
-    console.error(`Chrome not found at ${chromePath}. Set CHROME_PATH env var to your Chrome/Chromium binary.`);
+  let chromePath;
+  try {
+    chromePath = resolveChromePath();
+  } catch (err) {
+    console.error(err.message);
     process.exit(1);
   }
+  const profileDir = path.join(os.tmpdir(), 'chrome-krausest-profile');
   if (fs.existsSync(profileDir)) {
     try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (_) {}
   }
@@ -121,24 +100,8 @@ async function main() {
   chromeProc.on('error', (e) => console.error(`Chrome launch failed: ${e.message}`));
 
   // Poll CDP until Chrome is actually listening (fixed sleeps race on slow CPUs).
-  async function waitForCdp(timeoutMs) {
-    const start = Date.now();
-    for (;;) {
-      try {
-        const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
-        if (res.ok) {
-          const info = await res.json().catch(() => ({}));
-          if (info.Browser) console.log(`Chrome ready: ${(info.Browser || '').split('/').slice(0, 2).join(' ')}`);
-          return;
-        }
-      } catch (_) {}
-      if (Date.now() - start > timeoutMs) {
-        throw new Error(`Chrome CDP not reachable on 127.0.0.1:${CDP_PORT} after ${timeoutMs}ms — is another Chrome holding the port/profile?`);
-      }
-      await new Promise(r => setTimeout(r, 250));
-    }
-  }
-  await waitForCdp(20000);
+  const browserVersion = await waitForCdpAt(CDP_PORT, 20000);
+  console.log(`Chrome ready: ${browserVersion}`);
 
   const allResults = {};
 

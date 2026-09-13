@@ -14,6 +14,9 @@
  *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
  *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
  *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
+ *
+ * NOTE: This file is generated. Do not edit it directly — edit the modules
+ * under src/core/ and run `npm run build:core` to regenerate it.
  */
 (function (global) {
   'use strict';
@@ -996,10 +999,14 @@
         return null;
       }
 
-      // @each item in listKey [key=id]
+      // @each item in listKey [key=id]  (canonical spelling; @for is a
+      // deprecated alias kept for backward compatibility — see docs/dsl.md)
       if (content.startsWith('@each') || content.startsWith('@for')) {
         const m = content.match(/@(each|for)\s+([\w$-]+)\s+in\s+([\w.$-]+)/);
         if (m) {
+          if (m[1] === 'for') {
+            Parser._warn(`"@for" is a deprecated alias for "@each" — use "@each ${m[2]} in ${m[3]}" instead. (Both work; @each is canonical.)`);
+          }
           const mods = Parser.extractModifiers(content);
           let keyProp = 'id';
           for (let k = 0; k < mods.length; k++) {
@@ -1037,10 +1044,14 @@
         return null;
       }
 
-      // @elif / @elseif conditionKey
+      // @elif conditionKey  (canonical spelling; @elseif is a deprecated
+      // alias kept for backward compatibility — see docs/dsl.md)
       if (content.startsWith('@elif') || content.startsWith('@elseif')) {
         const m = content.match(/@(elif|elseif)\s+(!?)([\w.]+)/);
         if (m) {
+          if (m[1] === 'elseif') {
+            Parser._warn(`"@elseif" is a deprecated alias for "@elif" — use "@elif ${m[2]}${m[3]}" instead. (Both work; @elif is canonical.)`);
+          }
           return {
             type: 'elif',
             negate: m[2] === '!',
@@ -1448,6 +1459,13 @@
   // STATE — Reactive store with signals, watchers, & batching
   // ═══════════════════════════════════════════════════════════════════════
 
+  // Blocks state keys/path segments that could reach or reshape Object.prototype
+  // (defense in depth for dynamic keys sourced from user input, e.g. URL params
+  // fed into setState/@each paths — see docs/type-checking.md "Security").
+  function isUnsafeKeySegment(segment) {
+    return segment === '__proto__' || segment === 'constructor' || segment === 'prototype';
+  }
+
   const State = {
     _store:    {},
     _watchers: {},
@@ -1458,14 +1476,21 @@
     getPath(key) {
       if (!key) return undefined;
       const parts = String(key).split('.');
+      if (parts.some(isUnsafeKeySegment)) return undefined;
       let v = this._store[parts[0]];
       for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
       return v;
     },
 
     set(key, value) {
+      if (isUnsafeKeySegment(key)) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Refusing to set unsafe state key "${key}".`);
+        }
+        return;
+      }
       const prev = this._store[key];
-      if (prev === value) {
+      if (Object.is(prev, value)) {
         // Still refresh computed that depend on it? No — same value, skip work.
         return;
       }
@@ -1502,8 +1527,8 @@
           this._computing.add(cKey);
           try {
             const next = c.fn(...c.deps.map(d => State._store[d]));
-            // Avoid infinite recursion: only set if changed (shallow)
-            if (next !== State._store[cKey]) State.set(cKey, next);
+            // Avoid infinite recursion: only set if changed (shallow, NaN-safe)
+            if (!Object.is(next, State._store[cKey])) State.set(cKey, next);
           } finally {
             this._computing.delete(cKey);
           }
@@ -4246,6 +4271,7 @@
     const getPath = (key) => {
       if (!key) return undefined;
       const parts = String(key).split('.');
+      if (parts.some(isUnsafeKeySegment)) return undefined;
       let v = store[parts[0]];
       for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
       return v;

@@ -107,6 +107,39 @@ describe('Breeze Framework Core', () => {
     assert.deepEqual(Breeze.getState('tasks'), ['alpha', 'gamma']);
   });
 
+  it('should use Object.is semantics for state updates (NaN/-0 propagate, watchers fire)', () => {
+    Breeze.setState('num', 1);
+    let calls = 0;
+    Breeze.watch('num', () => { calls++; });
+
+    // NaN !== NaN under ===, so a naive equality check would treat this as a
+    // no-op forever; Object.is says these two NaNs ARE the "same value" once
+    // it's already NaN, but the very first NaN transition must still fire.
+    Breeze.setState('num', NaN);
+    assert.equal(calls, 1);
+    assert.ok(Number.isNaN(Breeze.getState('num')));
+
+    // Setting the identical NaN again should be a genuine no-op (no extra watcher call).
+    Breeze.setState('num', NaN);
+    assert.equal(calls, 1);
+
+    // 0 -> -0 is a real, observable transition under Object.is.
+    Breeze.setState('num', 0);
+    calls = 0;
+    Breeze.setState('num', -0);
+    assert.equal(calls, 1);
+    assert.equal(Object.is(Breeze.getState('num'), -0), true);
+  });
+
+  it('should refuse to read/write unsafe state keys that could reshape a plain object prototype', () => {
+    const before = Object.prototype.polluted;
+    Breeze.setState('__proto__', { polluted: true });
+    Breeze.setState('constructor', { polluted: true });
+    assert.equal(Object.prototype.polluted, before);
+    assert.equal(Breeze.getState('__proto__.polluted'), undefined);
+    assert.equal(Breeze.getState('constructor.polluted'), undefined);
+  });
+
   it('should have valid llms.txt and llms-full.txt AI standards', () => {
     const llmsPath = path.join(__dirname, '..', 'llms.txt');
     const fullPath = path.join(__dirname, '..', 'llms-full.txt');
@@ -315,6 +348,34 @@ describe('Breeze Framework Core', () => {
       Breeze.parse(source);
       assert.ok(warns.some(w => w.includes('tab')), 'should warn on tabs');
       assert.ok(warns.some(w => w.includes('Malformed')), 'should warn on malformed directives');
+    } finally {
+      console.warn = origWarn;
+    }
+  });
+
+  it('should accept @for/@elseif as deprecated aliases for @each/@elif but warn', () => {
+    const warns = [];
+    const origWarn = console.warn;
+    console.warn = (...args) => warns.push(args.join(' '));
+
+    try {
+      const forAst = Breeze.parse('@for item in items\n  div "{item}"', { noCache: true });
+      assert.equal(forAst[0].type, 'each', '@for should parse to the same "each" node type as @each');
+      assert.equal(forAst[0].itemVar, 'item');
+      assert.equal(forAst[0].listKey, 'items');
+      assert.ok(warns.some(w => w.includes('@for') && w.includes('deprecated')), 'should warn that @for is deprecated');
+
+      warns.length = 0;
+      const elseifAst = Breeze.parse('@if a\n  p "x"\n@elseif b\n  p "y"', { noCache: true });
+      const elifNode = elseifAst.find(n => n.type === 'elif');
+      assert.ok(elifNode, '@elseif should parse to an "elif" node');
+      assert.equal(elifNode.conditionKey, 'b');
+      assert.ok(warns.some(w => w.includes('@elseif') && w.includes('deprecated')), 'should warn that @elseif is deprecated');
+
+      warns.length = 0;
+      Breeze.parse('@each item in items\n  div "{item}"', { noCache: true });
+      Breeze.parse('@if a\n  p "x"\n@elif b\n  p "y"', { noCache: true });
+      assert.equal(warns.length, 0, 'canonical @each/@elif should never warn');
     } finally {
       console.warn = origWarn;
     }

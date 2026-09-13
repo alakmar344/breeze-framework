@@ -2,7 +2,7 @@
 
 Breeze Framework (v2.2.0)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
-Size: ~34.1 KB gzipped (148.6 KB raw; zero dependencies)
+Size: 44.49 KB gzipped (197.17 KB raw, 36.43 KB Brotli; zero dependencies — see benchmark.md §1)
 Website: https://github.com/alakmar344/breeze-framework
 License: MIT
 
@@ -95,7 +95,9 @@ StateDirective   ::= "@state" Identifier "=" JSONValue ;
 NavDirective     ::= "@nav" [ Modifiers ] ;
 SectionDirective ::= "@section" [ "#" Identifier ] [ Modifiers ] ;
 FooterDirective  ::= "@footer" [ Modifiers ] ;
-EachDirective    ::= ( "@each" | "@for" ) Identifier "in" Identifier ;
+EachDirective    ::= "@each" Identifier "in" Identifier ;
+(* "@for" is accepted as a deprecated alias for "@each" — the parser emits a
+   warning when it is used. Always generate "@each". See docs/dsl.md. *)
 IfDirective      ::= "@if" [ "!" ] Identifier ;
 StyleDirective   ::= "@style" StringLiteral ;
 
@@ -175,7 +177,7 @@ Example:
 ```breeze
 @geo {
   entities: "Breeze Framework, Declarative Web Framework, Reactive Programming"
-  facts: "Core runtime is ~34.1 KB gzipped with zero external dependencies."
+  facts: "Core runtime is 44.49 KB gzipped with zero external dependencies."
 }
 ```
 
@@ -368,3 +370,13 @@ The Breeze CLI (`breeze-cli.js`) has zero npm dependencies:
 - `breeze dev [port]`: Starts dev server with Server-Sent Events (SSE) live-reload on port 3000.
 - `breeze build [file] [--spa] [--minify]`: Compiles `.breeze` into `dist/index.html`, automatically producing pre-compressed `dist/index.html.gz` (Gzip) and `dist/index.html.br` (Brotli).
 - `breeze serve [dir] [port]`: Production static file server with automatic HTTP `Content-Encoding` (Brotli/Gzip) negotiation and SPA routing fallback.
+
+---
+
+## 9. FURTHER READING
+
+This file is a condensed summary. For the single authoritative grammar reference — including the
+full canonical-vs-deprecated directive table (`@each`/`@elif` canonical, `@for`/`@elseif`
+deprecated aliases that emit parser warnings) and the closed action-verb vocabulary — see
+`docs/dsl.md`. For measured performance numbers, see `benchmark.md`; never cite a performance
+number that isn't traceable to a section in that file.

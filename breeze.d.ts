@@ -377,13 +377,20 @@ export interface BreezeAPI {
     isEnabled(): boolean;
   };
 
-  // ── HTTP / data layer (provided by breeze-http.js) ──────────────────
-  createClient(config?: HttpClientConfig): HttpClient;
-  http: HttpClient;
-  HttpError: typeof HttpError;
-  HttpCache: new (max?: number) => HttpCache;
-  /** Reactive async data source bound to Breeze signals. */
-  resource<T = any>(
+  // ── HTTP / data layer ────────────────────────────────────────────────
+  // These members are only wired onto the Breeze API object at runtime when
+  // breeze-http.js has ALSO been loaded/required alongside breeze.js — the
+  // core file only best-effort auto-requires it in Node and silently
+  // no-ops in the browser if the <script> tag was omitted. They are typed
+  // as optional so `Breeze.http` etc. correctly require a null-check (or an
+  // explicit `import 'breeze-framework/http'`-style guard) at compile time
+  // instead of type-checking as always-present and throwing at runtime.
+  createClient?(config?: HttpClientConfig): HttpClient;
+  http?: HttpClient;
+  HttpError?: typeof HttpError;
+  HttpCache?: new (max?: number) => HttpCache;
+  /** Reactive async data source bound to Breeze signals. Requires breeze-http.js. */
+  resource?<T = any>(
     fetcher: (ctx: { signal?: AbortSignal; refetch: () => Promise<void> }) => Promise<T>,
     options?: ResourceOptions<T>
   ): Resource<T>;

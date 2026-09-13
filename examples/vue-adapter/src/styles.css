@@ -1,0 +1,115 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.lede {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.panel {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+.log {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.log li {
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.log-empty {
+  color: #64748b;
+}
+
+/* ── Styling for the Breeze-rendered custom element's own DOM ──────────
+   These rules target class names emitted by the .breeze template in
+   breeze-toggle-counter.js. Breeze renders real DOM nodes with real class
+   attributes, so plain CSS reaches right into them. */
+.bz-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.bz-panel-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.bz-panel-title {
+  margin: 0;
+}
+
+.bz-panel-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.bz-panel-controls,
+.bz-panel-toggle-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bz-panel-btn,
+.bz-panel-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #334155;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.bz-panel-btn:hover,
+.bz-panel-toggle:hover {
+  background: #475569;
+}
+
+.bz-panel-btn-primary {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.bz-panel-btn-primary:hover {
+  background: #15803d;
+}
+
+.bz-panel-toggle-label {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
