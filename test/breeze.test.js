@@ -353,6 +353,34 @@ describe('Breeze Framework Core', () => {
     }
   });
 
+  it('should accept @for/@elseif as deprecated aliases for @each/@elif but warn', () => {
+    const warns = [];
+    const origWarn = console.warn;
+    console.warn = (...args) => warns.push(args.join(' '));
+
+    try {
+      const forAst = Breeze.parse('@for item in items\n  div "{item}"', { noCache: true });
+      assert.equal(forAst[0].type, 'each', '@for should parse to the same "each" node type as @each');
+      assert.equal(forAst[0].itemVar, 'item');
+      assert.equal(forAst[0].listKey, 'items');
+      assert.ok(warns.some(w => w.includes('@for') && w.includes('deprecated')), 'should warn that @for is deprecated');
+
+      warns.length = 0;
+      const elseifAst = Breeze.parse('@if a\n  p "x"\n@elseif b\n  p "y"', { noCache: true });
+      const elifNode = elseifAst.find(n => n.type === 'elif');
+      assert.ok(elifNode, '@elseif should parse to an "elif" node');
+      assert.equal(elifNode.conditionKey, 'b');
+      assert.ok(warns.some(w => w.includes('@elseif') && w.includes('deprecated')), 'should warn that @elseif is deprecated');
+
+      warns.length = 0;
+      Breeze.parse('@each item in items\n  div "{item}"', { noCache: true });
+      Breeze.parse('@if a\n  p "x"\n@elif b\n  p "y"', { noCache: true });
+      assert.equal(warns.length, 0, 'canonical @each/@elif should never warn');
+    } finally {
+      console.warn = origWarn;
+    }
+  });
+
   it('should support fine-grained signals, computed, effect, and batching', () => {
     const count = Breeze.signal(10);
     assert.equal(count.value, 10);

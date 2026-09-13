@@ -401,10 +401,14 @@
         return null;
       }
 
-      // @each item in listKey [key=id]
+      // @each item in listKey [key=id]  (canonical spelling; @for is a
+      // deprecated alias kept for backward compatibility — see docs/dsl.md)
       if (content.startsWith('@each') || content.startsWith('@for')) {
         const m = content.match(/@(each|for)\s+([\w$-]+)\s+in\s+([\w.$-]+)/);
         if (m) {
+          if (m[1] === 'for') {
+            Parser._warn(`"@for" is a deprecated alias for "@each" — use "@each ${m[2]} in ${m[3]}" instead. (Both work; @each is canonical.)`);
+          }
           const mods = Parser.extractModifiers(content);
           let keyProp = 'id';
           for (let k = 0; k < mods.length; k++) {
@@ -442,10 +446,14 @@
         return null;
       }
 
-      // @elif / @elseif conditionKey
+      // @elif conditionKey  (canonical spelling; @elseif is a deprecated
+      // alias kept for backward compatibility — see docs/dsl.md)
       if (content.startsWith('@elif') || content.startsWith('@elseif')) {
         const m = content.match(/@(elif|elseif)\s+(!?)([\w.]+)/);
         if (m) {
+          if (m[1] === 'elseif') {
+            Parser._warn(`"@elseif" is a deprecated alias for "@elif" — use "@elif ${m[2]}${m[3]}" instead. (Both work; @elif is canonical.)`);
+          }
           return {
             type: 'elif',
             negate: m[2] === '!',
