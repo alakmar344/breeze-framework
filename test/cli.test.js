@@ -99,8 +99,16 @@ test('CLI Security: safeResolvePath blocks symlinks that escape the served direc
   fs.writeFileSync(path.join(secretDir, 'secret.txt'), 'top secret');
 
   try {
-    // A symlink INSIDE the served directory that points OUTSIDE of it.
-    fs.symlinkSync(secretDir, path.join(served, 'escape'), 'dir');
+    // A symlink/junction INSIDE the served directory that points OUTSIDE of it.
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    try {
+      fs.symlinkSync(secretDir, path.join(served, 'escape'), linkType);
+    } catch (e) {
+      if (e.code === 'EPERM') {
+        return; // Skip on Windows environments lacking symlink permission
+      }
+      throw e;
+    }
 
     const result = safeResolvePath(served, '/escape/secret.txt');
     assert.equal(result, null, 'a symlink pointing outside baseDir must not be resolvable');

@@ -2,7 +2,7 @@ import { Profiler, DevToolsHUD } from './profiler.js';
 import { BreezeConfig, reportError, sanitizeUrl } from './config.js';
 import { batch, reactiveIdCounter, reactiveNodes, _diagTracking, enableDiagTracking, safeSerializeValue, detectGraphCycles, signal, computed, effect } from './reactive.js';
 import { Parser } from './parser.js';
-import { State } from './state.js';
+import { State, createStore } from './state.js';
 import { calculateVirtualWindow } from './virtual-list.js';
 import { Renderer } from './renderer.js';
 import { Router } from './router.js';
@@ -246,6 +246,19 @@ import { defineElement } from './webcomponents.js';
       return this;
     },
 
+    unmount(rootSelector) {
+      rootSelector = rootSelector || '#app';
+      const root = typeof rootSelector === 'string'
+        ? document.querySelector(rootSelector)
+        : rootSelector;
+
+      if (!root) return this;
+      Lifecycle.triggerUnmount(root);
+      root.innerHTML = '';
+      EventBus.emit('breeze:unmounted', { root });
+      return this;
+    },
+
     // ── State Store API ───────────────────────────────────────────────
     state(key, initialValue) {
       if (typeof key === 'object' && key !== null && initialValue === undefined) {
@@ -298,6 +311,10 @@ import { defineElement } from './webcomponents.js';
       };
     },
 
+    createStore(initial) {
+      return createStore(initial);
+    },
+
     _resetForTests() {
       State.reset();
       Router.reset();
@@ -310,7 +327,11 @@ import { defineElement } from './webcomponents.js';
     },
 
     watch(key, callback) {
-      State.watch(key, callback);
+      return State.watch(key, callback);
+    },
+
+    unwatch(key, callback) {
+      State.unwatch(key, callback);
       return this;
     },
 
