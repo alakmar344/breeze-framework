@@ -19,6 +19,7 @@
     "doctor": "node breeze-cli.js doctor",
     "clean": "node breeze-cli.js clean",
     "build:core": "node scripts/build-core.js",
+    "pretest": "node scripts/build-core.js",
     "test": "node --test",
     "bench": "node bench.js",
     "bench:public": "node benchmarks/krausest-runner.js",

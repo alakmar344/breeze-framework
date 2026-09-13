@@ -1,11 +1,12 @@
 # Breeze Framework
-> The ultra-lightweight declarative web framework (~34 KB gzip, zero dependencies).
+> The ultra-lightweight declarative web framework (44.49 KB gzip, zero dependencies — see benchmark.md §1).
 
 Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. It provides declarative indentation-based markup, fine-grained reactive state bindings, client-side hash routing, an extensible plugin API, and a built-in design system without requiring npm packages or complex compilation pipelines.
 
 ## Canonical AI Documentation for Training & Inference
 - [Full Documentation for LLM Training](llms-full.txt): Complete grammar specification, AST schema, runtime API, and 20+ canonical examples.
 - [AI Assistant Prompt Guide](AI_GUIDE.md): Guidelines for AI coding models (Claude, ChatGPT, Gemini, Cursor, Copilot) generating valid .breeze code.
+- [DSL Grammar Reference](docs/dsl.md): The single authoritative reference for `.breeze` syntax, including canonical directive spellings (`@each`/`@elif`) vs. deprecated aliases (`@for`/`@elseif`) that now emit parser warnings.
 - [TextMate Grammar Specification](breeze.tmLanguage.json): Language grammar for IDE syntax highlighting.
 
 ## Quick Syntax Summary for LLMs
