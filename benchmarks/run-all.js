@@ -39,34 +39,22 @@ async function main() {
   // measured on THIS machine with THESE exact builds (see vendor/VERSIONS.md).
   // Chrome version is probed over CDP (chrome --version lies when a desktop
   // browser instance is already running — it just forwards to it).
+  const { launchChrome } = require('./lib/chrome.js');
+  const { collectEnvInfo } = require('./lib/env-info.js');
   let chromeVersion = 'unknown';
   try {
-    const probePort = 19437;
-    const probeProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'breeze-chrome-probe-'));
-    const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-    const { spawn: sp } = require('child_process');
-    const probe = sp(chromeBin, [
-      '--headless=new', `--remote-debugging-port=${probePort}`, '--disable-gpu',
-      '--no-first-run', '--no-default-browser-check', `--user-data-dir=${probeProfile}`
-    ], { stdio: 'ignore' });
-    const start = Date.now();
-    while (Date.now() - start < 15000) {
-      try {
-        const res = await fetch(`http://127.0.0.1:${probePort}/json/version`);
-        if (res.ok) {
-          const info = await res.json().catch(() => ({}));
-          if (info.Browser) { chromeVersion = info.Browser; break; }
-        }
-      } catch (_) {}
-      await new Promise(r => setTimeout(r, 250));
-    }
-    try { probe.kill(); } catch (_) {}
-    try { fs.rmSync(probeProfile, { recursive: true, force: true }); } catch (_) {}
-  } catch (_) {}
+    const probe = await launchChrome(19437);
+    chromeVersion = probe.browserVersion;
+    probe.cleanup();
+  } catch (err) {
+    console.error(`[run-all] Chrome probe failed: ${err.message}`);
+  }
   let vendorVersions = {};
   try {
     vendorVersions = require('./vendor/build-vendor.js').PINNED;
   } catch (_) {}
+
+  const envInfo = collectEnvInfo();
 
   const consolidatedResults = {
     metadata: {
@@ -75,9 +63,10 @@ async function main() {
       cpu: os.cpus()[0]?.model || 'Multi-core CPU',
       cpuThreads: os.cpus().length,
       node: process.version,
-      browser: `Google Chrome Headless (CDP) — ${chromeVersion}`,
+      browser: `Headless Chrome/Chromium (CDP) — ${chromeVersion}`,
       vendorVersions,
-      note: 'All Chrome numbers are median-of-BZ_BENCH_RUNS on this CPU; absolute ms varies with machine load, relative ordering is the claim.'
+      env: envInfo,
+      note: 'All Chrome numbers are median-of-BZ_BENCH_RUNS on this CPU; absolute ms varies with machine load, relative ordering is the claim. See env.virtualization for whether this machine is a shared/virtualized host.'
     }
   };
 

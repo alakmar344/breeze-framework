@@ -52,35 +52,8 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-function resolveChromePath() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  const candidates = [
-    process.env.CHROME_BIN,
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  ].filter(Boolean);
-  for (const c of candidates) {
-    try { if (fs.existsSync(c)) return c; } catch (_) {}
-  }
-  return candidates[1];
-}
-
-async function waitForCdp(timeoutMs) {
-  const start = Date.now();
-  for (;;) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
-      if (res.ok) return;
-    } catch (_) {}
-    if (Date.now() - start > timeoutMs) throw new Error(`CDP not reachable on :${CDP_PORT}`);
-    await new Promise(r => setTimeout(r, 250));
-  }
-}
+const { resolveChromePath, waitForCdp: waitForCdpAt } = require('./lib/chrome.js');
+const { writeReport } = require('./lib/report.js');
 
 async function main() {
   const args = process.argv.slice(2);
@@ -88,15 +61,23 @@ async function main() {
   const runs = parseInt((args.find(a => a.startsWith('--runs=')) || '').split('=')[1] || '2', 10) || 2;
 
   await new Promise(r => server.listen(PORT, r));
-  const chromeProc = spawn(resolveChromePath(), [
+  let resolvedChromePath;
+  try {
+    resolvedChromePath = resolveChromePath();
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+  const chromeProc = spawn(resolvedChromePath, [
     '--headless=new', `--remote-debugging-port=${CDP_PORT}`, '--disable-gpu',
     '--no-first-run', '--no-default-browser-check',
     `--user-data-dir=${path.join(os.tmpdir(), 'chrome-append-profile')}`
   ]);
   chromeProc.on('error', e => console.error('Chrome launch failed: ' + e.message));
 
+  const reportData = {};
   try {
-    await waitForCdp(20000);
+    await waitForCdpAt(CDP_PORT, 20000);
     for (const fw of frameworks) {
       console.log(`\nProfiling append on [ ${fw.toUpperCase()} ] (${runs} traced runs)`);
       const tab = await fetch(`http://127.0.0.1:${CDP_PORT}/json/new`, { method: 'PUT' }).then(r => r.json());
@@ -190,13 +171,52 @@ async function main() {
         .slice(0, 14);
       console.log('  trace phases per append (mean ms):');
       for (const r of rows) console.log(`    ${r.ms.toFixed(2).padStart(9)} ms  ${r.name}`);
-      console.log(`    ${(gcTotals.durUs / 1000 / runs).toFixed(2).padStart(9)} ms  [GC total, ${Math.round(gcTotals.count / runs)}/run]`);
+      const gcMs = gcTotals.durUs / 1000 / runs;
+      console.log(`    ${gcMs.toFixed(2).padStart(9)} ms  [GC total, ${Math.round(gcTotals.count / runs)}/run]`);
       ws.close();
+
+      reportData[fw] = {
+        clickHandlerMedianMs: +med(handlerMs).toFixed(2),
+        gcMs: +gcMs.toFixed(2),
+        gcEventsPerRun: Math.round(gcTotals.count / runs),
+        topPhases: rows.map(r => ({ name: r.name, ms: +r.ms.toFixed(2) }))
+      };
     }
+
+    if (require.main === module) generateReport(reportData, runs);
   } finally {
     try { chromeProc.kill(); } catch (_) {}
     server.close();
   }
+}
+
+function generateReport(reportData, runs) {
+  const fws = Object.keys(reportData);
+  const phaseNames = [...new Set(fws.flatMap(fw => reportData[fw].topPhases.map(p => p.name)))].slice(0, 10);
+
+  const headerCols = fws.map(fw => `${fw[0].toUpperCase()}${fw.slice(1)}`).join(' | ');
+  const sep = fws.map(() => ':---:').join(' | ');
+
+  const gcRow = `| **GC total (per append)** | ${fws.map(fw => `**${reportData[fw].gcMs} ms** (${reportData[fw].gcEventsPerRun}/run)`).join(' | ')} |`;
+  const handlerRow = `| **Sync click-handler (median)** | ${fws.map(fw => `${reportData[fw].clickHandlerMedianMs} ms`).join(' | ')} |`;
+  const phaseRows = phaseNames.map(name => {
+    const cells = fws.map(fw => {
+      const p = reportData[fw].topPhases.find(x => x.name === name);
+      return p ? `${p.ms} ms` : '—';
+    }).join(' | ');
+    return `| ${name} | ${cells} |`;
+  }).join('\n');
+
+  const isComparison = fws.length > 1;
+
+  writeReport('append-gc.md', {
+    title: '📊 Benchmark Report: Bulk Append Trace Breakdown (GC / Script / Layout)',
+    summary: isComparison
+      ? `CDP trace breakdown of what happens during a 1,000-row bulk append (mounting 1,000 rows, then appending 1,000 more) across ${fws.join(' vs. ')}, ${runs} traced runs, phase totals meaned across runs.`
+      : `CDP trace breakdown of what happens during a 1,000-row bulk append (mounting 1,000 rows, then appending 1,000 more) in Breeze, ${runs} traced runs, phase totals meaned across runs. Run with \`--react\` to add a React 19 comparison column.`,
+    reproCommand: `node benchmarks/append-profile-runner.js --runs=${runs}${isComparison ? ' --react' : ''}`,
+    body: `## Results (mean of ${runs} traced runs)\n\n| Phase | ${headerCols} |\n| :--- | ${sep} |\n${handlerRow}\n${gcRow}\n${phaseRows}\n\n## Reading these numbers\n\n- This report reflects the current codebase only — it is a snapshot, not a before/after comparison against any prior Breeze version. To see whether a change helped or hurt, run this script on two commits and diff the outputs yourself.\n- "GC total" counts every trace event matching a GC-related name/category during the append; it is not exclusively attributable to Breeze's own allocations (V8's GC scheduling is influenced by overall heap pressure from the whole page).\n- Phase names come directly from Chrome's \`devtools.timeline\`/\`v8.execute\` trace categories and are Chrome/V8-version-dependent — do not assume phase names are stable across Chrome versions.`
+  });
 }
 
 if (require.main === module) {

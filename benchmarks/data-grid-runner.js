@@ -16,6 +16,7 @@ const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 const { summarize } = require('./stats.js');
+const { resolveChromePath, waitForCdp: waitForCdpAt } = require('./lib/chrome.js');
 
 const rootDir = path.resolve(__dirname, '..');
 const vendorDir = path.join(__dirname, 'vendor');
@@ -59,7 +60,13 @@ async function runDataGridBenchmark(iterations = 5) {
   iterations = Number(process.env.BZ_BENCH_RUNS) || iterations || 5;
   await new Promise(r => server.listen(PORT, r));
 
-  const chromeBin = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  let chromeBin;
+  try {
+    chromeBin = resolveChromePath();
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
   const tmpProfile = fs.mkdtempSync(path.join(require('os').tmpdir(), 'breeze-cdp-grid-'));
 
   const chromeProc = spawn(chromeBin, [
@@ -71,19 +78,7 @@ async function runDataGridBenchmark(iterations = 5) {
     `--user-data-dir=${tmpProfile}`
   ]);
 
-  async function waitForCdp(timeoutMs = 15000) {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      try {
-        const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`);
-        if (res.ok) return;
-      } catch (_) {}
-      await new Promise(r => setTimeout(r, 200));
-    }
-    throw new Error('CDP timed out');
-  }
-
-  await waitForCdp();
+  await waitForCdpAt(CDP_PORT, 15000);
 
   const results = {};
 

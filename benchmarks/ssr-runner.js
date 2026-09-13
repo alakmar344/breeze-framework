@@ -8,6 +8,8 @@
 
 const { performance } = require('perf_hooks');
 const { Breeze } = require('../breeze.js');
+const { summarize } = require('./stats.js');
+const { writeReport } = require('./lib/report.js');
 
 // Benchmark page template with navigation, user profile, list of 10 dynamic items, and footer
 const pageSource = `
@@ -122,10 +124,17 @@ function renderVNodeToString(vnode) {
   return `<${vnode.tag}${attrs}>${inner}</${vnode.tag}>`;
 }
 
-function runSsrBenchmark(iterations = 1000) {
+/**
+ * Runs `repeats` independent timing samples of `iterations` render passes
+ * each per engine, and returns a full distribution (median/p95/min/max/sd)
+ * per engine instead of one bare average — a single sample can't tell you
+ * whether a number is stable or a fluke, especially on shared/virtualized
+ * hardware (see benchmarks/lib/env-info.js).
+ */
+function runSsrBenchmark(iterations = 1000, repeats = 7) {
   console.log('\n================================================================');
   console.log('🖥️  SERVER-SIDE RENDERING (SSR) THROUGHPUT BENCHMARK');
-  console.log(`Executing ${iterations.toLocaleString()} iterations per engine...`);
+  console.log(`Executing ${repeats} samples of ${iterations.toLocaleString()} iterations per engine...`);
   console.log('================================================================\n');
 
   const engines = [
@@ -138,7 +147,7 @@ function runSsrBenchmark(iterations = 1000) {
       fn: () => Breeze.renderToString(pageSource, testData)
     },
     {
-      name: 'Virtual DOM Serializer (Preact-style)',
+      name: 'Virtual DOM Serializer (Preact-style, hand-rolled reference impl)',
       fn: () => renderVNodeToString(createVNodeTree(testData))
     },
     {
@@ -153,42 +162,55 @@ function runSsrBenchmark(iterations = 1000) {
     // Warmup
     for (let i = 0; i < 50; i++) eng.fn();
 
-    const t0 = performance.now();
-    let sampleOutput = '';
-    for (let i = 0; i < iterations; i++) {
-      sampleOutput = eng.fn();
+    let htmlBytes = 0;
+    const opsPerSecSamples = [];
+    for (let s = 0; s < repeats; s++) {
+      const t0 = performance.now();
+      let sampleOutput = '';
+      for (let i = 0; i < iterations; i++) {
+        sampleOutput = eng.fn();
+      }
+      const elapsedMs = performance.now() - t0;
+      opsPerSecSamples.push(iterations / (elapsedMs / 1000));
+      htmlBytes = Buffer.byteLength(sampleOutput, 'utf8');
+      if (global.gc) { try { global.gc(); } catch (_) {} }
     }
-    const elapsedMs = performance.now() - t0;
-    const opsPerSec = Math.round((iterations / (elapsedMs / 1000)));
-    const meanLatencyUs = ((elapsedMs / iterations) * 1000).toFixed(1);
-    const htmlBytes = Buffer.byteLength(sampleOutput, 'utf8');
 
-    results[eng.name] = {
-      elapsedMs: parseFloat(elapsedMs.toFixed(1)),
-      opsPerSec,
-      meanLatencyUs: parseFloat(meanLatencyUs),
-      htmlBytes
-    };
+    const dist = summarize(opsPerSecSamples);
+    results[eng.name] = { ...dist, htmlBytes, meanLatencyUsMedian: +((1_000_000 / dist.median)).toFixed(1) };
 
     console.log(`Engine: ${eng.name}`);
-    console.log(`  • Throughput:   ${opsPerSec.toLocaleString().padStart(8)} pages/sec`);
-    console.log(`  • Mean Latency: ${meanLatencyUs.padStart(8)} μs/page`);
-    console.log(`  • Output Size:  ${htmlBytes.toString().padStart(8)} bytes`);
+    console.log(`  • Throughput (median of ${repeats}): ${Math.round(dist.median).toLocaleString().padStart(8)} pages/sec  (p95 ${Math.round(dist.p95)}, range ${Math.round(dist.min)}–${Math.round(dist.max)}, sd ${dist.sd})`);
+    console.log(`  • Output Size: ${htmlBytes.toString().padStart(8)} bytes`);
     console.log('');
   }
 
-  console.log('| SSR Engine | Throughput (pages/sec) | Mean Latency (μs) | HTML Size |');
-  console.log('| :--- | :---: | :---: | :---: |');
+  console.log('| SSR Engine | Median Throughput (pages/sec) | p95 | Range (min–max) | sd | HTML Size |');
+  console.log('| :--- | :---: | :---: | :---: | :---: | :---: |');
   for (const [name, d] of Object.entries(results)) {
-    console.log(`| **${name}** | **${d.opsPerSec.toLocaleString()} ops/s** | ${d.meanLatencyUs} μs | ${d.htmlBytes} B |`);
+    console.log(`| **${name}** | **${Math.round(d.median).toLocaleString()} ops/s** | ${Math.round(d.p95)} | ${Math.round(d.min)}–${Math.round(d.max)} | ${d.sd} | ${d.htmlBytes} B |`);
   }
   console.log('');
 
   return results;
 }
 
+function generateReport(results, iterations, repeats) {
+  const rows = Object.entries(results).map(([name, d]) =>
+    `| **${name}** | **${Math.round(d.median).toLocaleString()} ops/s** | ${Math.round(d.p95).toLocaleString()} | ${Math.round(d.min).toLocaleString()}–${Math.round(d.max).toLocaleString()} | ${d.sd} | ${d.htmlBytes} B |`
+  ).join('\n');
+
+  writeReport('ssr.md', {
+    title: '📊 Benchmark Report: Server-Side Rendering (SSR) Throughput',
+    summary: `Breeze's zero-dependency server-side renderer (\`Breeze.renderToString()\`) measured against two reference baselines: a hand-rolled virtual-DOM-to-string serializer (representative of the Preact/React SSR string-render pattern) and raw native JS template literals (the theoretical ceiling — no parsing, no tree walk, just string concatenation). ${repeats} independent samples of ${iterations.toLocaleString()} render passes each per engine; the table reports the full distribution, not a single run.`,
+    reproCommand: 'node benchmarks/ssr-runner.js',
+    body: `## Results (median of ${repeats} samples × ${iterations.toLocaleString()} iterations each)\n\n| SSR Engine | Median Throughput (pages/sec) | p95 | Range (min–max) | sd | Output Size |\n| :--- | :---: | :---: | :---: | :---: | :---: |\n${rows}\n\n## Reading these numbers\n\n- "Native JS Template Literals" is not a competing framework — it's the theoretical ceiling (raw string concatenation, no template parsing, no tree walk). Breeze SSR will never beat it; the interesting comparison is how close it gets.\n- The "Virtual DOM Serializer" baseline is a small hand-rolled reference implementation of the classic recurse-a-vnode-tree-into-a-string pattern used by React/Preact SSR, not an actual React/Preact SSR call — it isolates the cost of *tree-walking* from any of the JSX/component-instantiation overhead a real React SSR path also pays. Do not read it as "faster/slower than React SSR" without that caveat.\n- "Breeze SSR (pre-parsed AST)" vs "(raw DSL string)" isolates the one-time parse cost: the gap between them is what you save by parsing a template once (e.g. at build/import time) instead of on every request.`
+  });
+}
+
 if (require.main === module) {
-  runSsrBenchmark();
+  const results = runSsrBenchmark();
+  generateReport(results, 1000, 7);
 }
 
 module.exports = { runSsrBenchmark };
