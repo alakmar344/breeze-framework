@@ -14,6 +14,9 @@
  *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
  *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
  *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
+ *
+ * NOTE: This file is generated. Do not edit it directly — edit the modules
+ * under src/core/ and run `npm run build:core` to regenerate it.
  */
 (function (global) {
   'use strict';
