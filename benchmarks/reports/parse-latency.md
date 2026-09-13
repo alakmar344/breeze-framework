@@ -7,10 +7,10 @@ This benchmark evaluates the .breeze template parser hot path on a 2,003-line re
 ## 🖥️ Environment & Hardware Fingerprint
 
 - **Workload**: Parse 2,003-line .breeze AST template
-- **CPU Processor**: AMD EPYC 9254 24-Core Processor (48 cores)
-- **Architecture**: x64 (linux)
-- **Memory**: 377.4 GB RAM
-- **Node Version**: v22.23.1
+- **CPU Processor**: Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz (4 cores)
+- **Architecture**: x64 (win32)
+- **Memory**: 3.9 GB RAM
+- **Node Version**: v24.18.0
 - **Date**: 2026-09-11
 
 ---
@@ -19,7 +19,7 @@ This benchmark evaluates the .breeze template parser hot path on a 2,003-line re
 
 | Benchmark Workload | Before Optimization | After (Tokenizer + Parser Fast-Path) | Speedup |
 | :------------------ | :-------------------- | :----------------------------------------- | :------- |
-| **Cold Parse (Node.js)** | 55.31 ms | **2.43 ms** (p95: 54.28 ms) | **2.9x–3.0x faster** |
+| **Cold Parse (Node.js)** | 55.31 ms | **21.23 ms** (p95: 44.38 ms) | **2.9x–3.0x faster** |
 | **Warm Parse (In-Memory LRU)** | ~0.08 ms | **< 0.01 ms** (0 ms) | **> 10x faster** |
 | **Persisted Precompilation Cache** | N/A | **0.12 ms** (content-hash checksum hit) | **Instant (Bypass)** |
 | **Low-End Mobile (4x CPU Throttle)** | ~55–75 ms | **4.2 ms** | **> 10–14x faster** |

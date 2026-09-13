@@ -50,6 +50,23 @@ function detectVirtualization() {
   return { virtualized, hints };
 }
 
+function detectPowerState() {
+  if (process.platform === 'win32') {
+    const batt = safeExec('powershell -NoProfile -Command "(Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue).EstimatedChargeRemaining"');
+    if (batt) return `Battery (${batt}% remaining)`;
+  } else if (process.platform === 'linux') {
+    try {
+      const status = fs.readFileSync('/sys/class/power_supply/BAT0/status', 'utf8').trim();
+      const cap = fs.readFileSync('/sys/class/power_supply/BAT0/capacity', 'utf8').trim();
+      return `Battery (${cap}%, ${status})`;
+    } catch (_) {}
+  } else if (process.platform === 'darwin') {
+    const pm = safeExec('pmset -g batt');
+    if (pm) return pm.split('\n')[0];
+  }
+  return 'AC / Desktop (or battery undetected)';
+}
+
 /**
  * Full environment fingerprint for a benchmark run. Call once per process
  * and embed the result verbatim into every report/JSON output — every
@@ -77,6 +94,7 @@ function collectEnvInfo() {
     memoryTotalGiB: +(os.totalmem() / (1024 ** 3)).toFixed(1),
     node: process.version,
     v8: process.versions.v8,
+    powerState: detectPowerState(),
     git: { commit: gitCommit, dirty: gitDirty },
     virtualization: virt,
     // Set explicitly by CI or a human running locally; null means "unknown,
@@ -98,6 +116,7 @@ function envInfoSummary(info) {
     `- **OS**: ${info.os.type} ${info.os.release} (${info.os.arch})`,
     `- **CPU**: ${info.cpu.model} — ${info.cpu.logicalCores} logical cores`,
     `- **RAM**: ${info.memoryTotalGiB} GiB`,
+    `- **Power**: ${info.powerState || 'unknown'}`,
     `- **Node.js**: ${info.node} (V8 ${info.v8})`,
     `- **Git commit**: ${info.git.commit}${info.git.dirty ? ' (dirty working tree)' : ''}`,
     `- **Environment**: ${virtLine}`
