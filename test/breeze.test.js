@@ -107,6 +107,39 @@ describe('Breeze Framework Core', () => {
     assert.deepEqual(Breeze.getState('tasks'), ['alpha', 'gamma']);
   });
 
+  it('should use Object.is semantics for state updates (NaN/-0 propagate, watchers fire)', () => {
+    Breeze.setState('num', 1);
+    let calls = 0;
+    Breeze.watch('num', () => { calls++; });
+
+    // NaN !== NaN under ===, so a naive equality check would treat this as a
+    // no-op forever; Object.is says these two NaNs ARE the "same value" once
+    // it's already NaN, but the very first NaN transition must still fire.
+    Breeze.setState('num', NaN);
+    assert.equal(calls, 1);
+    assert.ok(Number.isNaN(Breeze.getState('num')));
+
+    // Setting the identical NaN again should be a genuine no-op (no extra watcher call).
+    Breeze.setState('num', NaN);
+    assert.equal(calls, 1);
+
+    // 0 -> -0 is a real, observable transition under Object.is.
+    Breeze.setState('num', 0);
+    calls = 0;
+    Breeze.setState('num', -0);
+    assert.equal(calls, 1);
+    assert.equal(Object.is(Breeze.getState('num'), -0), true);
+  });
+
+  it('should refuse to read/write unsafe state keys that could reshape a plain object prototype', () => {
+    const before = Object.prototype.polluted;
+    Breeze.setState('__proto__', { polluted: true });
+    Breeze.setState('constructor', { polluted: true });
+    assert.equal(Object.prototype.polluted, before);
+    assert.equal(Breeze.getState('__proto__.polluted'), undefined);
+    assert.equal(Breeze.getState('constructor.polluted'), undefined);
+  });
+
   it('should have valid llms.txt and llms-full.txt AI standards', () => {
     const llmsPath = path.join(__dirname, '..', 'llms.txt');
     const fullPath = path.join(__dirname, '..', 'llms-full.txt');

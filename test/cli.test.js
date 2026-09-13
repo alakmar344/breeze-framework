@@ -90,6 +90,30 @@ test('CLI Security: safeResolvePath blocks path traversal', () => {
   assert.ok(!escape3.includes('\0'));
 });
 
+test('CLI Security: safeResolvePath blocks symlinks that escape the served directory', () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'breeze-symlink-'));
+  const served = path.join(tmpRoot, 'served');
+  const secretDir = path.join(tmpRoot, 'secret');
+  fs.mkdirSync(served, { recursive: true });
+  fs.mkdirSync(secretDir, { recursive: true });
+  fs.writeFileSync(path.join(secretDir, 'secret.txt'), 'top secret');
+
+  try {
+    // A symlink INSIDE the served directory that points OUTSIDE of it.
+    fs.symlinkSync(secretDir, path.join(served, 'escape'), 'dir');
+
+    const result = safeResolvePath(served, '/escape/secret.txt');
+    assert.equal(result, null, 'a symlink pointing outside baseDir must not be resolvable');
+
+    // Legitimate in-tree files must still resolve normally.
+    fs.writeFileSync(path.join(served, 'ok.txt'), 'fine');
+    const okResult = safeResolvePath(served, '/ok.txt');
+    assert.equal(okResult, path.join(served, 'ok.txt'));
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
 test('CLI Version: flags and commands output correct version', () => {
   const res1 = runCLI(['--version']);
   assert.equal(res1.code, 0);

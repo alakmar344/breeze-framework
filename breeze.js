@@ -1448,6 +1448,13 @@
   // STATE — Reactive store with signals, watchers, & batching
   // ═══════════════════════════════════════════════════════════════════════
 
+  // Blocks state keys/path segments that could reach or reshape Object.prototype
+  // (defense in depth for dynamic keys sourced from user input, e.g. URL params
+  // fed into setState/@each paths — see docs/type-checking.md "Security").
+  function isUnsafeKeySegment(segment) {
+    return segment === '__proto__' || segment === 'constructor' || segment === 'prototype';
+  }
+
   const State = {
     _store:    {},
     _watchers: {},
@@ -1458,14 +1465,21 @@
     getPath(key) {
       if (!key) return undefined;
       const parts = String(key).split('.');
+      if (parts.some(isUnsafeKeySegment)) return undefined;
       let v = this._store[parts[0]];
       for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
       return v;
     },
 
     set(key, value) {
+      if (isUnsafeKeySegment(key)) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Refusing to set unsafe state key "${key}".`);
+        }
+        return;
+      }
       const prev = this._store[key];
-      if (prev === value) {
+      if (Object.is(prev, value)) {
         // Still refresh computed that depend on it? No — same value, skip work.
         return;
       }
@@ -1502,8 +1516,8 @@
           this._computing.add(cKey);
           try {
             const next = c.fn(...c.deps.map(d => State._store[d]));
-            // Avoid infinite recursion: only set if changed (shallow)
-            if (next !== State._store[cKey]) State.set(cKey, next);
+            // Avoid infinite recursion: only set if changed (shallow, NaN-safe)
+            if (!Object.is(next, State._store[cKey])) State.set(cKey, next);
           } finally {
             this._computing.delete(cKey);
           }
@@ -4246,6 +4260,7 @@
     const getPath = (key) => {
       if (!key) return undefined;
       const parts = String(key).split('.');
+      if (parts.some(isUnsafeKeySegment)) return undefined;
       let v = store[parts[0]];
       for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
       return v;
