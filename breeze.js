@@ -1,18 +1,19 @@
 /*!
- * Breeze Framework v2.2.0 (Comfort + Perf + Benchmarks)
+ * Breeze Framework v2.3.0 (Scalability + Interop + Auto-Batching)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
  *
  * Architecture:
  *   Parser    — Cached LRU parse, precompiled {token} templates, codeframe diagnostics
- *   Signals   — Fast-path single-subscriber sets, disposable effects, batched scheduler
+ *   Signals   — Object.is correctness, disposable signals, opt-in auto microtask batching
  *   State     — Store slices, watchers, cycle-guarded computeds, signal sync
  *   Renderer  — LIS minimal-move keyed reconciliation, append fast-path, data-key select,
  *               if/elif/else chains, component params, portal, @show/@model/@ref/@cloak/@transition
  *   Router    — Hash/history, :id/:id?/*, outlet rendering, async guards, regex cache
  *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
  *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
+ *   Adapters  — Plug-and-play React/Vue Custom Element bridges (zero bundled deps)
  *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
  *
  * NOTE: This file is generated. Do not edit it directly — edit the modules
@@ -20,7 +21,6 @@
  */
 (function (global) {
   'use strict';
-
 
   // ═══════════════════════════════════════════════════════════════════════
   // PROFILER & DIAGNOSTICS
@@ -209,7 +209,6 @@
     return url;
   }
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // SIGNALS — Fine-grained reactivity engine
   // ═══════════════════════════════════════════════════════════════════════
@@ -220,6 +219,52 @@
   const pendingEffects = new Set();
   const effectsQueue = [];
 
+  // v2.3: Opt-in automatic microtask batching. When enabled, signal writes
+  // outside an explicit batch() are coalesced into a single microtask flush,
+  // dramatically reducing redundant effect/DOM work for multi-write updates
+  // while preserving synchronous semantics inside batch().
+  let autoBatchEnabled = false;
+  let autoBatchFlushScheduled = false;
+
+  function enableAutoBatch() { autoBatchEnabled = true; }
+  function disableAutoBatch() { autoBatchEnabled = false; }
+  function isAutoBatchEnabled() { return autoBatchEnabled; }
+
+  function flushPendingEffects() {
+    let iterations = 0;
+    while (pendingEffects.size > 0) {
+      if (++iterations > MAX_UPDATE_DEPTH) {
+        pendingEffects.clear();
+        effectsQueue.length = 0;
+        const msg = `[Breeze] Maximum recursive update depth (${MAX_UPDATE_DEPTH}) exceeded. Detected a potential infinite reactivity loop in effect or watcher.`;
+        reportError(new Error(msg), 'batch');
+        break;
+      }
+      effectsQueue.length = 0;
+      for (const eff of pendingEffects) effectsQueue.push(eff);
+      pendingEffects.clear();
+      for (let i = 0; i < effectsQueue.length; i++) {
+        try {
+          effectsQueue[i]();
+        } catch (err) {
+          reportError(err, 'effect');
+        }
+      }
+      effectsQueue.length = 0;
+    }
+    autoBatchFlushScheduled = false;
+  }
+
+  function scheduleAutoBatchFlush() {
+    if (autoBatchFlushScheduled) return;
+    autoBatchFlushScheduled = true;
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(flushPendingEffects);
+    } else {
+      Promise.resolve().then(flushPendingEffects);
+    }
+  }
+
   function batch(fn) {
     batchDepth++;
     try {
@@ -227,29 +272,17 @@
     } finally {
       batchDepth--;
       if (batchDepth === 0) {
-        let iterations = 0;
-        while (pendingEffects.size > 0) {
-          if (++iterations > MAX_UPDATE_DEPTH) {
-            pendingEffects.clear();
-            effectsQueue.length = 0;
-            const msg = `[Breeze] Maximum recursive update depth (${MAX_UPDATE_DEPTH}) exceeded. Detected a potential infinite reactivity loop in effect or watcher.`;
-            reportError(new Error(msg), 'batch');
-            break;
-          }
-          effectsQueue.length = 0;
-          for (const eff of pendingEffects) effectsQueue.push(eff);
-          pendingEffects.clear();
-          for (let i = 0; i < effectsQueue.length; i++) {
-            try {
-              effectsQueue[i]();
-            } catch (err) {
-              reportError(err, 'effect');
-            }
-          }
-          effectsQueue.length = 0;
-        }
+        flushPendingEffects();
       }
     }
+  }
+
+  /**
+   * v2.3: Explicitly flush any pending auto-batched effects. Useful right
+   * before reading DOM state or after a sequence of writes when autoBatch is on.
+   */
+  function flushSync() {
+    flushPendingEffects();
   }
 
   // ── Reactive Graph Tracking & Diagnostics Helpers ───────────────────
@@ -337,6 +370,7 @@
     const subscribers = new Set();
     const id = 'sig_' + (++reactiveIdCounter);
     const nodeLabel = label || `signal_${id}`;
+    let disposed = false;
 
     if (_diagTracking) reactiveNodes.set(id, {
       id,
@@ -359,13 +393,46 @@
       }
     }
 
+    function notify() {
+      // v2.3 fast-paths: single subscriber (common) avoids Array.from alloc;
+      // batched multi-subscriber path batches without intermediate arrays.
+      if (batchDepth > 0 || autoBatchEnabled) {
+        for (const sub of subscribers) pendingEffects.add(sub);
+        if (autoBatchEnabled && batchDepth === 0) scheduleAutoBatchFlush();
+      } else if (subscribers.size === 1) {
+        for (const sub of subscribers) { sub(); break; }
+      } else if (subscribers.size === 2) {
+        let s1 = null, s2 = null;
+        for (const sub of subscribers) {
+          if (s1 === null) s1 = sub;
+          else { s2 = sub; break; }
+        }
+        if (s1) s1();
+        if (s2) s2();
+      } else if (subscribers.size > 2) {
+        const subs = [];
+        for (const s of subscribers) subs.push(s);
+        for (let i = 0; i < subs.length; i++) subs[i]();
+      }
+    }
+
     return {
       get value() {
+        if (disposed && typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Reading disposed signal "${nodeLabel}".`);
+        }
         track();
         return value;
       },
       set value(newValue) {
-        if (value !== newValue) {
+        if (disposed) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn(`[Breeze] Writing disposed signal "${nodeLabel}" — no-op.`);
+          }
+          return;
+        }
+        // v2.3: Object.is semantics for NaN/-0/+0 correctness.
+        if (!Object.is(value, newValue)) {
           value = newValue;
           Profiler.recordSignalUpdate();
           // Dev-only signal event: skip the per-update payload allocation +
@@ -373,31 +440,18 @@
           if (_diagTracking && typeof EventBus !== 'undefined' && EventBus.emit) {
             try { EventBus.emit('breeze:signal', { id, label: nodeLabel, value }); } catch (_) {}
           }
-          // v2 fast-paths: single subscriber (common) avoids Array.from alloc;
-          // batched multi-subscriber path batches without intermediate arrays.
-          if (batchDepth > 0) {
-            for (const sub of subscribers) pendingEffects.add(sub);
-          } else if (subscribers.size === 1) {
-            for (const sub of subscribers) { sub(); break; }
-          } else if (subscribers.size === 2) {
-            let s1 = null, s2 = null;
-            for (const sub of subscribers) {
-              if (s1 === null) s1 = sub;
-              else { s2 = sub; break; }
-            }
-            if (s1) s1();
-            if (s2) s2();
-          } else if (subscribers.size > 2) {
-            const subs = [];
-            for (const s of subscribers) subs.push(s);
-            for (let i = 0; i < subs.length; i++) subs[i]();
-          }
+          notify();
         }
       },
       peek() { return value; },
       subscribe(fn) {
         subscribers.add(fn);
         return () => subscribers.delete(fn);
+      },
+      dispose() {
+        disposed = true;
+        subscribers.clear();
+        if (_diagTracking) reactiveNodes.delete(id);
       },
       _subscribers: subscribers,
       _nodeId: id,
@@ -459,30 +513,36 @@
     let cachedValue;
     let dirty = true;
     let evaluating = false;
+    let disposed = false;
     const subscribers = new Set();
     const id = 'comp_' + (++reactiveIdCounter);
     const nodeLabel = label || `computed_${id}`;
 
+    function notify() {
+      if (batchDepth > 0 || autoBatchEnabled) {
+        for (const sub of subscribers) pendingEffects.add(sub);
+        if (autoBatchEnabled && batchDepth === 0) scheduleAutoBatchFlush();
+      } else if (subscribers.size === 1) {
+        for (const sub of subscribers) { sub(); break; }
+      } else if (subscribers.size === 2) {
+        let s1 = null, s2 = null;
+        for (const sub of subscribers) {
+          if (s1 === null) s1 = sub;
+          else { s2 = sub; break; }
+        }
+        if (s1) s1();
+        if (s2) s2();
+      } else if (subscribers.size > 2) {
+        const subs = [];
+        for (const s of subscribers) subs.push(s);
+        for (let i = 0; i < subs.length; i++) subs[i]();
+      }
+    }
+
     const runner = () => {
       if (!dirty) {
         dirty = true;
-        if (batchDepth > 0) {
-          for (const sub of subscribers) pendingEffects.add(sub);
-        } else if (subscribers.size === 1) {
-          for (const sub of subscribers) { sub(); break; }
-        } else if (subscribers.size === 2) {
-          let s1 = null, s2 = null;
-          for (const sub of subscribers) {
-            if (s1 === null) s1 = sub;
-            else { s2 = sub; break; }
-          }
-          if (s1) s1();
-          if (s2) s2();
-        } else if (subscribers.size > 2) {
-          const subs = [];
-          for (const s of subscribers) subs.push(s);
-          for (let i = 0; i < subs.length; i++) subs[i]();
-        }
+        notify();
       }
     };
     runner._sources = new Set();
@@ -501,6 +561,9 @@
 
     return {
       get value() {
+        if (disposed && typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Reading disposed computed "${nodeLabel}".`);
+        }
         if (evaluating) {
           const msg = `[Breeze] Cyclic computed dependency detected: a computed signal cannot depend on its own evaluation.`;
           reportError(new Error(msg), 'computed');
@@ -512,7 +575,9 @@
           activeEffect = runner;
           evaluating = true;
           try {
-            cachedValue = fn();
+            const next = fn();
+            // v2.3: Object.is semantics avoid spurious downstream updates.
+            if (!Object.is(cachedValue, next)) cachedValue = next;
             dirty = false;
           } catch (err) {
             reportError(err, 'computed');
@@ -537,7 +602,9 @@
         return () => subscribers.delete(fn);
       },
       dispose() {
+        disposed = true;
         detachRunner(runner);
+        subscribers.clear();
         reactiveNodes.delete(id);
       },
       _nodeId: id,
@@ -1308,7 +1375,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // SHARED CLASS MAP — single source of truth for Renderer.applyModifiers,
   // SSR parity and the static-row HTML fast path.
@@ -1456,7 +1522,6 @@
     }
     return [classes, attrs];
   }
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1686,7 +1751,6 @@
       offsetY
     };
   }
-
 
   const BZ_SEMANTIC_CLASS_MAP = {
     form: 'bz-form', input: 'bz-input', textarea: 'bz-textarea',
@@ -3938,7 +4002,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // ROUTER — Supporting Hash & HTML5 History Mode with Route Params
   // ═══════════════════════════════════════════════════════════════════════
@@ -4232,7 +4295,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // COMPONENTS & LIFECYCLE
   // ═══════════════════════════════════════════════════════════════════════
@@ -4311,7 +4373,6 @@
       return null;
     }
   };
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4498,7 +4559,6 @@
       return (typeof fallback === 'function') ? fallback(e) : fallback;
     }
   }
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4859,7 +4919,6 @@
     return outParts.join('');
   }
 
-
   function hydrate(sourceOrAst, rootSelector) {
     rootSelector = rootSelector || '#app';
     const root = typeof rootSelector === 'string'
@@ -4982,7 +5041,6 @@
   }
 
 
-
   // ── Web Component Native Custom Element Interop ───────────────────
   function defineElement(tagName, template, options = {}) {
     if (typeof customElements === 'undefined') return;
@@ -5054,13 +5112,213 @@
     return BreezeCustomElement;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // ADAPTERS — Plug-and-play React/Vue interoperability layer (v2.3)
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Breeze v2.3 exposes a small, zero-dependency adapter surface that lets
+  // React and Vue components participate in Breeze's native Custom Element
+  // pipeline without wrapping every component by hand or sacrificing Breeze's
+  // fine-grained performance model.
+  //
+  // Design principles:
+  //   1. Framework components are mounted into real DOM nodes (shadow or light).
+  //   2. Attribute changes are forwarded as props; DOM events are forwarded as
+  //      Breeze events via the standard EventBus.
+  //   3. No framework code is bundled — adapters are thin bridges that expect
+  //      React/Vue/ReactDOM/Vue runtime to be provided by the host page.
+  //   4. Unmounting triggers proper framework teardown to avoid leaks.
 
+  const ADAPTER_REGISTRY = new Map();
+
+  function camelCase(str) {
+    return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  }
+
+  function parseAttributeValue(val) {
+    if (val === '') return true;
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    if (val === 'null') return null;
+    if (val === 'undefined') return undefined;
+    try { return JSON.parse(val); } catch (_) { return val; }
+  }
+
+  function propNamesFromOptions(options) {
+    const props = (options && options.props) || [];
+    if (Array.isArray(props)) return props;
+    return Object.keys(props);
+  }
+
+  function buildPropsFromAttributes(el, propList, options) {
+    const props = {};
+    const declared = (options && options.props) || {};
+    for (const name of propList) {
+      const attrName = name.replace(/[A-Z]/g, c => '-' + c.toLowerCase());
+      if (el.hasAttribute(attrName)) {
+        const raw = el.getAttribute(attrName);
+        props[name] = parseAttributeValue(raw);
+      } else if (declared[name] !== undefined) {
+        props[name] = declared[name];
+      }
+    }
+    return props;
+  }
+
+  function registerReactAdapter(tagName, ReactComponent, options) {
+    if (typeof window === 'undefined' || !window.React || !window.ReactDOM) {
+      throw new Error(
+        '[Breeze React Adapter] React and ReactDOM must be available on window. ' +
+        'Load them before calling Breeze.adapt.react().'
+      );
+    }
+    const React = window.React;
+    const ReactDOM = window.ReactDOM;
+    const propList = propNamesFromOptions(options);
+    const observedAttributes = propList.map(n => n.replace(/[A-Z]/g, c => '-' + c.toLowerCase()));
+
+    ADAPTER_REGISTRY.set(tagName, { framework: 'react', component: ReactComponent, options });
+
+    defineElement(tagName, '', {
+      observedAttributes,
+      shadow: !!(options && options.shadow),
+      initialState: {},
+      connected() {
+        const host = (options && options.shadow) ? this.shadowRoot || this.attachShadow({ mode: 'open' }) : this;
+        const props = buildPropsFromAttributes(this, propList, options);
+        this._bzReactRoot = host;
+        this._bzReactProps = props;
+        const element = React.createElement(ReactComponent, props);
+        this._bzReactRender = () => {
+          ReactDOM.render(React.createElement(ReactComponent, this._bzReactProps), host);
+        };
+        this._bzReactRender();
+      },
+      attributeChanged(name, oldValue, newValue) {
+        if (!this._bzReactProps) return;
+        const propName = camelCase(name);
+        if (!propList.includes(propName)) return;
+        this._bzReactProps[propName] = parseAttributeValue(newValue);
+        if (this._bzReactRender) this._bzReactRender();
+      },
+      disconnected() {
+        if (this._bzReactRoot && ReactDOM.unmountComponentAtNode) {
+          ReactDOM.unmountComponentAtNode(this._bzReactRoot);
+        }
+        this._bzReactRoot = null;
+        this._bzReactRender = null;
+        this._bzReactProps = null;
+      }
+    });
+
+    return tagName;
+  }
+
+  function registerVueAdapter(tagName, VueComponent, options) {
+    if (typeof window === 'undefined' || !window.Vue) {
+      throw new Error(
+        '[Breeze Vue Adapter] Vue must be available on window. ' +
+        'Load it before calling Breeze.adapt.vue().'
+      );
+    }
+    const Vue = window.Vue;
+    const propList = propNamesFromOptions(options);
+    const observedAttributes = propList.map(n => n.replace(/[A-Z]/g, c => '-' + c.toLowerCase()));
+
+    ADAPTER_REGISTRY.set(tagName, { framework: 'vue', component: VueComponent, options });
+
+    defineElement(tagName, '', {
+      observedAttributes,
+      shadow: !!(options && options.shadow),
+      initialState: {},
+      connected() {
+        const host = (options && options.shadow) ? this.shadowRoot || this.attachShadow({ mode: 'open' }) : this;
+        const props = buildPropsFromAttributes(this, propList, options);
+        this._bzVueHost = host;
+        this._bzVueProps = props;
+        const app = Vue.createApp ? Vue.createApp(VueComponent, props) : new Vue({ render: h => h(VueComponent, { props }) });
+        this._bzVueApp = app;
+        if (app.mount) {
+          app.mount(host);
+        } else {
+          app.$mount(host);
+        }
+      },
+      attributeChanged(name, oldValue, newValue) {
+        if (!this._bzVueApp) return;
+        const propName = camelCase(name);
+        if (!propList.includes(propName)) return;
+        const next = parseAttributeValue(newValue);
+        if (this._bzVueApp.props && this._bzVueApp.props[propName] !== undefined) {
+          this._bzVueApp.props[propName] = next;
+        } else if (this._bzVueApp.$props) {
+          this._bzVueApp.$props[propName] = next;
+        }
+      },
+      disconnected() {
+        if (this._bzVueApp) {
+          if (this._bzVueApp.unmount) this._bzVueApp.unmount();
+          else if (this._bzVueApp.$destroy) this._bzVueApp.$destroy();
+        }
+        this._bzVueApp = null;
+        this._bzVueHost = null;
+        this._bzVueProps = null;
+      }
+    });
+
+    return tagName;
+  }
+
+  function mountReact(ReactComponent, host, props) {
+    if (typeof window === 'undefined' || !window.React || !window.ReactDOM) {
+      throw new Error('[Breeze React Adapter] React and ReactDOM are required.');
+    }
+    window.ReactDOM.render(window.React.createElement(ReactComponent, props || {}), host);
+    return {
+      update(nextProps) {
+        window.ReactDOM.render(window.React.createElement(ReactComponent, nextProps || props || {}), host);
+      },
+      unmount() {
+        window.ReactDOM.unmountComponentAtNode(host);
+      }
+    };
+  }
+
+  function mountVue(VueComponent, host, props) {
+    if (typeof window === 'undefined' || !window.Vue) {
+      throw new Error('[Breeze Vue Adapter] Vue is required.');
+    }
+    const Vue = window.Vue;
+    const app = Vue.createApp ? Vue.createApp(VueComponent, props || {}) : new Vue({ render: h => h(VueComponent, { props: props || {} }) });
+    if (app.mount) app.mount(host);
+    else app.$mount(host);
+    return {
+      update(nextProps) {
+        if (app.props) Object.assign(app.props, nextProps || {});
+        else if (app.$props) Object.assign(app.$props, nextProps || {});
+      },
+      unmount() {
+        if (app.unmount) app.unmount();
+        else if (app.$destroy) app.$destroy();
+      }
+    };
+  }
+
+  const Adapters = {
+    react: registerReactAdapter,
+    vue: registerVueAdapter,
+    mountReact,
+    mountVue,
+    list() {
+      return Array.from(ADAPTER_REGISTRY.entries()).map(([tag, meta]) => ({ tag, framework: meta.framework }));
+    }
+  };
   // ═══════════════════════════════════════════════════════════════════════
   // PUBLIC API — The global `Breeze` object
   // ═══════════════════════════════════════════════════════════════════════
 
   const BreezeAPI = {
-    version: '2.2.0',
+    version: '2.3.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},
@@ -5101,6 +5359,23 @@
 
     batch(fn) {
       return batch(fn);
+    },
+
+    /**
+     * v2.3: Opt-in automatic microtask batching.
+     * When enabled, multiple synchronous signal writes are coalesced into a
+     * single microtask flush, cutting redundant effect/DOM work for multi-write
+     * updates. Use Breeze.flushSync() to force synchronous draining.
+     */
+    autoBatch(enable = true) {
+      if (enable) enableAutoBatch();
+      else disableAutoBatch();
+      return this;
+    },
+
+    flushSync() {
+      flushSync();
+      return this;
     },
 
     // ── Component & Lifecycle API ─────────────────────────────────────
@@ -5468,6 +5743,16 @@
     defineElement(tagName, template, options) {
       return defineElement(tagName, template, options);
     },
+
+    /**
+     * v2.3: Plug-and-play React/Vue interoperability.
+     * Adapters wrap framework components in native Custom Elements so they
+     * render anywhere Breeze renders (including inside .breeze templates) and
+     * participate in unmount/teardown without leaking. React/Vue runtimes must
+     * be present on window; Breeze does not bundle them.
+     */
+    adapt: Adapters,
+
     config: BreezeConfig,
     sanitizeUrl(url) { return sanitizeUrl(url); },
     reportError(err, context) { return reportError(err, context); },
