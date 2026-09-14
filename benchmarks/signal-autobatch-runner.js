@@ -31,67 +31,75 @@ function bench(name, fn, iterations = 100) {
   return { ms, median: parseFloat(median), p95: parseFloat(p95), min: parseFloat(min), max: parseFloat(max) };
 }
 
-console.log('\n⚡ Breeze v2.3 Signal & Auto-Batching Benchmark\n');
+function runSignalAutobatchBenchmark(iterations = 30) {
+  console.log('\n⚡ Breeze v2.3 Signal & Auto-Batching Benchmark\n');
 
-const n = 5000;
+  const n = 5000;
 
-// 1. Unbatched synchronous updates (baseline)
-const unbatched = bench('Unbatched signal updates (5k sets)', () => {
-  Breeze._resetForTests();
-  const a = Breeze.signal(0);
-  const b = Breeze.signal(0);
-  let runs = 0;
-  Breeze.effect(() => { const _ = a.value + b.value; runs++; });
-  for (let i = 0; i < n; i++) {
-    a.value = i;
-    b.value = i * 2;
-  }
-}, 30);
-
-// 2. Explicit batch()
-const explicitBatch = bench('Explicit batch() updates (5k pairs)', () => {
-  Breeze._resetForTests();
-  const a = Breeze.signal(0);
-  const b = Breeze.signal(0);
-  let runs = 0;
-  Breeze.effect(() => { const _ = a.value + b.value; runs++; });
-  for (let i = 0; i < n; i++) {
-    Breeze.batch(() => {
+  // 1. Unbatched synchronous updates (baseline)
+  const unbatched = bench('Unbatched signal updates (5k sets)', () => {
+    Breeze._resetForTests();
+    const a = Breeze.signal(0);
+    const b = Breeze.signal(0);
+    let runs = 0;
+    Breeze.effect(() => { const _ = a.value + b.value; runs++; });
+    for (let i = 0; i < n; i++) {
       a.value = i;
       b.value = i * 2;
-    });
-  }
-}, 30);
+    }
+  }, iterations);
 
-// 3. Auto batch
-const autoBatch = bench('AutoBatch() updates (5k pairs)', () => {
-  Breeze._resetForTests();
-  Breeze.autoBatch(true);
-  const a = Breeze.signal(0);
-  const b = Breeze.signal(0);
-  let runs = 0;
-  Breeze.effect(() => { const _ = a.value + b.value; runs++; });
-  for (let i = 0; i < n; i++) {
-    a.value = i;
-    b.value = i * 2;
-  }
-  Breeze.flushSync();
-  Breeze.autoBatch(false);
-}, 30);
+  // 2. Explicit batch()
+  const explicitBatch = bench('Explicit batch() updates (5k pairs)', () => {
+    Breeze._resetForTests();
+    const a = Breeze.signal(0);
+    const b = Breeze.signal(0);
+    let runs = 0;
+    Breeze.effect(() => { const _ = a.value + b.value; runs++; });
+    for (let i = 0; i < n; i++) {
+      Breeze.batch(() => {
+        a.value = i;
+        b.value = i * 2;
+      });
+    }
+  }, iterations);
 
-// 4. Signal creation + disposal throughput
-const disposal = bench('Signal create + dispose throughput (10k)', () => {
-  for (let i = 0; i < 10000; i++) {
-    const s = Breeze.signal(i);
-    s.dispose();
-  }
-}, 30);
+  // 3. Auto batch
+  const autoBatch = bench('AutoBatch() updates (5k pairs)', () => {
+    Breeze._resetForTests();
+    Breeze.autoBatch(true);
+    const a = Breeze.signal(0);
+    const b = Breeze.signal(0);
+    let runs = 0;
+    Breeze.effect(() => { const _ = a.value + b.value; runs++; });
+    for (let i = 0; i < n; i++) {
+      a.value = i;
+      b.value = i * 2;
+    }
+    Breeze.flushSync();
+    Breeze.autoBatch(false);
+  }, iterations);
 
-console.log('\n📊 Summary');
-console.log(`  Unbatched median:        ${unbatched.median} ms`);
-console.log(`  Explicit batch median:   ${explicitBatch.median} ms  (${(unbatched.median / explicitBatch.median).toFixed(2)}x faster)`);
-console.log(`  AutoBatch median:        ${autoBatch.median} ms  (${(unbatched.median / autoBatch.median).toFixed(2)}x faster)`);
+  // 4. Signal creation + disposal throughput
+  const disposal = bench('Signal create + dispose throughput (10k)', () => {
+    for (let i = 0; i < 10000; i++) {
+      const s = Breeze.signal(i);
+      s.dispose();
+    }
+  }, iterations);
+
+  console.log('\n📊 Summary');
+  console.log(`  Unbatched median:        ${unbatched.median} ms`);
+  console.log(`  Explicit batch median:   ${explicitBatch.median} ms  (${(unbatched.median / explicitBatch.median).toFixed(2)}x faster)`);
+  console.log(`  AutoBatch median:        ${autoBatch.median} ms  (${(unbatched.median / autoBatch.median).toFixed(2)}x faster)`);
+
+  return { unbatched, explicitBatch, autoBatch, disposal };
+}
+
+if (require.main === module) {
+  runSignalAutobatchBenchmark();
+}
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { unbatched, explicitBatch, autoBatch, disposal };
+  module.exports = { runSignalAutobatchBenchmark };
 }
