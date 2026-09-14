@@ -12,7 +12,7 @@
 
 ## ✨ Features (v2.3.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, 46.71 KB gzipped (214.37 KB raw, 38.06 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.10 KB Brotli and React 19's 66.47 KB gzip / 56.92 KB Brotli (see [benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost))
+- 🚀 **Zero dependencies** — one `breeze.js` file, 48.87 KB gzipped (219.81 KB raw, 39.94 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.07 KB Brotli and React 19's 66.47 KB gzip / 56.87 KB Brotli (see [benchmark.md §1](benchmark.md#1-bundle-size--parse-cost))
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
 - 📦 **Per-Instance Scoped Stores (`createStore`)** — native Custom Elements and component trees receive isolated scoped stores (`this._store = createStore(initial)`), preventing multi-instance state collisions while preserving 100% global `State` compatibility
 - 🧹 **Zero-Leak Unmount Lifecycle (`unmount` + Auto-Disposal)** — watchers created for dynamic text, `@each`, `@if`, and two-way bindings auto-unsubscribe on element disconnect (`isConnected === false`); `Breeze.unmount()` cleanly tears down roots and fires destroy hooks
@@ -639,7 +639,7 @@ breeze serve dist 9000
 
 | Feature | Breeze v2.3 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size (gzip) | ~46 KB ([benchmark.md §1](benchmark.md#1-bundle-size--parse-cost)) | 66.47 KB | ~10 KB | 59.73 KB | 0 |
+| Bundle size (gzip) | 48.87 KB ([benchmark.md §1](benchmark.md#1-bundle-size--parse-cost)) | 66.47 KB | ~10 KB | 59.73 KB | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
 | Reactive state | ✅ Signals + ref/memo/dispose/batch/schedule | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
 | Client routing | ✅ (hash/history, `:id`/`:id?`/`*`, outlet, async guards, regex cache) | ✅ | ❌ | ❌ | ❌ |

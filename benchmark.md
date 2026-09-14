@@ -110,9 +110,14 @@ npm run bench:signals             # v2.3 signal & auto-batch benchmark
 npm run bench:build-scale         # multi-module compiler scaling
 npm run bench:build-perf          # CLI build performance
 
-# Browser-driven suites (require Chrome/Chromium)
+# Full orchestrated suite (requires Chrome/Chromium)
 CHROME_PATH=/usr/bin/google-chrome npm run bench:all
 ```
+
+In this environment `npm run bench:all` executed Suite 1 (bundle size) and
+Suite 2 (SSR throughput), then stopped at Suite 3 (DBMonster) because no
+Chrome/Chromium binary was found. All Node-only results below were collected
+with the individual commands above.
 
 `CHROME_PATH` (or `CHROME_BIN`) points every Chrome-based runner at your
 binary. Without it, `benchmarks/lib/chrome.js` searches common locations and
@@ -124,19 +129,25 @@ fails with install hints.
 
 ### 1. Bundle size & parse cost
 
-*Breeze ships as one dependency-free file. Sizes include the new v2.3 adapter
-layer and auto-batch scheduler.*
+`npm run bench:bundle` (also suite 1 of `npm run bench:all`).
 
-| Asset | Raw | Gzip (estimated) | Brotli (estimated) |
+| Framework | Raw | Gzip | Brotli | V8 parse |
+| :--- | ---: | ---: | ---: | ---: |
+| **Breeze Framework** | 219.81 KB | **48.87 KB** | **39.94 KB** | **0.053 ms** |
+| Preact 10 (core) | 11.17 KB | 4.79 KB | 4.36 KB | 0.009 ms |
+| Vue 3 (prod global) | 163.61 KB | 59.73 KB | 53.07 KB | 0.089 ms |
+| React 19 + ReactDOM 19 | 214.32 KB | 66.47 KB | 56.87 KB | 0.080 ms |
+
+| Asset | Raw | Gzip | Brotli |
 | :--- | ---: | ---: | ---: |
-| `breeze.js` | 213.1 KB | ~46 KB | ~38 KB |
+| `breeze.js` (measured) | 219.81 KB | 48.87 KB | 39.94 KB |
 | `breeze.css` | 33.9 KB | ~7 KB | ~6 KB |
 | Full rendered HTML (`example.breeze`) | 3.4 KB | — | — |
 
 The v2.3 additions (adapter bridges + scheduler + `dispose()`) add
-approximately **+8 KB raw** versus v2.2 while keeping the gzipped payload
-competitive with previous releases and still smaller than React 19 / Vue 3
-production builds.
+approximately **+8 KB raw / ~4 KB gzip** versus v2.2. Breeze remains smaller
+compressed than React 19 and Vue 3 production builds while delivering an
+integrated compiler, router, HTTP client, design system, and adapter layer.
 
 ### 2. Server-side rendering throughput
 
