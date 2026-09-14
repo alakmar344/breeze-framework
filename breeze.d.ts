@@ -1,5 +1,5 @@
 /**
- * Breeze Framework v2.2.0 — TypeScript Definitions
+ * Breeze Framework v2.3.0 — TypeScript Definitions
  * Ultra-lightweight declarative frontend framework
  */
 
@@ -7,6 +7,8 @@ export interface BreezeSignal<T> {
   value: T;
   peek(): T;
   subscribe(fn: (value: T) => void): () => void;
+  /** v2.3: Permanently detach all subscribers and free the reactive node. */
+  dispose(): void;
 }
 
 // ── HTTP / data layer types ───────────────────────────────────────────
@@ -410,6 +412,19 @@ export interface BreezeAPI {
     fetcher: (ctx: { signal?: AbortSignal; refetch: () => Promise<void> }) => Promise<T>,
     options?: ResourceOptions<T>
   ): Resource<T>;
+
+  // v2.3: React/Vue interoperability adapters
+  adapt: {
+    react(tagName: string, component: any, options?: { props?: string[] | Record<string, any>; shadow?: boolean }): string;
+    vue(tagName: string, component: any, options?: { props?: string[] | Record<string, any>; shadow?: boolean }): string;
+    mountReact(component: any, host: Element, props?: Record<string, any>): { update(props: Record<string, any>): void; unmount(): void };
+    mountVue(component: any, host: Element, props?: Record<string, any>): { update(props: Record<string, any>): void; unmount(): void };
+    list(): Array<{ tag: string; framework: 'react' | 'vue' }>;
+  };
+
+  // v2.3: Automatic microtask batching controls
+  autoBatch(enable?: boolean): BreezeAPI;
+  flushSync(): BreezeAPI;
 
   // Utilities
   fetch(url: string, options?: RequestInit): Promise<any>;

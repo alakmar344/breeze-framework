@@ -1,6 +1,6 @@
 import { Profiler, DevToolsHUD } from './profiler.js';
 import { BreezeConfig, reportError, sanitizeUrl } from './config.js';
-import { batch, reactiveIdCounter, reactiveNodes, _diagTracking, enableDiagTracking, safeSerializeValue, detectGraphCycles, signal, computed, effect } from './reactive.js';
+import { batch, reactiveIdCounter, reactiveNodes, _diagTracking, enableDiagTracking, safeSerializeValue, detectGraphCycles, signal, computed, effect, enableAutoBatch, disableAutoBatch, flushSync } from './reactive.js';
 import { Parser } from './parser.js';
 import { State, createStore } from './state.js';
 import { calculateVirtualWindow } from './virtual-list.js';
@@ -11,13 +11,14 @@ import { Context, Refs, Scheduler, I18n, Forms, A11y, Directives, codeframe, sus
 import { renderToString } from './ssr.js';
 import { hydrate } from './hydration.js';
 import { defineElement } from './webcomponents.js';
+import { Adapters } from './adapters.js';
 
   // ═══════════════════════════════════════════════════════════════════════
   // PUBLIC API — The global `Breeze` object
   // ═══════════════════════════════════════════════════════════════════════
 
   export const BreezeAPI = {
-    version: '2.2.0',
+    version: '2.3.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},
@@ -58,6 +59,23 @@ import { defineElement } from './webcomponents.js';
 
     batch(fn) {
       return batch(fn);
+    },
+
+    /**
+     * v2.3: Opt-in automatic microtask batching.
+     * When enabled, multiple synchronous signal writes are coalesced into a
+     * single microtask flush, cutting redundant effect/DOM work for multi-write
+     * updates. Use Breeze.flushSync() to force synchronous draining.
+     */
+    autoBatch(enable = true) {
+      if (enable) enableAutoBatch();
+      else disableAutoBatch();
+      return this;
+    },
+
+    flushSync() {
+      flushSync();
+      return this;
     },
 
     // ── Component & Lifecycle API ─────────────────────────────────────
@@ -425,6 +443,16 @@ import { defineElement } from './webcomponents.js';
     defineElement(tagName, template, options) {
       return defineElement(tagName, template, options);
     },
+
+    /**
+     * v2.3: Plug-and-play React/Vue interoperability.
+     * Adapters wrap framework components in native Custom Elements so they
+     * render anywhere Breeze renders (including inside .breeze templates) and
+     * participate in unmount/teardown without leaking. React/Vue runtimes must
+     * be present on window; Breeze does not bundle them.
+     */
+    adapt: Adapters,
+
     config: BreezeConfig,
     sanitizeUrl(url) { return sanitizeUrl(url); },
     reportError(err, context) { return reportError(err, context); },
