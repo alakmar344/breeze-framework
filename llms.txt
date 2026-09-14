@@ -1,5 +1,5 @@
 # Breeze Framework
-> The ultra-lightweight declarative web framework (44.49 KB gzip, zero dependencies — see benchmark.md §1).
+> The ultra-lightweight declarative web framework (v2.3.0, ~46 KB gzip, zero dependencies — see benchmark.md).
 
 Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. It provides declarative indentation-based markup, fine-grained reactive state bindings, client-side hash routing, an extensible plugin API, and a built-in design system without requiring npm packages or complex compilation pipelines.
 
@@ -32,3 +32,6 @@ Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. 
   - HTML Attributes: `[type=text, placeholder="Search..."]`
   - Event Actions: `[@click -> increment(count)]`, `[@click -> navigate(#target)]`, `[@click -> push(todos, "New Task")]`
 - **Web Components**: `Breeze.defineElement('tag-name', template, options)` for drop-in zero-build adoption in React, Vue, Angular, or raw HTML.
+- **React/Vue Adapters (v2.3)**: `Breeze.adapt.react('tag-name', ReactComponent, { props: ['count'] })` and `Breeze.adapt.vue('tag-name', VueComponent, { props: ['label'] })` wrap framework components as native Custom Elements without bundling their runtimes.
+- **Auto-Batching (v2.3)**: `Breeze.autoBatch(true)` coalesces multiple synchronous signal writes into one microtask flush; `Breeze.flushSync()` drains immediately.
+- **Signal Disposal (v2.3)**: `signal.dispose()` and `computed.dispose()` permanently detach subscribers for deterministic cleanup.

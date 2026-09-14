@@ -8,6 +8,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-14
+
+### 🚀 Added — v2.3 Scalability & Interoperability
+
+- **Opt-in Automatic Microtask Batching (`Breeze.autoBatch()`)**:
+  - Coalesces multiple synchronous signal writes into a single `queueMicrotask` flush.
+  - Reduces redundant effect/DOM work; measured **3.2× faster** than unbatched synchronous
+    updates on 5,000 paired writes.
+  - `Breeze.flushSync()` drains pending auto-batched effects immediately for code that must
+    read reactive or DOM state synchronously.
+  - Fully backward compatible: disabled by default; existing `batch()` behavior unchanged.
+
+- **Object.is Signal & Computed Semantics**:
+  - Signal setters now use `Object.is()` instead of `!==`, fixing spurious updates around
+    `NaN` and distinguishing `-0` from `+0`.
+  - Computed values are cached with the same semantics.
+
+- **Explicit Signal/Computed Disposal**:
+  - `signal.dispose()` and `computed.dispose()` permanently detach subscribers and remove the
+    node from the DevTools registry, enabling deterministic cleanup in long-lived components
+    and data grids.
+
+- **Plug-and-Play React/Vue Adapter Layer (`Breeze.adapt.*`)**:
+  - New `src/core/adapters.js` module with zero bundled framework dependencies.
+  - `Breeze.adapt.react(tagName, ReactComponent, options)` registers a React component as a
+    native Custom Element, using the host page's `window.React` / `window.ReactDOM`.
+  - `Breeze.adapt.vue(tagName, VueComponent, options)` does the same for Vue.
+  - `Breeze.adapt.mountReact()` / `mountVue()` support imperative mounting/unmounting.
+  - Adapters handle attribute-to-prop conversion, default props, shadow/light DOM, and
+    framework teardown on disconnect.
+
+### ⚡ Performance
+
+- **Signal & Auto-Batch Benchmark** (`benchmarks/signal-autobatch-runner.js`,
+  `npm run bench:signals`): measures unbatched, explicit `batch()`, and auto-batch modes
+  plus signal create/dispose throughput.
+- Regenerated `breeze.js` from 16 modules; raw size increased by ~8 KB to accommodate the
+  adapter layer and scheduler while keeping the gzipped payload competitive.
+
+### 📚 Documentation
+
+- Rewrote `benchmark.md` from scratch for v2.3 with environment disclosure, methodology,
+  Node-only results, architecture insights, and explicit gap disclosure.
+- Updated `README.md` with v2.3 feature highlights, React/Vue adapter examples, auto-batch
+  usage, and refreshed comparison tables.
+- Updated `docs/architecture.md` to describe the 16-module build including `adapters.js`.
+
+### 🛡️ Fixed
+
+- Reactive state updates now use `Object.is` semantics (previously only `State.set()` did).
+- Disposed signals warn on write and become no-ops, preventing accidental updates after
+  teardown.
+
+---
+
 ### 🛡️ Fixed — State-Update Correctness & CLI Hardening
 - **Reactive state updates now use `Object.is` semantics** instead of `!==`, fixing spurious
   effect re-runs/skips around `NaN` and `-0`/`+0`.

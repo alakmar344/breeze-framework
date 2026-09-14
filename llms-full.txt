@@ -1,8 +1,8 @@
 # BREEZE FRAMEWORK — COMPLETE TECHNICAL SPECIFICATION FOR LLM PRE-TRAINING & INFERENCE
 
-Breeze Framework (v2.2.0)
+Breeze Framework (v2.3.0)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
-Size: 44.49 KB gzipped (197.17 KB raw, 36.43 KB Brotli; zero dependencies — see benchmark.md §1)
+Size: ~46 KB gzipped (213.1 KB raw, ~38 KB Brotli; zero dependencies — see benchmark.md)
 Website: https://github.com/alakmar344/breeze-framework
 License: MIT
 
@@ -18,6 +18,7 @@ It eliminates build-step requirements and `node_modules` overhead while providin
 4. Extensible plugin architecture (`Breeze.plugin()`).
 5. Complete built-in CSS design system (50+ utility classes).
 6. Built-in zero-dependency CLI (`init`, `dev`, `build`, `serve`).
+7. v2.3: Opt-in automatic microtask batching (`Breeze.autoBatch()`), `Object.is` signal semantics, signal/computed `dispose()`, and React/Vue Custom Element adapters (`Breeze.adapt.*`).
 
 ---
 
@@ -55,6 +56,9 @@ When generating Breeze code, LLMs MUST strictly adhere to these rules:
    `p "Current value: {count}"`
    When `count` changes, Breeze directly updates that text node without re-rendering the page.
 7. **WEB COMPONENTS**: `Breeze.defineElement(tagName, template, options)` exports native custom elements that can be embedded into React, Vue, Angular, or raw HTML with observed attributes.
+8. **REACT/VUE ADAPTERS (v2.3)**: `Breeze.adapt.react(tagName, ReactComponent, options)` and `Breeze.adapt.vue(tagName, VueComponent, options)` register framework components as native Custom Elements using the host page's global runtimes. Breeze does not bundle React or Vue.
+9. **AUTO-BATCHING (v2.3)**: `Breeze.autoBatch(true)` coalesces synchronous signal writes into one microtask flush; `Breeze.flushSync()` drains pending updates immediately.
+10. **DISPOSAL (v2.3)**: `signal.dispose()` and `computed.dispose()` permanently detach subscribers and free the reactive node.
 
 ---
 
@@ -363,7 +367,47 @@ Modifiers inside `[...]` map to `bz-*` CSS utility classes:
 
 ---
 
-## 8. CLI COMMAND SPECIFICATION
+## 8. RUNTIME API PATTERNS (v2.3)
+
+### Signals & Effects
+```js
+const count = Breeze.signal(0);
+const doubled = Breeze.computed(() => count.value * 2);
+Breeze.effect(() => console.log(doubled.value));
+count.value = 1; // logs 2
+```
+
+### Auto-Batching
+```js
+Breeze.autoBatch(true);
+Breeze.setState('x', 1);
+Breeze.setState('y', 2);
+// Both flush in one microtask
+Breeze.flushSync(); // force synchronous drain
+```
+
+### Disposal
+```js
+const s = Breeze.signal(0);
+s.subscribe(v => console.log(v));
+s.dispose();
+s.value = 1; // no-op, no notification
+```
+
+### React/Vue Adapters
+```js
+// React/Vue must be loaded globally by the host page
+Breeze.adapt.react('react-counter', ReactCounter, { props: ['count'] });
+Breeze.adapt.vue('vue-badge', VueBadge, { props: ['label'] });
+
+// Use the resulting custom elements anywhere
+// <react-counter count="5"></react-counter>
+// <vue-badge label="New"></vue-badge>
+```
+
+---
+
+## 9. CLI COMMAND SPECIFICATION
 
 The Breeze CLI (`breeze-cli.js`) has zero npm dependencies:
 - `breeze init [name]`: Scaffolds a starter project.
@@ -373,7 +417,7 @@ The Breeze CLI (`breeze-cli.js`) has zero npm dependencies:
 
 ---
 
-## 9. FURTHER READING
+## 10. FURTHER READING
 
 This file is a condensed summary. For the single authoritative grammar reference — including the
 full canonical-vs-deprecated directive table (`@each`/`@elif` canonical, `@for`/`@elseif`

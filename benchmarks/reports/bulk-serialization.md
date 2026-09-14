@@ -9,13 +9,13 @@ Static row templates inside `@each`/`@virtual each` are detected at compile-time
 
 ## Environment
 
-- **Date**: 2026-09-13T10:27:52.745Z
-- **OS**: Windows_NT 10.0.19045 (x64)
-- **CPU**: Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz — 4 logical cores
-- **RAM**: 3.9 GiB
-- **Power**: Battery (18% remaining)
-- **Node.js**: v24.18.0 (V8 13.6.233.17-node.50)
-- **Git commit**: 331f430 (dirty working tree)
+- **Date**: 2026-09-14T08:54:29.661Z
+- **OS**: Linux 6.8.0-124-generic (x64)
+- **CPU**: AMD EPYC 9254 24-Core Processor — 48 logical cores
+- **RAM**: 377.4 GiB
+- **Power**: AC / Desktop (or battery undetected)
+- **Node.js**: v22.23.1 (V8 12.4.254.21-node.56)
+- **Git commit**: 5c6f85c (dirty working tree)
 - **Environment**: Virtualization status could not be determined on this OS.
 
 ---
@@ -32,8 +32,8 @@ node benchmarks/bulk-serialization-runner.js
 
 | Row Template | Precompiled Chunk Serializer | Uncompiled AST Traversal | Speedup (median/median) |
 | :--- | :---: | :---: | :---: |
-| **3-column table row (10,000 rows)** | **18.58 ms** (p95 23, sd 1.74) | **181.69 ms** (p95 186.2, sd 4.13) | **9.8× faster** |
-| **Deeply nested component card (10,000 rows)** | **46.1 ms** (p95 48.02, sd 1.15) | **573.61 ms** (p95 600.52, sd 10.62) | **12.4× faster** |
+| **3-column table row (10,000 rows)** | **2.31 ms** (p95 5.69, sd 1.32) | **66.89 ms** (p95 75.47, sd 6.67) | **29× faster** |
+| **Deeply nested component card (10,000 rows)** | **6.18 ms** (p95 7.7, sd 0.88) | **141.86 ms** (p95 144.22, sd 4.35) | **23× faster** |
 
 ## Reading these numbers
 
@@ -42,4 +42,4 @@ node benchmarks/bulk-serialization-runner.js
 
 ---
 
-*Generated 2026-09-13T10:27:52.745Z at git commit `331f430` (dirty working tree — re-run after committing for a citable result).*
+*Generated 2026-09-14T08:54:29.661Z at git commit `5c6f85c` (dirty working tree — re-run after committing for a citable result).*
