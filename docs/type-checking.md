@@ -101,7 +101,7 @@ The static type checker inspects:
 When an undefined reference is detected, Breeze calculates the Levenshtein edit-distance against all valid paths in your schema and template state:
 
 ```text
-  🌊 Breeze Framework CLI v2.2.0
+  🌊 Breeze Framework CLI v2.3.0
   Ultra-lightweight declarative web framework
 
   ▸ Checking template types for app.breeze…
