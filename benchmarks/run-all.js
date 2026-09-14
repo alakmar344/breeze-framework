@@ -71,7 +71,7 @@ async function main() {
   };
 
   const BZ_RUNS = parseInt(process.env.BZ_BENCH_RUNS || '7', 10) || 7;
-  const COOLDOWN_MS = parseInt(process.env.BZ_COOLDOWN_MS || '2500', 10) || 2500;
+  const COOLDOWN_MS = parseInt(process.env.BZ_COOLDOWN_MS || '3000', 10) || 3000;
 
   async function coolDown(label) {
     if (global.gc) {
@@ -85,27 +85,27 @@ async function main() {
   }
 
   // 1. Bundle Size & Startup Benchmark
-  console.log('\n[Suite 1/16] Running Bundle & Startup Benchmark...');
+  console.log('\n[Suite 1/17] Running Bundle & Startup Benchmark...');
   consolidatedResults.bundle = runBundleBenchmark();
   await coolDown('Suite 1 (Bundle & Startup)');
 
   // 2. SSR Throughput Benchmark (2,000 passes)
-  console.log('\n[Suite 2/16] Running SSR Throughput Benchmark (2,000 passes)...');
+  console.log('\n[Suite 2/17] Running SSR Throughput Benchmark (2,000 passes)...');
   consolidatedResults.ssr = runSsrBenchmark(2000);
   await coolDown('Suite 2 (SSR Throughput)');
 
   // 3. DBMonster Frame-Callback Throughput Benchmark
-  console.log('\n[Suite 3/16] Running DBMonster Frame-Callback Throughput Benchmark...');
+  console.log('\n[Suite 3/17] Running DBMonster Frame-Callback Throughput Benchmark...');
   consolidatedResults.dbmonster = await runDbMonsterBenchmark();
   await coolDown('Suite 3 (DBMonster Throughput)');
 
   // 4. Krausest DOM Benchmark
-  console.log(`\n[Suite 4/16] Running Krausest DOM Benchmark (${BZ_RUNS} runs)...`);
+  console.log(`\n[Suite 4/17] Running Krausest DOM Benchmark (${BZ_RUNS} runs)...`);
   consolidatedResults.krausest = await runKrausestBenchmark();
   await coolDown('Suite 4 (Krausest DOM)');
 
   // 5. v2 comfort + perf micro-suites (node-only, 10 suites)
-  console.log('\n[Suite 5/16] Running v2 node benchmarks (10 suites)...');
+  console.log('\n[Suite 5/17] Running v2 node benchmarks (10 suites)...');
   const v2 = {};
   v2.mount10k = require('./mount-10k-runner.js').runMount10k();
   v2.update1row = require('./update-1-row-runner.js').runUpdate1Row();
@@ -122,66 +122,71 @@ async function main() {
   await coolDown('Suite 5 (v2 Node Micro-suites)');
 
   // 6. Page-load arrival (desktop + emulated mobile).
-  console.log('\n[Suite 6/16] Running page-load arrival benchmark...');
+  console.log('\n[Suite 6/17] Running page-load arrival benchmark...');
   consolidatedResults.pageLoad = await require('./page-load-runner.js').runPageLoad();
   await coolDown('Suite 6 (Page-Load Arrival)');
 
   // 7. Workload families (wide / deep / form).
-  console.log('\n[Suite 7/16] Running workload-families benchmark...');
+  console.log('\n[Suite 7/17] Running workload-families benchmark...');
   consolidatedResults.families = await require('./workload-families-runner.js').runWorkloadFamilies();
   await coolDown('Suite 7 (Workload Families)');
 
   // 8. Build performance (cold/warm/incremental scaling).
-  console.log('\n[Suite 8/16] Running build-performance benchmark...');
+  console.log('\n[Suite 8/17] Running build-performance benchmark...');
   consolidatedResults.buildPerf = await require('./build-perf-runner.js').runBuildPerf();
   await coolDown('Suite 8 (Build Performance)');
 
   // 9. TodoMVC Interactive Flow Benchmark (cross-framework, 7 runs)
-  console.log(`\n[Suite 9/16] Running TodoMVC Interactive Flow Benchmark (${BZ_RUNS} runs)...`);
+  console.log(`\n[Suite 9/17] Running TodoMVC Interactive Flow Benchmark (${BZ_RUNS} runs)...`);
   consolidatedResults.todomvc = await require('./todomvc-runner.js').runTodoMvcBenchmark(BZ_RUNS);
   await coolDown('Suite 9 (TodoMVC Interactive Flow)');
 
   // 10. 60 FPS Sustained Animation & Jank Stress Benchmark (150 frames)
-  console.log('\n[Suite 10/16] Running 60 FPS Animation & Jank Stress Benchmark (150 frames)...');
+  console.log('\n[Suite 10/17] Running 60 FPS Animation & Jank Stress Benchmark (150 frames)...');
   consolidatedResults.animation = await require('./animation-stress-runner.js').runAnimationStressBenchmark(150);
   await coolDown('Suite 10 (Animation & Jank Stress)');
 
   // 11. Multi-Cycle Memory Stress & Retained Heap Leak Benchmark (6 cycles x 25 updates)
-  console.log('\n[Suite 11/16] Running Multi-Cycle Memory Stress & Retained Heap Leak Benchmark (6 cycles)...');
+  console.log('\n[Suite 11/17] Running Multi-Cycle Memory Stress & Retained Heap Leak Benchmark (6 cycles)...');
   consolidatedResults.memoryLeak = await require('./memory-leak-runner.js').runMemoryLeakBenchmark(6, 25);
   await coolDown('Suite 11 (Memory Stress & Leak)');
 
   // 12. Enterprise Data Grid Benchmark (5,000 rows x 6 cols = 30,000 cells, 5 iterations)
-  console.log('\n[Suite 12/16] Running Enterprise Data Grid Benchmark (5 iterations)...');
+  console.log('\n[Suite 12/17] Running Enterprise Data Grid Benchmark (5 iterations)...');
   consolidatedResults.dataGrid = await require('./data-grid-runner.js').runDataGridBenchmark(5);
   await coolDown('Suite 12 (Enterprise Data Grid)');
 
   // 13. Scaled Multi-Module Compiler & Build Pipeline Benchmark (15 iterations)
-  console.log('\n[Suite 13/16] Running Scaled Multi-Module Compiler & Build Pipeline Benchmark (15 iterations)...');
+  console.log('\n[Suite 13/17] Running Scaled Multi-Module Compiler & Build Pipeline Benchmark (15 iterations)...');
   consolidatedResults.buildScale = require('./build-scale-runner.js').runBuildScaleBenchmark(15);
   await coolDown('Suite 13 (Build Scale Pipeline)');
 
   // 14. Bulk Serialization Benchmark (Precompiled Chunk Serializer vs AST Traversal on 10,000 items)
-  console.log('\n[Suite 14/16] Running Bulk Serialization Benchmark (10,000 items)...');
+  console.log('\n[Suite 14/17] Running Bulk Serialization Benchmark (10,000 items)...');
   consolidatedResults.bulkSerialization = require('./bulk-serialization-runner.js').runBulkSerializationBench(30, 10000, 7);
   await coolDown('Suite 14 (Bulk Serialization)');
 
   // 15. Parse Latency & Tokenizer Fast-Path Benchmark (2,000 lines)
-  console.log('\n[Suite 15/16] Running Parse Latency & Tokenizer Fast-Path Benchmark...');
+  console.log('\n[Suite 15/17] Running Parse Latency & Tokenizer Fast-Path Benchmark...');
   consolidatedResults.parseLatency = require('./parse-latency-runner.js').runParseBenchmark(30);
   await coolDown('Suite 15 (Parse Latency)');
 
   // 16. Zero-Dependency HTTP Layer Framework Overhead Benchmark
-  console.log('\n[Suite 16/16] Running Zero-Dependency HTTP Layer Benchmark...');
+  console.log('\n[Suite 16/17] Running Zero-Dependency HTTP Layer Benchmark...');
   consolidatedResults.httpLayer = await require('./http-layer-runner.js').main();
   await coolDown('Suite 16 (HTTP Layer)');
+
+  // 17. Signal & Auto-Batch Reactivity Benchmark
+  console.log('\n[Suite 17/17] Running Signal & Auto-Batch Reactivity Benchmark (30 iterations)...');
+  consolidatedResults.signals = require('./signal-autobatch-runner.js').runSignalAutobatchBenchmark(30);
+  await coolDown('Suite 17 (Signal & Auto-Batch Reactivity)');
 
   // Save consolidated results
   const resultsPath = path.join(__dirname, 'results.json');
   fs.writeFileSync(resultsPath, JSON.stringify(consolidatedResults, null, 2), 'utf8');
 
   console.log('\n════════════════════════════════════════════════════════════════');
-  console.log(`🎉 ALL 16 BENCHMARK SUITES COMPLETED SUCCESSFULLY!`);
+  console.log(`🎉 ALL 17 BENCHMARK SUITES COMPLETED SUCCESSFULLY!`);
   console.log(`Consolidated reproducible results written to:`);
   console.log(`  ${resultsPath}`);
   console.log('════════════════════════════════════════════════════════════════\n');

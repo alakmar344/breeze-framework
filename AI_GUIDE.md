@@ -10,7 +10,7 @@ If you are using Cursor, Claude, or ChatGPT to generate Breeze code, add this sn
 
 ```markdown
 You are an expert in Breeze Framework (v2.3.0).
-Breeze is an ultra-lightweight (44.49 KB gzip, zero dependencies — see benchmark.md §1) declarative web framework.
+Breeze is an ultra-lightweight (~48 KB gzip, 48.74 KB measured, zero dependencies — see benchmark.md §1) declarative web framework.
 
 CRITICAL SYNTAX RULES FOR .breeze FILES:
 1. NEVER emit closing tags (no </div>, </section>, </p>, </button>). Indentation establishes hierarchy.
