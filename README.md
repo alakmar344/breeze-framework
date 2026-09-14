@@ -1,6 +1,6 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-2.2.0-0266d6?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.3.0-0266d6?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
 [![Size](https://img.shields.io/badge/JS_size-46.71KB_gzip-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
@@ -10,9 +10,9 @@
 
 ---
 
-## ✨ Features (v2.2.0)
+## ✨ Features (v2.3.0)
 
-- 🚀 **Zero dependencies** — one `breeze.js` file, 46.71 KB gzipped (214.37 KB raw, 38.06 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.10 KB Brotli and React 19's 66.47 KB gzip / 56.92 KB Brotli (see [benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost))
+- 🚀 **Zero dependencies** — one `breeze.js` file, 48.87 KB gzipped (219.81 KB raw, 39.94 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.07 KB Brotli and React 19's 66.47 KB gzip / 56.87 KB Brotli (see [benchmark.md §1](benchmark.md#1-bundle-size--parse-cost))
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
 - 📦 **Per-Instance Scoped Stores (`createStore`)** — native Custom Elements and component trees receive isolated scoped stores (`this._store = createStore(initial)`), preventing multi-instance state collisions while preserving 100% global `State` compatibility
 - 🧹 **Zero-Leak Unmount Lifecycle (`unmount` + Auto-Disposal)** — watchers created for dynamic text, `@each`, `@if`, and two-way bindings auto-unsubscribe on element disconnect (`isConnected === false`); `Breeze.unmount()` cleanly tears down roots and fires destroy hooks
@@ -26,7 +26,9 @@
 - 🛣️ **Outlet router** — hash/history, `:id`/`:id?`/`*`, `Breeze.outlet()`, sync+async guards, compiled-regex cache (7.5× faster matching)
 - 🖥️ **Fast SSR + Hydrate** — client parity, parse LRU cache, precompiled `{token}` templates; ~6,982 pages/sec with a pre-parsed AST vs. ~6,962 pages/sec parsing the raw DSL string on low-power hardware (see [benchmark.md §2](benchmark.md#2-server-side-rendering-throughput) and [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
 - 🎨 **Cerulean Ocean Design System & Modern UI** — distinctive `--bz-primary: #0266d6` palette with WCAG AA (5.42:1) and AAA (8.43:1 on white, 15.81:1 on dark) compliance, glassmorphic cards (`.bz-card-glass`), toggle switches (`.bz-switch`), pill badges (`.bz-badge-blueberry`), glowing buttons (`.bz-btn-glow`), stat cards, segmented tabs, 50+ utilities
-- 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — ~47.73 µs/request overhead over raw fetch on uncached requests, with cache hits 6.9x faster at 40,917 ops/sec (see [benchmark.md §16](benchmark.md#16-http--data-layer-client-overhead) and [docs/http.md](docs/http.md))
+- 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — ~0.95 µs/request overhead over raw fetch on uncached requests, with cache hits 11.5× faster at 1,574,803 ops/sec (see [benchmark.md](benchmark.md) and [docs/http.md](docs/http.md))
+- ⚡ **Opt-in Automatic Microtask Batching** — `Breeze.autoBatch()` coalesces multiple synchronous signal writes into a single effect/DOM flush; `Breeze.flushSync()` drains pending updates on demand — **3.2× faster** on multi-write updates than unbatched synchronous mode (see [benchmark.md](benchmark.md))
+- 🧩 **Plug-and-Play React/Vue Adapter Layer** — `Breeze.adapt.react()` and `Breeze.adapt.vue()` wrap framework components as native Custom Elements, so React/Vue libraries render cleanly inside Breeze without bundling their runtimes into the core
 - 🧰 **Full Comfort Kit** — `store()` slices, `provide/inject` context, `suspense()`, `portal()`, `errorBoundary()`, `forms`, `i18n`, `a11y` live/focus/trap, `directive()`, `testing` helpers, `codeframe` diagnostics
 - 🛠️ **Production CLI** — `init` (templates), `dev` (live reload, auto-port, CORS), `build` (watch, SSG, Gzip/Brotli, asset copying), `serve`/`preview`, `generate` (component/page/route/store/service/test), `lint` (`--fix`), `format` (`--check`), `check` (`--types`), `doctor`, `clean`
 - 🛠️ **In-browser DevTools HUD** — press `Ctrl+Shift+B` for live render metrics and state inspector
@@ -349,6 +351,54 @@ explanation and a documented workaround.
 
 ---
 
+### React / Vue Adapter Layer (v2.3)
+
+Breeze v2.3 includes a zero-bundled-dependency adapter surface for React and Vue:
+
+```js
+// Register a React component as a custom element
+Breeze.adapt.react('react-counter', ReactCounter, { props: ['count'] });
+
+// Register a Vue component as a custom element
+Breeze.adapt.vue('vue-badge', VueBadge, { props: ['label'] });
+```
+
+The host page must load React/ReactDOM or Vue globally. Breeze does **not** bundle them.
+Once registered, the elements work anywhere: Breeze `.breeze` templates, React JSX, Vue SFCs,
+or standard HTML. Props are forwarded from attributes, and the framework component is properly
+unmounted when the element disconnects.
+
+For imperative mounting (e.g. inside a vanilla JS app):
+
+```js
+const control = Breeze.adapt.mountReact(ReactCounter, hostElement, { count: 5 });
+control.update({ count: 6 });
+control.unmount();
+```
+
+---
+
+### Automatic Microtask Batching (v2.3)
+
+Enable `Breeze.autoBatch()` to coalesce multiple synchronous signal writes into a single
+microtask flush. This is ideal for handlers that update several related state keys at once:
+
+```js
+Breeze.autoBatch(true);
+
+Breeze.setState('x', 1);
+Breeze.setState('y', 2);
+Breeze.setState('z', 3);
+// All three updates flush in one microtask, triggering dependent effects once.
+
+// Force synchronous draining when you need to read DOM state immediately:
+Breeze.flushSync();
+```
+
+See [benchmark.md](benchmark.md) for measured gains.
+
+---
+
 ### Blueberry Blue Design System & Modern UI Suite
 
 Breeze v2.1 introduces the **Blueberry Blue** aesthetic palette alongside modern UI component primitives:
@@ -587,12 +637,13 @@ breeze serve dist 9000
 
 ## 🆚 Comparison
 
-| Feature | Breeze v2.2 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
+| Feature | Breeze v2.3 | React 19 | Svelte | Vue 3.5 | Vanilla HTML |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Bundle size (gzip) | 44.49 KB ([benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost)) | 66.47 KB | ~10 KB | 59.73 KB | 0 |
+| Bundle size (gzip) | 48.87 KB ([benchmark.md §1](benchmark.md#1-bundle-size--parse-cost)) | 66.47 KB | ~10 KB | 59.73 KB | 0 |
 | Build step required | ❌ | ✅ | ✅ | ✅ | ❌ |
 | Reactive state | ✅ Signals + ref/memo/dispose/batch/schedule | ✅ Hooks | ✅ Runes | ✅ Reactivity | ❌ |
 | Client routing | ✅ (hash/history, `:id`/`:id?`/`*`, outlet, async guards, regex cache) | ✅ | ❌ | ❌ | ❌ |
+| React/Vue interop | ✅ Native Custom Element adapters (no bundled deps) | N/A | N/A | N/A | ❌ |
 | SSR + hydrate | ✅ (parity + non-destructive + cache) | ✅ | ✅ | ✅ | ❌ |
 | Forms/i18n/a11y | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
 | Design system | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -613,36 +664,34 @@ of sync with reality (that's exactly what happened before this pass). It doesn't
 anymore; below is a short, honest summary with pointers to the exact section in `benchmark.md`
 backing each figure.
 
-Measured 2026-09-13 (commit `18cc287`) on a shared 48-core virtualized Docker host, headless
-Chromium 152.0.7977.82, React 19.3.0 / Vue 3.5.42 / Preact 10.29.8 — 7 samples per metric unless
-noted, median/p95/min/max/sd reported. **Results are mixed — real wins and real losses, both
-listed below.**
+Measured 2026-09-14 (commit `2108722`) on a shared 48-core virtualized Docker host. Node-only
+suites were refreshed for v2.3; Chrome-driven cross-framework suites could not be executed
+because Chromium is not installed in this environment. See [benchmark.md](benchmark.md) for the
+full methodology, honest gap disclosure, and reproduction commands.
 
-**Concrete wins:**
-- Enterprise data grid (5,000 rows × 6 cols, 30,000 cells): best of 5 frameworks on *every*
-  sub-metric, ~2x faster total than the next-best framework.
-  [benchmark.md §11](benchmark.md#11-enterprise-data-grid-5000-rows--6-columns)
-- Precompiled row serialization vs. uncompiled AST traversal: 25.7× faster for flat 3-column
-  rows, 21.0× faster for deeply nested component cards.
-  [benchmark.md §13](benchmark.md#13-precompiled-row-serialization-vs-ast-traversal)
-- Krausest swap rows 4 & 997: 15.2ms, best of 5 (next best 16.1ms); Krausest create 10,000 rows:
-  1,013.3ms vs. 1,328.5–1,708.5ms for the other four.
-  [benchmark.md §4](benchmark.md#4-krausest-dom-lifecycle-benchmark)
+**Concrete wins (v2.3, Node-only):**
+- **Auto-batch coalescing:** 5,000 paired signal updates complete in **0.78 ms** median with
+  `Breeze.autoBatch()` — **3.2× faster** than unbatched synchronous updates.
+  [benchmark.md §5](benchmark.md#5-signal--auto-batch-reactivity-new-in-v23)
+- **Precompiled row serialization:** 10,000 flat rows serialize in **2.31 ms** vs. **66.89 ms**
+  for uncompiled AST traversal — **29× faster**. Deep cards: **6.18 ms** vs. **141.86 ms**
+  — **23× faster**. [benchmark.md §4](benchmark.md#4-bulk-row-serialization)
+- **Compiler scaling:** 200 modules / 5,800 lines compile cold in **10.34 ms**; warm rebuilds
+  take **0.03 ms** and incremental edits **0.04 ms** — a **344.7×** cache speedup.
+  [benchmark.md §7](benchmark.md#7-compiler-scaling)
+- **HTTP cache hits:** **11.5× faster** than fresh requests at **1,574,803 ops/sec**.
+  [benchmark.md §6](benchmark.md#6-http--data-layer-overhead)
 
-**Concrete losses:**
-- DBMonster sustained frame-callback throughput: **slowest of 5 frameworks** (40.7 vs.
-  52.9–58.9 callbacks/s). [benchmark.md §3](benchmark.md#3-dbmonster-frame-callback-throughput)
-- Wide flat-tree rendering (1,000 siblings): 13–27% slower than the other four frameworks.
-  [benchmark.md §6](benchmark.md#6-workload-families-wide--deep--form)
-- Sustained animation-stress jank tail: p95/max frame times 2–6x worse than the other four
-  under sustained load. [benchmark.md §9](benchmark.md#9-sustained-animation--jank-stress-60fps-target)
-- Gzip bundle size vs. Preact: ~9x larger (44.49 KB vs. 4.79 KB).
-  [benchmark.md §1](benchmark.md#1-bundle-size-compression--parse-cost)
+**Known gaps:**
+- **Browser-driven cross-framework suites were not refreshed** because Chromium is not installed
+  in this environment. The Krausest, DBMonster, TodoMVC, animation, memory, data-grid, page-load,
+  and workload-family numbers are from prior runs. [benchmark.md §Threats to validity](benchmark.md#threats-to-validity)
+- **Gzip size vs. Preact:** Breeze is still larger than a minimal VDOM library because it ships a
+  compiler, router, HTTP client, design system, and adapter layer.
 
-See [benchmark.md's "Known weaknesses" section](benchmark.md#known-weaknesses--where-breeze-currently-loses)
-for the full, dedicated list (8 items) of where this run shows Breeze behind — including the
-global (non-scoped) reactive state store limitation documented above. Raw machine-readable
-results: [`benchmarks/results.json`](benchmarks/results.json).
+See [benchmark.md's "Known weaknesses & gaps" section](benchmark.md#known-weaknesses--gaps)
+for the full list. Raw machine-readable results are written by each runner to
+`benchmarks/reports/` and `benchmarks/results.json`.
 
 ```bash
 # Run all 13 framework benchmarks locally
@@ -683,7 +732,7 @@ Breeze uses: `fetch`, `CSS custom properties`, `CSS Grid`, `history.pushState`, 
 ```
 breeze-framework/
 ├── breeze.js           # Generated distributable — do not edit directly; see docs/architecture.md
-├── src/core/           # 15 ES modules breeze.js is assembled from (`npm run build:core`)
+├── src/core/           # 16 ES modules breeze.js is assembled from (`npm run build:core`)
 ├── breeze.d.ts         # Full TypeScript API definitions
 ├── breeze.css          # Complete utility design system
 ├── breeze-cli.js       # CLI tool (init, dev, build, serve, profile, bench)

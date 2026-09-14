@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*!
- * Breeze CLI v2.2.0
+ * Breeze CLI v2.3.0
  * Zero-dependency build tool, dev server, and toolkit for the Breeze Framework
  * MIT License
  */
@@ -16,7 +16,7 @@ const os   = require('os');
 const { performance } = require('perf_hooks');
 
 // Dynamically load framework version
-let VERSION = '2.2.0';
+let VERSION = '2.3.0';
 try {
   VERSION = require('./package.json').version;
 } catch (_) {}

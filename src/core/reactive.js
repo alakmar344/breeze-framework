@@ -11,6 +11,52 @@ import { reportError } from './config.js';
   const pendingEffects = new Set();
   const effectsQueue = [];
 
+  // v2.3: Opt-in automatic microtask batching. When enabled, signal writes
+  // outside an explicit batch() are coalesced into a single microtask flush,
+  // dramatically reducing redundant effect/DOM work for multi-write updates
+  // while preserving synchronous semantics inside batch().
+  let autoBatchEnabled = false;
+  let autoBatchFlushScheduled = false;
+
+  export function enableAutoBatch() { autoBatchEnabled = true; }
+  export function disableAutoBatch() { autoBatchEnabled = false; }
+  export function isAutoBatchEnabled() { return autoBatchEnabled; }
+
+  function flushPendingEffects() {
+    let iterations = 0;
+    while (pendingEffects.size > 0) {
+      if (++iterations > MAX_UPDATE_DEPTH) {
+        pendingEffects.clear();
+        effectsQueue.length = 0;
+        const msg = `[Breeze] Maximum recursive update depth (${MAX_UPDATE_DEPTH}) exceeded. Detected a potential infinite reactivity loop in effect or watcher.`;
+        reportError(new Error(msg), 'batch');
+        break;
+      }
+      effectsQueue.length = 0;
+      for (const eff of pendingEffects) effectsQueue.push(eff);
+      pendingEffects.clear();
+      for (let i = 0; i < effectsQueue.length; i++) {
+        try {
+          effectsQueue[i]();
+        } catch (err) {
+          reportError(err, 'effect');
+        }
+      }
+      effectsQueue.length = 0;
+    }
+    autoBatchFlushScheduled = false;
+  }
+
+  function scheduleAutoBatchFlush() {
+    if (autoBatchFlushScheduled) return;
+    autoBatchFlushScheduled = true;
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(flushPendingEffects);
+    } else {
+      Promise.resolve().then(flushPendingEffects);
+    }
+  }
+
   export function batch(fn) {
     batchDepth++;
     try {
@@ -18,29 +64,17 @@ import { reportError } from './config.js';
     } finally {
       batchDepth--;
       if (batchDepth === 0) {
-        let iterations = 0;
-        while (pendingEffects.size > 0) {
-          if (++iterations > MAX_UPDATE_DEPTH) {
-            pendingEffects.clear();
-            effectsQueue.length = 0;
-            const msg = `[Breeze] Maximum recursive update depth (${MAX_UPDATE_DEPTH}) exceeded. Detected a potential infinite reactivity loop in effect or watcher.`;
-            reportError(new Error(msg), 'batch');
-            break;
-          }
-          effectsQueue.length = 0;
-          for (const eff of pendingEffects) effectsQueue.push(eff);
-          pendingEffects.clear();
-          for (let i = 0; i < effectsQueue.length; i++) {
-            try {
-              effectsQueue[i]();
-            } catch (err) {
-              reportError(err, 'effect');
-            }
-          }
-          effectsQueue.length = 0;
-        }
+        flushPendingEffects();
       }
     }
+  }
+
+  /**
+   * v2.3: Explicitly flush any pending auto-batched effects. Useful right
+   * before reading DOM state or after a sequence of writes when autoBatch is on.
+   */
+  export function flushSync() {
+    flushPendingEffects();
   }
 
   // ── Reactive Graph Tracking & Diagnostics Helpers ───────────────────
@@ -128,6 +162,7 @@ import { reportError } from './config.js';
     const subscribers = new Set();
     const id = 'sig_' + (++reactiveIdCounter);
     const nodeLabel = label || `signal_${id}`;
+    let disposed = false;
 
     if (_diagTracking) reactiveNodes.set(id, {
       id,
@@ -150,13 +185,46 @@ import { reportError } from './config.js';
       }
     }
 
+    function notify() {
+      // v2.3 fast-paths: single subscriber (common) avoids Array.from alloc;
+      // batched multi-subscriber path batches without intermediate arrays.
+      if (batchDepth > 0 || autoBatchEnabled) {
+        for (const sub of subscribers) pendingEffects.add(sub);
+        if (autoBatchEnabled && batchDepth === 0) scheduleAutoBatchFlush();
+      } else if (subscribers.size === 1) {
+        for (const sub of subscribers) { sub(); break; }
+      } else if (subscribers.size === 2) {
+        let s1 = null, s2 = null;
+        for (const sub of subscribers) {
+          if (s1 === null) s1 = sub;
+          else { s2 = sub; break; }
+        }
+        if (s1) s1();
+        if (s2) s2();
+      } else if (subscribers.size > 2) {
+        const subs = [];
+        for (const s of subscribers) subs.push(s);
+        for (let i = 0; i < subs.length; i++) subs[i]();
+      }
+    }
+
     return {
       get value() {
+        if (disposed && typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Reading disposed signal "${nodeLabel}".`);
+        }
         track();
         return value;
       },
       set value(newValue) {
-        if (value !== newValue) {
+        if (disposed) {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn(`[Breeze] Writing disposed signal "${nodeLabel}" — no-op.`);
+          }
+          return;
+        }
+        // v2.3: Object.is semantics for NaN/-0/+0 correctness.
+        if (!Object.is(value, newValue)) {
           value = newValue;
           Profiler.recordSignalUpdate();
           // Dev-only signal event: skip the per-update payload allocation +
@@ -164,31 +232,18 @@ import { reportError } from './config.js';
           if (_diagTracking && typeof EventBus !== 'undefined' && EventBus.emit) {
             try { EventBus.emit('breeze:signal', { id, label: nodeLabel, value }); } catch (_) {}
           }
-          // v2 fast-paths: single subscriber (common) avoids Array.from alloc;
-          // batched multi-subscriber path batches without intermediate arrays.
-          if (batchDepth > 0) {
-            for (const sub of subscribers) pendingEffects.add(sub);
-          } else if (subscribers.size === 1) {
-            for (const sub of subscribers) { sub(); break; }
-          } else if (subscribers.size === 2) {
-            let s1 = null, s2 = null;
-            for (const sub of subscribers) {
-              if (s1 === null) s1 = sub;
-              else { s2 = sub; break; }
-            }
-            if (s1) s1();
-            if (s2) s2();
-          } else if (subscribers.size > 2) {
-            const subs = [];
-            for (const s of subscribers) subs.push(s);
-            for (let i = 0; i < subs.length; i++) subs[i]();
-          }
+          notify();
         }
       },
       peek() { return value; },
       subscribe(fn) {
         subscribers.add(fn);
         return () => subscribers.delete(fn);
+      },
+      dispose() {
+        disposed = true;
+        subscribers.clear();
+        if (_diagTracking) reactiveNodes.delete(id);
       },
       _subscribers: subscribers,
       _nodeId: id,
@@ -250,30 +305,36 @@ import { reportError } from './config.js';
     let cachedValue;
     let dirty = true;
     let evaluating = false;
+    let disposed = false;
     const subscribers = new Set();
     const id = 'comp_' + (++reactiveIdCounter);
     const nodeLabel = label || `computed_${id}`;
 
+    function notify() {
+      if (batchDepth > 0 || autoBatchEnabled) {
+        for (const sub of subscribers) pendingEffects.add(sub);
+        if (autoBatchEnabled && batchDepth === 0) scheduleAutoBatchFlush();
+      } else if (subscribers.size === 1) {
+        for (const sub of subscribers) { sub(); break; }
+      } else if (subscribers.size === 2) {
+        let s1 = null, s2 = null;
+        for (const sub of subscribers) {
+          if (s1 === null) s1 = sub;
+          else { s2 = sub; break; }
+        }
+        if (s1) s1();
+        if (s2) s2();
+      } else if (subscribers.size > 2) {
+        const subs = [];
+        for (const s of subscribers) subs.push(s);
+        for (let i = 0; i < subs.length; i++) subs[i]();
+      }
+    }
+
     const runner = () => {
       if (!dirty) {
         dirty = true;
-        if (batchDepth > 0) {
-          for (const sub of subscribers) pendingEffects.add(sub);
-        } else if (subscribers.size === 1) {
-          for (const sub of subscribers) { sub(); break; }
-        } else if (subscribers.size === 2) {
-          let s1 = null, s2 = null;
-          for (const sub of subscribers) {
-            if (s1 === null) s1 = sub;
-            else { s2 = sub; break; }
-          }
-          if (s1) s1();
-          if (s2) s2();
-        } else if (subscribers.size > 2) {
-          const subs = [];
-          for (const s of subscribers) subs.push(s);
-          for (let i = 0; i < subs.length; i++) subs[i]();
-        }
+        notify();
       }
     };
     runner._sources = new Set();
@@ -292,6 +353,9 @@ import { reportError } from './config.js';
 
     return {
       get value() {
+        if (disposed && typeof console !== 'undefined' && console.warn) {
+          console.warn(`[Breeze] Reading disposed computed "${nodeLabel}".`);
+        }
         if (evaluating) {
           const msg = `[Breeze] Cyclic computed dependency detected: a computed signal cannot depend on its own evaluation.`;
           reportError(new Error(msg), 'computed');
@@ -303,7 +367,9 @@ import { reportError } from './config.js';
           activeEffect = runner;
           evaluating = true;
           try {
-            cachedValue = fn();
+            const next = fn();
+            // v2.3: Object.is semantics avoid spurious downstream updates.
+            if (!Object.is(cachedValue, next)) cachedValue = next;
             dirty = false;
           } catch (err) {
             reportError(err, 'computed');
@@ -328,7 +394,9 @@ import { reportError } from './config.js';
         return () => subscribers.delete(fn);
       },
       dispose() {
+        disposed = true;
         detachRunner(runner);
+        subscribers.clear();
         reactiveNodes.delete(id);
       },
       _nodeId: id,

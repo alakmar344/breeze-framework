@@ -1070,15 +1070,15 @@ describe('Breeze Framework Core', () => {
     const fs = require('node:fs');
     const path = require('node:path');
     const dts = fs.readFileSync(path.join(__dirname, '..', 'breeze.d.ts'), 'utf8');
-    for (const api of ['store<', 'suspense<', 'portal(', 'errorBoundary', 'forms:', 'i18n:', 'directive(', 'tick()', 'selectRow', 'testing:']) {
+    for (const api of ['store<', 'suspense<', 'portal(', 'errorBoundary', 'forms:', 'i18n:', 'directive(', 'tick()', 'selectRow', 'testing:', 'adapt:', 'autoBatch', 'flushSync', 'dispose()']) {
       assert.ok(dts.includes(api), api);
     }
   });
 
-  it('v2: version is 2.2.0 across package + runtime', () => {
+  it('v2.3: version is 2.3.0 across package + runtime', () => {
     const pkg = require('../package.json');
-    assert.equal(pkg.version, '2.2.0');
-    assert.equal(Breeze.version, '2.2.0');
+    assert.equal(pkg.version, '2.3.0');
+    assert.equal(Breeze.version, '2.3.0');
   });
 
   it('v2: announce/focus are no-ops in Node (no document crash)', () => {
@@ -1332,6 +1332,87 @@ describe('Breeze Framework Core', () => {
       assert.equal(ok, true);
       assert.equal(tr.className, 'bz-todo-item completed');
       assert.equal(tr.children[0].firstChild.nodeValue, 'New');
+    });
+  });
+
+  describe('v2.3 Scalability & Interop', () => {
+    it('signal uses Object.is semantics (NaN and -0/+0)', () => {
+      const s = Breeze.signal(NaN);
+      let calls = 0;
+      Breeze.effect(() => { const _ = s.value; calls++; });
+      calls = 0;
+      s.value = NaN;
+      assert.equal(calls, 0, 'NaN equal to NaN should not trigger');
+      s.value = 0;
+      assert.equal(calls, 1);
+      s.value = -0;
+      assert.equal(calls, 2, '-0 and +0 are distinct under Object.is');
+    });
+
+    it('signal.dispose() stops notifications and cleans subscribers', () => {
+      const s = Breeze.signal(1);
+      let calls = 0;
+      s.subscribe(() => calls++);
+      s.value = 2;
+      assert.equal(calls, 1);
+      s.dispose();
+      s.value = 3;
+      assert.equal(calls, 1, 'disposed signal should not notify');
+      assert.equal(s._subscribers.size, 0, 'subscribers should be cleared');
+    });
+
+    it('computed caches value with Object.is semantics', () => {
+      const a = Breeze.signal(0);
+      const c = Breeze.computed(() => (a.value === 0 ? NaN : 1));
+      assert.ok(Number.isNaN(c.value));
+      a.value = -1;
+      assert.equal(c.value, 1);
+      a.value = -2; // still 1
+      // Verify cached value stays stable: reading again should still be 1
+      assert.equal(c.peek(), 1);
+    });
+
+    it('autoBatch coalesces multiple synchronous signal writes', async () => {
+      Breeze._resetForTests();
+      Breeze.autoBatch(true);
+      const a = Breeze.signal(0);
+      const b = Breeze.signal(0);
+      let effectRuns = 0;
+      Breeze.effect(() => { const _ = a.value + b.value; effectRuns++; });
+      effectRuns = 0;
+      a.value = 1;
+      b.value = 2;
+      assert.equal(effectRuns, 0, 'effect should be deferred to microtask');
+      await new Promise(r => queueMicrotask(r));
+      assert.equal(effectRuns, 1, 'effect should run once after microtask flush');
+      Breeze.autoBatch(false);
+    });
+
+    it('flushSync drains pending auto-batched effects immediately', () => {
+      Breeze._resetForTests();
+      Breeze.autoBatch(true);
+      const a = Breeze.signal(0);
+      let effectRuns = 0;
+      Breeze.effect(() => { const _ = a.value; effectRuns++; });
+      effectRuns = 0;
+      a.value = 5;
+      assert.equal(effectRuns, 0);
+      Breeze.flushSync();
+      assert.equal(effectRuns, 1);
+      Breeze.autoBatch(false);
+    });
+
+    it('adapt API exposes React/Vue registration helpers', () => {
+      assert.ok(typeof Breeze.adapt.react === 'function');
+      assert.ok(typeof Breeze.adapt.vue === 'function');
+      assert.ok(typeof Breeze.adapt.mountReact === 'function');
+      assert.ok(typeof Breeze.adapt.mountVue === 'function');
+      assert.ok(Array.isArray(Breeze.adapt.list()));
+    });
+
+    it('adapt API throws clear errors when React/Vue is missing', () => {
+      assert.throws(() => Breeze.adapt.react('x-react', () => {}), /React/);
+      assert.throws(() => Breeze.adapt.vue('x-vue', () => {}), /Vue/);
     });
   });
 });

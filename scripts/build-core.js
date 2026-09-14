@@ -56,24 +56,26 @@ const MODULE_ORDER = [
   'ssr',
   'hydration',
   'webcomponents',
+  'adapters',
   'api',
 ];
 
 const HEADER = `/*!
- * Breeze Framework v2.2.0 (Comfort + Perf + Benchmarks)
+ * Breeze Framework v2.3.0 (Scalability + Interop + Auto-Batching)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
  *
  * Architecture:
  *   Parser    — Cached LRU parse, precompiled {token} templates, codeframe diagnostics
- *   Signals   — Fast-path single-subscriber sets, disposable effects, batched scheduler
+ *   Signals   — Object.is correctness, disposable signals, opt-in auto microtask batching
  *   State     — Store slices, watchers, cycle-guarded computeds, signal sync
  *   Renderer  — LIS minimal-move keyed reconciliation, append fast-path, data-key select,
  *               if/elif/else chains, component params, portal, @show/@model/@ref/@cloak/@transition
  *   Router    — Hash/history, :id/:id?/*, outlet rendering, async guards, regex cache
  *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
  *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
+ *   Adapters  — Plug-and-play React/Vue Custom Element bridges (zero bundled deps)
  *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
  *
  * NOTE: This file is generated. Do not edit it directly — edit the modules

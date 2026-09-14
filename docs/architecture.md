@@ -10,7 +10,7 @@ be silently overwritten the next time someone runs the build script.
 
 ## The layered structure
 
-`breeze.js` is assembled, in a fixed order, from 15 ES modules under `src/core/`:
+`breeze.js` is assembled, in a fixed order, from 16 ES modules under `src/core/`:
 
 | Order | Module | Layer |
 | ---: | :--- | :--- |
@@ -28,7 +28,8 @@ be silently overwritten the next time someone runs the build script.
 | 12 | `ssr.js` | `renderToString()` — parity string rendering of chains/components/ids/attrs |
 | 13 | `hydration.js` | Non-destructive client hydration of server-rendered markup, with mismatch detection/self-healing |
 | 14 | `webcomponents.js` | `Breeze.defineElement()` — wraps a `.breeze` template in a native Custom Element class with isolated scoped store and cleanup on disconnect |
-| 15 | `api.js` | The public `BreezeAPI` surface — the object every other layer's exports get attached to as `Breeze.*` (including `createStore`, `unmount`, `unwatch`) |
+| 15 | `adapters.js` | React/Vue interoperability bridges — registers framework components as native Custom Elements via `Breeze.adapt.*` |
+| 16 | `api.js` | The public `BreezeAPI` surface — the object every other layer's exports get attached to as `Breeze.*` (including `createStore`, `unmount`, `unwatch`) |
 
 Read top to bottom, this is the dependency direction: a minimal reactive core (`reactive.js`) is
 extended by a parser and a state store, which the renderer and router build on, which SSR/hydration
