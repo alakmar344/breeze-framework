@@ -9,13 +9,13 @@ Breeze's zero-dependency server-side renderer (`Breeze.renderToString()`) measur
 
 ## Environment
 
-- **Date**: 2026-09-14T10:52:04.532Z
-- **OS**: Windows_NT 10.0.19045 (x64)
+- **Date**: 2026-09-15T10:50:40.733Z
+- **OS**: Linux 7.0.0-31-generic (x64)
 - **CPU**: Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz — 4 logical cores
-- **RAM**: 3.9 GiB
-- **Power**: Battery (60% remaining)
-- **Node.js**: v24.18.0 (V8 13.6.233.17-node.50)
-- **Git commit**: 0e119a3 (dirty working tree)
+- **RAM**: 3.7 GiB
+- **Power**: Battery (16%, Charging)
+- **Node.js**: v22.23.2 (V8 12.4.254.21-node.56)
+- **Git commit**: aa56fec (dirty working tree)
 - **Environment**: Virtualization status could not be determined on this OS.
 
 ---
@@ -32,10 +32,10 @@ node benchmarks/ssr-runner.js
 
 | SSR Engine | Median Throughput (pages/sec) | p95 | Range (min–max) | sd | Output Size |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Breeze SSR (pre-parsed AST)** | **7,289 ops/s** | 7,603 | 6,014–7,603 | 648.74 | 2417 B |
-| **Breeze SSR (raw DSL string)** | **6,942 ops/s** | 7,374 | 4,981–7,374 | 990.51 | 2417 B |
-| **Virtual DOM Serializer (Preact-style, hand-rolled reference impl)** | **15,371 ops/s** | 15,912 | 12,119–15,912 | 1373.19 | 2289 B |
-| **Native JS Template Literals** | **1,57,863 ops/s** | 1,75,679 | 96,618–1,75,679 | 30439.07 | 2278 B |
+| **Breeze SSR (pre-parsed AST)** | **7,207 ops/s** | 8,104 | 2,402–8,104 | 1978.79 | 2417 B |
+| **Breeze SSR (raw DSL string)** | **7,259 ops/s** | 7,627 | 6,655–7,627 | 357.76 | 2417 B |
+| **Virtual DOM Serializer (Preact-style, hand-rolled reference impl)** | **12,799 ops/s** | 16,061 | 8,825–16,061 | 2352.02 | 2289 B |
+| **Native JS Template Literals** | **86,757 ops/s** | 1,01,765 | 66,673–1,01,765 | 12302.82 | 2278 B |
 
 ## Reading these numbers
 
@@ -45,4 +45,4 @@ node benchmarks/ssr-runner.js
 
 ---
 
-*Generated 2026-09-14T10:52:04.532Z at git commit `0e119a3` (dirty working tree — re-run after committing for a citable result).*
+*Generated 2026-09-15T10:50:40.733Z at git commit `aa56fec` (dirty working tree — re-run after committing for a citable result).*

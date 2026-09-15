@@ -1,5 +1,5 @@
 # Breeze Framework
-> The ultra-lightweight declarative web framework (v2.3.0, ~48 KB gzip, 48.74 KB measured, zero dependencies — see benchmark.md).
+> The ultra-lightweight declarative web framework (v2.3.0, ~48 KB gzip, 48.87 KB measured, zero dependencies — see benchmark.md).
 
 Breeze is the middle ground between vanilla HTML and heavy frontend frameworks. It provides declarative indentation-based markup, fine-grained reactive state bindings, client-side hash routing, an extensible plugin API, and a built-in design system without requiring npm packages or complex compilation pipelines.
 
