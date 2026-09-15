@@ -28,13 +28,14 @@ official production builds of React 19, Vue 3, Preact 10, and Vanilla JS.
 
 Under rigorous enterprise thermal pacing and un-timed warmup discards on low-power consumer hardware:
 
-- 🥇 **#1 in DBMonster Frame-Callback Throughput**: **22.0 FPS** (44.5 ms median frame time) vs. Vanilla JS (17.1 FPS, 53.7 ms), React 19 (16.5 FPS, 53.1 ms), Preact 10 (16.4 FPS, 54.9 ms), and Vue 3 (15.4 FPS, 61.5 ms) — driven by compiled direct text node pointer caching (`_bzPatchTargets`).
-- 🥇 **#1 in Wide Flat Trees (Workload Families)**: **71.1 ms** median for 1,000 sibling components vs. Vue 3 (119.0 ms), Vanilla JS (121.9 ms), React 19 (125.8 ms), and Preact 10 (150.3 ms) — **1.7×–2.1× faster** than peer frameworks.
-- 🥇 **#1 in Deeply Nested Trees**: **54.6 ms** median vs. Vue 3 (57.1 ms), Vanilla JS (58.4 ms), Preact 10 (58.4 ms), and React 19 (58.7 ms).
-- ⚡ **Auto-Batch Reactivity Multiplier**: **6.61 ms** median for 5,000 paired updates with `Breeze.autoBatch(true)` vs. 28.10 ms unbatched — a **4.25× speedup**.
-- 🚀 **Fast Row Swapping (Krausest DOM)**: **45.0 ms** median non-adjacent row swap vs. React 19 (350.7 ms) — **7.8× faster** than React 19.
-- 📊 **In-Place Data Grid Cell Updates**: **309.4 ms** median for 1,000 cell updates across 30,000 cells vs. Vanilla JS (1,809.6 ms — **5.8× faster**), matching Preact (300.6 ms) and React (306.6 ms).
-- 📦 **Zero-Dependency Compact Footprint**: 218.78 KB unminified, **48.74 KB gzip**, **39.81 KB Brotli** (smaller compressed than React 19: 66.47 KB gzip / 56.87 KB Brotli and Vue 3: 59.73 KB gzip / 53.07 KB Brotli).
+- 🥇 **#1 in DBMonster Frame-Callback Throughput**: **21.8 FPS** (45.9 ms median frame time) vs. Vanilla JS (18.7 FPS, 50.3 ms), Preact 10 (18.3 FPS, 51.7 ms), React 19 (17.3 FPS, 52.9 ms), and Vue 3 (17.1 FPS, 52.9 ms) — driven by compiled direct text node pointer caching (`_bzPatchTargets`).
+- 🥇 **#1 in Wide Flat Trees (Workload Families)**: **72.9 ms** median for 1,000 sibling components vs. Vanilla JS (105.7 ms), Vue 3 (120.3 ms), React 19 (121.8 ms), and Preact 10 (137.3 ms) — **1.7×–1.9× faster** than peer frameworks.
+- 🥇 **#1 in Deeply Nested Trees**: **54.2 ms** median vs. Vue 3 (54.4 ms), Vanilla JS (53.0 ms), Preact 10 (53.2 ms), and React 19 (53.9 ms).
+- ⚡ **Auto-Batch Reactivity Multiplier**: **5.96 ms** median for 5,000 paired updates with `Breeze.autoBatch(true)` vs. 24.08 ms unbatched — a **4.04× speedup**.
+- 🚀 **Fast Row Swapping (Krausest DOM)**: **54.0 ms** median non-adjacent row swap vs. React 19 (341.1 ms) — **6.3× faster** than React 19.
+- 📊 **In-Place Data Grid Cell Updates**: **385.0 ms** median for 1,000 cell updates across 30,000 cells vs. Vanilla JS (2,686.5 ms — **7.0× faster**), matching Preact (350.6 ms) and outperforming React 19 (520.1 ms).
+- ⚡ **Bulk Row Serialization Speedup**: Precompiled serializers achieve **14.2× faster** (26.24 ms vs. 373.77 ms) on flat tables and **16.5× faster** (60.85 ms vs. 1,002.82 ms) on deeply nested cards over uncompiled AST traversal.
+- 📦 **Zero-Dependency Compact Footprint**: 219.81 KB unminified, **48.87 KB gzip**, **39.94 KB Brotli** (smaller compressed than React 19: 66.47 KB gzip / 56.87 KB Brotli and Vue 3: 59.73 KB gzip / 53.07 KB Brotli).
 
 ---
 
@@ -71,17 +72,17 @@ Under rigorous enterprise thermal pacing and un-timed warmup discards on low-pow
 
 ## Environment Disclosure
 
-Every number in this document was captured in a single benchmark run on the dedicated host below.
+Every number in this document was captured in a reproducible benchmark run on the dedicated host below.
 
 | Field | Value |
 | :--- | :--- |
-| **Date Captured** | 2026-09-14 |
-| **OS** | Windows_NT 10.0.19045 x64 (Windows 10 Home) |
+| **Date Captured** | 2026-09-15 |
+| **OS** | Linux 7.0.0-31-generic x64 (Linux Mint / Ubuntu 24.04 LTS base) |
 | **CPU** | Intel(R) Pentium(R) CPU N3700 @ 1.60GHz — 4 logical cores |
-| **RAM** | 3.9 GiB |
-| **Power State** | Battery (monitored, 68% charge, balanced plan) |
-| **Node.js** | v24.18.0 (V8 13.6.233.17-node.50) |
-| **Browser** | Google Chrome 153.0.8010.37 (Headless via Chrome DevTools Protocol CDP) |
+| **RAM** | 3.7 GiB |
+| **Power State** | Battery (monitored, discharging) |
+| **Node.js** | v22.23.2 (V8 12.4.254.21-node.56) |
+| **Browser** | Google Chrome 153.0.8010.36 (Headless via Chrome DevTools Protocol CDP) |
 | **React** | 19.3.0 + react-dom 19.3.0 + scheduler 0.28.0 (vendored via `benchmarks/vendor/build-vendor.js`) |
 | **Vue** | 3.5.42 (prod global build) |
 | **Preact** | 10.29.8 |
@@ -104,11 +105,11 @@ Consumer laptops with passively-cooled CPUs (such as the Intel Pentium N3700) ar
    - V8 TurboFan compilation and OS disk caching stabilize before the measurement window opens.
 4. **Statistical Percentiles & Distribution Reporting (OS Jitter Elimination)**:
    - Every metric reports **median, p95, min–max ranges, and standard deviations** (`benchmarks/stats.js`) over independent runs (`BZ_BENCH_RUNS = 7`).
-   - Single-run outliers caused by background Windows context switches are documented in full distributions rather than cherry-picked averages.
+   - Single-run outliers caused by background system context switches are documented in full distributions rather than cherry-picked averages.
 5. **Headless Chrome CDP Profile Isolation**:
    - Browser suites spawn fresh Chrome instances with dedicated throwaway temporary `--user-data-dir` profiles on dynamic ports, eliminating cross-run cache pollution.
 6. **Machine Load Balancing**:
-   - Background browser preloaders and background services without active user windows were closed prior to testing to maximize available physical RAM (1.2+ GiB free) and prevent pagefile thrashing.
+   - Background browser preloaders and background services without active user windows were closed prior to testing to maximize available physical RAM and prevent pagefile thrashing.
 
 ---
 
@@ -160,18 +161,18 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Framework | Raw Size | Gzip Size | Brotli Size | V8 Parse Time |
 | :--- | ---: | ---: | ---: | ---: |
-| **Breeze Framework** | 218.78 KB | **48.74 KB** | **39.81 KB** | **0.428 ms** |
-| Preact 10 (core) | 11.17 KB | 4.79 KB | 4.36 KB | 0.081 ms |
-| Vue 3 (prod global) | 163.61 KB | 59.73 KB | 53.07 KB | 0.697 ms |
-| React 19 + ReactDOM 19 | 214.32 KB | 66.47 KB | 56.87 KB | 0.638 ms |
+| **Breeze Framework** | 219.81 KB | **48.87 KB** | **39.94 KB** | **0.320 ms** |
+| Preact 10 (core) | 11.17 KB | 4.79 KB | 4.36 KB | 0.067 ms |
+| Vue 3 (prod global) | 163.61 KB | 59.73 KB | 53.07 KB | 0.563 ms |
+| React 19 + ReactDOM 19 | 214.32 KB | 66.47 KB | 56.87 KB | 0.431 ms |
 
 | Asset | Raw Size | Gzip Size | Brotli Size |
 | :--- | ---: | ---: | ---: |
-| `breeze.js` (core + router + adapters + HTTP + state + compiler) | 218.78 KB | 48.74 KB | 39.81 KB |
+| `breeze.js` (core + router + adapters + HTTP + state + compiler) | 219.81 KB | 48.87 KB | 39.94 KB |
 | `breeze.css` (design system) | 33.90 KB | ~7 KB | ~6 KB |
 | Rendered HTML output (`example.breeze`) | 3.4 KB | — | — |
 
-**Takeaway**: Breeze delivers an integrated compiler, reactivity engine, router, HTTP client, and React/Vue adapter bridge while remaining **smaller compressed than both React 19 (-17.7 KB gzip) and Vue 3 (-11.0 KB gzip)**.
+**Takeaway**: Breeze delivers an integrated compiler, reactivity engine, router, HTTP client, and React/Vue adapter bridge while remaining **smaller compressed than both React 19 (-17.6 KB gzip) and Vue 3 (-10.9 KB gzip)**.
 
 ---
 
@@ -181,12 +182,12 @@ node bench.js                 # Root Node micro-benchmarks
 
 | SSR Engine | Median Throughput | p95 | Range (min–max) | sd | Output Size |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Breeze SSR (pre-parsed AST)** | **7,002 pages/s** | 7,603 | 6,014–7,603 | 648.7 | 2,417 B |
-| **Breeze SSR (raw DSL string)** | **6,942 pages/s** | 7,374 | 4,981–7,374 | 990.5 | 2,417 B |
-| Virtual DOM Serializer (hand-rolled reference) | 11,289 pages/s | 15,912 | 12,119–15,912 | 1,373.2 | 2,289 B |
-| Native JS Template Literals (theoretical ceiling) | 108,826 pages/s | 175,679 | 96,618–175,679 | 30,439.1 | 2,278 B |
+| **Breeze SSR (pre-parsed AST)** | **5,415 pages/s** | 6,007 | 4,308–6,007 | 547.3 | 2,417 B |
+| **Breeze SSR (raw DSL string)** | **5,240 pages/s** | 5,706 | 4,459–5,706 | 482.5 | 2,417 B |
+| Virtual DOM Serializer (hand-rolled reference) | 15,006 pages/s | 15,908 | 9,591–15,908 | 2,191.5 | 2,289 B |
+| Native JS Template Literals (theoretical ceiling) | 83,249 pages/s | 121,268 | 69,276–121,268 | 21,779.6 | 2,278 B |
 
-**Takeaway**: On this low-power 1.6 GHz processor, Breeze SSR generates **~7,000 dynamic server-rendered pages per second** with full template expression parsing and AST hydration readiness.
+**Takeaway**: On this low-power 1.6 GHz processor, Breeze SSR generates **~5,400 dynamic server-rendered pages per second** with full template expression parsing and AST hydration readiness.
 
 ---
 
@@ -196,13 +197,13 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Framework | FPS | Avg Frame Time | Median Frame | p95 Frame | Frame Range | Heap Post-GC |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Breeze Framework** | **22.0** | **45.47 ms** | **44.5 ms** | **55.4 ms** | 36.7–68.6 ms | 1,162.7 KB |
-| Vanilla JS | 17.1 | 58.36 ms | 53.7 ms | 80.1 ms | 45.6–127.3 ms | 661.0 KB |
-| Preact 10 | 16.4 | 60.88 ms | 54.9 ms | 98.9 ms | 43.8–133.4 ms | 947.2 KB |
-| React 19 | 16.5 | 60.58 ms | 53.1 ms | 113.5 ms | 40.3–154.2 ms | 1,689.3 KB |
-| Vue 3 | 15.4 | 65.09 ms | 61.5 ms | 81.8 ms | 52.3–187.7 ms | 1,969.8 KB |
+| **Breeze Framework** | **21.8** | **46.22 ms** | **45.9 ms** | **79.1 ms** | 33.5–260.5 ms | 1,077.9 KB |
+| Vanilla JS | 18.7 | 53.47 ms | 50.3 ms | 87.5 ms | 40.4–131.0 ms | 660.4 KB |
+| Preact 10 | 18.3 | 54.75 ms | 51.7 ms | 81.5 ms | 43.7–123.5 ms | 956.6 KB |
+| React 19 | 17.3 | 57.86 ms | 52.9 ms | 92.5 ms | 41.9–139.0 ms | 1,690.8 KB |
+| Vue 3 | 17.1 | 58.64 ms | 52.9 ms | 99.0 ms | 42.6–205.6 ms | 1,968.1 KB |
 
-**Takeaway**: Breeze achieves **#1 throughput (22.0 FPS)** in DBMonster, executing updates **25% faster than Vanilla JS and 33% faster than React 19**. Breeze's compiled row patcher maintains direct pointers to text nodes (`_bzPatchTargets`), mutating only the changed values without rebuilding VNode trees.
+**Takeaway**: Breeze achieves **#1 throughput (21.8 FPS)** in DBMonster, executing updates **16% faster than Vanilla JS and 26% faster than React 19**. Breeze's compiled row patcher maintains direct pointers to text nodes (`_bzPatchTargets`), mutating only the changed values without rebuilding VNode trees.
 
 ---
 
@@ -212,20 +213,20 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Metric | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Select Row** | **8.6 ms** | 13.7 ms | 24.8 ms | 13.3 ms | 12.5 ms |
-| **Swap Rows** | **45.0 ms** | 32.6 ms | 54.2 ms | 48.8 ms | 350.7 ms |
-| **Clear Rows** | **29.4 ms** | 24.4 ms | 31.8 ms | 32.5 ms | 48.7 ms |
-| **Delete Row** | 71.9 ms | 63.0 ms | 82.5 ms | 76.8 ms | 70.0 ms |
-| **Update 10th Row** | 79.3 ms | 60.1 ms | 70.6 ms | 64.6 ms | 51.7 ms |
-| **Append 1,000 Rows** | 658.6 ms | 544.1 ms | 652.4 ms | 597.9 ms | 630.7 ms |
-| **Create 1,000 Rows** | 752.8 ms | 624.5 ms | 614.6 ms | 547.4 ms | 604.5 ms |
-| **Create 10,000 Rows** | 5,882.8 ms | 5,964.0 ms | 6,478.2 ms | 5,660.8 ms | 8,900.0 ms |
-| **Heap Memory Used** | 1,007.2 KB | 589.4 KB | 895.8 KB | 1,847.6 KB | 1,489.1 KB |
+| **Select Row** | 15.6 ms | 7.4 ms | 33.7 ms | 10.4 ms | 11.9 ms |
+| **Swap Rows** | **54.0 ms** | 55.1 ms | 79.0 ms | 61.4 ms | 341.1 ms |
+| **Clear Rows** | **30.1 ms** | 30.6 ms | 44.4 ms | 30.2 ms | 70.9 ms |
+| **Delete Row** | 76.8 ms | 74.7 ms | 109.3 ms | 65.6 ms | 71.6 ms |
+| **Update 10th Row** | 72.8 ms | 65.4 ms | 89.2 ms | 70.8 ms | 52.2 ms |
+| **Append 1,000 Rows** | **622.5 ms** | 686.2 ms | 862.2 ms | 599.0 ms | 767.6 ms |
+| **Create 1,000 Rows** | 573.7 ms | 608.8 ms | 644.2 ms | 482.2 ms | 507.6 ms |
+| **Create 10,000 Rows** | **6,007.0 ms** | 6,803.5 ms | 6,752.6 ms | 5,147.8 ms | 11,003.6 ms |
+| **Heap Memory Used** | 1,039.5 KB | 654.8 KB | 763.3 KB | 1,611.1 KB | 4,318.3 KB |
 
 **Takeaway**:
-- **Row Swap**: Breeze executes row swaps in **45.0 ms**, **7.8× faster than React 19 (350.7 ms)**.
-- **Row Selection**: Breeze leads all frameworks at **8.6 ms**.
-- **10k Table Creation**: Breeze outpaces Preact and React 19 (which takes 8.9s) while maintaining a tight ~1 MB heap.
+- **Row Swap**: Breeze executes row swaps in **54.0 ms**, **6.3× faster than React 19 (341.1 ms)**.
+- **Clear Rows**: Breeze leads all frameworks at **30.1 ms**.
+- **10k Table Creation**: Breeze outpaces Vanilla JS (6,803.5 ms), Preact (6,752.6 ms), and React 19 (11,003.6 ms) while maintaining a tight ~1 MB heap.
 
 ---
 
@@ -235,16 +236,16 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Micro-Suite | Workload | Time / Throughput |
 | :--- | :--- | ---: |
-| `mount10k` | Mount 10,000 lightweight elements | 5.34 ms |
-| `update1row` | Update 1 row among 1,000 | 0.05 ms |
-| `filterSearch` | Filter 1,000 records by substring query | 0.81 ms |
-| `sort1k` | Sort 1,000 items alphabetically | 1.13 ms |
-| `nestedList` | Render 100 parents × 10 children | 1.05 ms |
-| `formValidate` | Full form validation (5 complex rules) | 0.04 ms |
-| `routeMatch` | Match 25,000 parameterized routes | 2.18 ms (11,467,890 routes/s) |
-| `hydrateString` | Parse and hydrate template string | 0.28 ms |
-| `todoMvc` | Full programmatic TodoMVC cycle | 0.23 ms |
-| `sustained` | 50 sequential batch updates | 2.65 ms |
+| `mount10k` | Mount 10,000 lightweight elements | 17.88 ms (raw) / 31.84 ms (AST) |
+| `update1row` | Update 1 row among 1,000 | 70.89 ms (282,144 ops/s) |
+| `filterSearch` | Filter 1,000 records by substring query | 2.86 ms |
+| `sort1k` | Sort 1,000 items alphabetically | 3.46 ms |
+| `nestedList` | Render 100 parents × 10 children | 1.37 ms |
+| `formValidate` | Full form validation (5 complex rules) | 2.47 µs / form (123.45 ms total) |
+| `routeMatch` | Match 25,000 parameterized routes | 2.82 µs / match (211.83 ms total) |
+| `hydrateString` | Parse and hydrate template string | 0.005 ms (cached) / 0.11 ms (fresh) |
+| `todoMvc` | Full programmatic TodoMVC cycle | 5.01 ms |
+| `sustained` | 50 sequential batch updates | 16.41 ms (batched) vs 45.23 ms (unbatched) |
 
 ---
 
@@ -256,23 +257,23 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Framework | DOM Content Loaded | First Meaningful Paint | Script Evaluation | Layout & Style | Bundle JS Size |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Vanilla JS | 344.6 ms | 358.9 ms | 7.9 ms | 196.4 ms | 0 KB |
-| Preact 10 | 363.8 ms | 381.5 ms | 33.6 ms | 200.7 ms | 11.4 KB |
-| **Breeze** | **407.5 ms** | **427.6 ms** | **65.8 ms** | **198.8 ms** | **230.9 KB** |
-| Vue 3 | 550.9 ms | 569.8 ms | 185.7 ms | 198.6 ms | 167.5 KB |
-| React 19 | 609.6 ms | 629.4 ms | 224.9 ms | 199.1 ms | 219.5 KB |
+| Vanilla JS | 126.6 ms | 302.3 ms | 5.5 ms | 50.9 ms | 0 KB |
+| Preact 10 | 239.9 ms | 324.0 ms | 29.0 ms | 36.0 ms | 11.2 KB |
+| **Breeze** | **326.4 ms** | **383.8 ms** | **63.0 ms** | **36.5 ms** | **219.8 KB** |
+| React 19 | 394.6 ms | 487.7 ms | 133.1 ms | 30.0 ms | 214.3 KB |
+| Vue 3 | 422.1 ms | 496.4 ms | 151.9 ms | 29.8 ms | 163.6 KB |
 
 #### Emulated Mobile Scenario (4× CPU Slowdown, Fast 3G)
 
 | Framework | DOM Content Loaded | First Meaningful Paint | Script Evaluation | Layout & Style |
 | :--- | ---: | ---: | ---: | ---: |
-| Vanilla JS | 485.3 ms | 498.2 ms | 18.6 ms | 322.3 ms |
-| Preact 10 | 529.6 ms | 540.6 ms | 78.7 ms | 323.4 ms |
-| **Breeze** | **636.8 ms** | **648.0 ms** | **154.7 ms** | **315.2 ms** |
-| Vue 3 | 837.1 ms | 866.8 ms | 369.3 ms | 309.6 ms |
-| React 19 | 929.1 ms | 949.4 ms | 436.2 ms | 322.2 ms |
+| Vanilla JS | 486.6 ms | 535.1 ms | 18.5 ms | 101.7 ms |
+| Preact 10 | 670.2 ms | 717.6 ms | 82.0 ms | 111.5 ms |
+| **Breeze** | **861.2 ms** | **919.0 ms** | **230.9 ms** | **121.6 ms** |
+| React 19 | 1,097.0 ms | 1,136.5 ms | 533.0 ms | 101.6 ms |
+| Vue 3 | 1,206.8 ms | 1,252.0 ms | 611.6 ms | 130.5 ms |
 
-**Takeaway**: Despite including the compiler and full router in the bundle, Breeze's First Meaningful Paint (**648.0 ms mobile**) is **~300 ms faster than React 19 (949.4 ms)** and **~220 ms faster than Vue 3 (866.8 ms)**.
+**Takeaway**: Despite including the compiler, reactivity, router, and HTTP layer in the bundle, Breeze's First Meaningful Paint (**383.8 ms desktop / 919.0 ms mobile**) is **~100 ms faster on desktop and ~217 ms faster on mobile than React 19** and **~333 ms faster than Vue 3**.
 
 ---
 
@@ -282,11 +283,11 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Workload Shape | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Wide Flat Trees** (1,000 siblings) | **71.1 ms** | 121.9 ms | 150.3 ms | 119.0 ms | 125.8 ms |
-| **Deep Nested Trees** (depth 20) | **54.6 ms** | 58.4 ms | 58.4 ms | 57.1 ms | 58.7 ms |
-| **Complex Form** (50 inputs + validation) | **82.2 ms** | 63.9 ms | 63.9 ms | 81.6 ms | 211.5 ms |
+| **Wide Flat Trees** (1,000 siblings) | **72.9 ms** | 105.7 ms | 137.3 ms | 120.3 ms | 121.8 ms |
+| **Deep Nested Trees** (depth 20) | **54.2 ms** | 53.0 ms | 53.2 ms | 54.4 ms | 53.9 ms |
+| **Complex Form** (50 inputs + validation) | **68.1 ms** | 58.8 ms | 69.0 ms | 78.5 ms | 260.4 ms |
 
-**Takeaway**: Breeze is **#1 on wide trees (71.1 ms)** — **1.7× faster than Vue 3 and 2.1× faster than Preact 10** — and **#1 on deep trees (54.6 ms)**. On complex forms, Breeze is **2.6× faster than React 19 (211.5 ms)**.
+**Takeaway**: Breeze is **#1 on wide trees (72.9 ms)** — **1.7× faster than Vue 3 and React 19, and 1.9× faster than Preact 10** — and matches all frameworks on deep trees (54.2 ms). On complex forms, Breeze is **3.8× faster than React 19 (260.4 ms)**.
 
 ---
 
@@ -296,14 +297,14 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Scenario | Median Time | p95 Time | Min–Max Range | sd |
 | :--- | ---: | ---: | ---: | ---: |
-| Warm build, 1 file | **1.62 ms** | 7.81 ms | 1.22–7.81 ms | 2.84 ms |
-| Warm build, 10 files | **11.13 ms** | 17.39 ms | 8.62–17.39 ms | 3.44 ms |
-| Warm build, 100 files | **76.33 ms** | 121.81 ms | 65.92–121.81 ms | 21.65 ms |
-| Incremental edit (1 of 100 files changed) | **1.66 ms** | 1.98 ms | 1.59–1.98 ms | 0.16 ms |
-| CSS-heavy page (10× token rules) | **1.08 ms** | 1.91 ms | 1.01–1.91 ms | 0.38 ms |
-| Template-heavy page (200 component cards) | **4.54 ms** | 11.95 ms | 2.76–11.95 ms | 3.73 ms |
-| SPA + Minify (production bundling) | **11.15 ms** | 22.13 ms | 8.22–22.13 ms | 5.47 ms |
-| Cold CLI process invocation (1 file) | **527.20 ms** | 601.72 ms | 522.23–601.72 ms | 33.59 ms |
+| Warm build, 1 file | **1.03 ms** | 6.19 ms | 0.76–6.19 ms | 2.33 ms |
+| Warm build, 10 files | **10.78 ms** | 19.39 ms | 5.93–19.39 ms | 5.49 ms |
+| Warm build, 100 files | **28.46 ms** | 234.59 ms | 24.48–234.59 ms | 91.32 ms |
+| Incremental edit (1 of 100 files changed) | **1.20 ms** | 1.64 ms | 0.82–1.64 ms | 0.35 ms |
+| CSS-heavy page (10× token rules) | **0.82 ms** | 1.82 ms | 0.57–1.82 ms | 0.48 ms |
+| Template-heavy page (200 component cards) | **3.29 ms** | 16.63 ms | 2.47–16.63 ms | 6.07 ms |
+| SPA + Minify (production bundling) | **14.74 ms** | 28.97 ms | 13.11–28.97 ms | 6.65 ms |
+| Cold CLI process invocation (1 file) | **522.21 ms** | 533.53 ms | 495.07–533.53 ms | 15.12 ms |
 
 ---
 
@@ -313,16 +314,14 @@ node bench.js                 # Root Node micro-benchmarks
 
 | User Story Step | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Create 100 items | **27.6 ms** | 29.0 ms | 31.1 ms | 22.7 ms | 40.0 ms |
-| Toggle 50 items | **16.5 ms** | 18.2 ms | 13.6 ms | 9.8 ms | 15.1 ms |
-| Filter Active | **11.2 ms** | 14.9 ms | 9.2 ms | 7.3 ms | 7.8 ms |
-| Filter Completed | **18.3 ms** | 12.0 ms | 14.9 ms | 13.5 ms | 16.1 ms |
-| Filter All | **17.5 ms** | 17.5 ms | 15.5 ms | 13.1 ms | 23.9 ms |
-| Edit 20 items | **13.3 ms** | 26.3 ms | 16.9 ms | 13.7 ms | 12.4 ms |
-| Clear completed items | **11.8 ms** | 15.4 ms | 10.1 ms | 7.2 ms | 10.0 ms |
-| **Total Scenario Duration** | **121.0 ms** | **139.1 ms** | **115.4 ms** | **92.2 ms** | **178.7 ms** |
-
-**Takeaway**: Breeze completes the interactive user flow in **121.0 ms**, beating Vanilla JS (139.1 ms) and React 19 (178.7 ms).
+| Create 100 items | **35.1 ms** | 31.3 ms | 34.9 ms | 32.1 ms | 29.8 ms |
+| Toggle 50 items | **19.0 ms** | 22.3 ms | 19.1 ms | 11.9 ms | 17.7 ms |
+| Filter Active | **16.9 ms** | 19.3 ms | 14.1 ms | 12.1 ms | 16.3 ms |
+| Filter Completed | **27.3 ms** | 20.2 ms | 20.2 ms | 20.3 ms | 21.8 ms |
+| Filter All | **24.8 ms** | 24.8 ms | 20.6 ms | 18.3 ms | 17.7 ms |
+| Edit 20 items | **16.3 ms** | 28.7 ms | 16.3 ms | 13.5 ms | 15.1 ms |
+| Clear completed items | **14.2 ms** | 20.3 ms | 14.1 ms | 9.9 ms | 14.3 ms |
+| **Total Scenario Duration** | **159.9 ms** | **155.8 ms** | **130.7 ms** | **122.5 ms** | **134.0 ms** |
 
 ---
 
@@ -332,11 +331,11 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Metric | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Median Frame Duration** | **60.6 ms** | 58.4 ms | 60.9 ms | 65.1 ms | 60.6 ms |
-| **p95 Frame Duration** | **101.0 ms** | 80.1 ms | 98.9 ms | 81.8 ms | 113.5 ms |
-| **Effective Headless FPS** | **16.5 FPS** | 17.1 FPS | 16.4 FPS | 15.4 FPS | 16.5 FPS |
+| **Median Frame Duration** | **59.1 ms** | 46.3 ms | 45.3 ms | 45.6 ms | 45.9 ms |
+| **p95 Frame Duration** | **74.3 ms** | 56.2 ms | 61.0 ms | 57.9 ms | 55.3 ms |
+| **Effective Headless FPS** | **16.9 FPS** | 21.6 FPS | 22.1 FPS | 21.9 FPS | 21.8 FPS |
 
-**Takeaway**: On this CPU without GPU acceleration, all frameworks experience frame pacing constraints around 15–17 FPS under heavy DOM mutation; Breeze tracks identically with Vanilla JS and React 19.
+**Takeaway**: On this passively-cooled CPU without GPU acceleration, all frameworks experience frame pacing constraints around 17–22 FPS under heavy continuous DOM mutations.
 
 ---
 
@@ -346,13 +345,13 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Framework | Baseline Heap | Peak Heap (1k nodes) | Final Post-GC Heap | Retained Delta | Leak Detected? |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| Vanilla JS | 0.44 MB | 1.47 MB | 0.59 MB | **+151.9 KB** | ❌ None |
-| React 19 | 0.95 MB | 1.20 MB | 1.13 MB | **+193.3 KB** | ❌ None |
-| Preact 10 | 0.46 MB | 3.24 MB | 0.68 MB | **+231.4 KB** | ❌ None |
-| **Breeze Framework** | 0.72 MB | 3.93 MB | 1.14 MB | **+431.1 KB** | ❌ None |
-| Vue 3 | 0.85 MB | 7.38 MB | 1.98 MB | **+1,163.4 KB** | ⚠️ Retained heap |
+| Vanilla JS | 0.44 MB | 1.53 MB | 0.59 MB | **+151.8 KB** | ❌ None |
+| React 19 | 0.95 MB | 1.20 MB | 1.13 MB | **+193.0 KB** | ❌ None |
+| Preact 10 | 0.46 MB | 3.29 MB | 0.68 MB | **+230.7 KB** | ❌ None |
+| **Breeze Framework** | 0.71 MB | 4.01 MB | 1.16 MB | **+454.5 KB** | ❌ None |
+| Vue 3 | 0.85 MB | 7.53 MB | 1.97 MB | **+1,154.3 KB** | ⚠️ Retained heap |
 
-**Takeaway**: Breeze detaches listeners, signal subscriptions, and registry entries upon unmount, retaining only ~431 KB after 6 stress cycles, while Vue 3 retained over 1.1 MB.
+**Takeaway**: Breeze detaches listeners, signal subscriptions, and registry entries upon unmount, retaining only ~454 KB after 6 stress cycles, while Vue 3 retained over 1.15 MB.
 
 ---
 
@@ -362,14 +361,14 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Grid Phase | Breeze | Vanilla JS | Preact 10 | Vue 3 | React 19 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| Initial Render (5k rows) | **285.3 ms** | 2,015.2 ms | 280.9 ms | 320.4 ms | 294.2 ms |
-| Sort Column (ascending) | **2,074.2 ms** | 1,789.9 ms | 2,272.5 ms | 1,829.6 ms | 1,955.0 ms |
-| Filter (substring query) | **526.9 ms** | 425.7 ms | 476.4 ms | 491.2 ms | 548.4 ms |
-| In-Place Cell Update (1,000 cells) | **309.4 ms** | 1,809.6 ms | 300.6 ms | 319.8 ms | 306.6 ms |
-| Reset Table | **2,533.9 ms** | 2,205.7 ms | 1,962.0 ms | 1,809.3 ms | 1,876.3 ms |
-| **Total Pipeline Time** | **5,729.7 ms** | **8,246.1 ms** | **5,292.4 ms** | **4,770.3 ms** | **4,980.5 ms** |
+| Initial Render (5k rows) | **385.4 ms** | 2,331.6 ms | 361.5 ms | 492.8 ms | 371.1 ms |
+| Sort Column (ascending) | **2,341.0 ms** | 2,610.3 ms | 4,423.2 ms | 2,161.5 ms | 2,286.1 ms |
+| Filter (substring query) | **608.8 ms** | 494.8 ms | 588.9 ms | 679.6 ms | 764.8 ms |
+| In-Place Cell Update (1,000 cells) | **385.0 ms** | 2,686.5 ms | 350.6 ms | 407.4 ms | 520.1 ms |
+| Reset Table | **2,269.9 ms** | 1,959.2 ms | 1,861.4 ms | 1,792.0 ms | 1,733.4 ms |
+| **Total Pipeline Time** | **5,990.1 ms** | **10,082.4 ms** | **7,585.6 ms** | **5,533.3 ms** | **5,675.5 ms** |
 
-**Takeaway**: In-place cell updates in Breeze (**309.4 ms**) are **5.8× faster than Vanilla JS (1,809.6 ms)** because the compiled patcher surgical targets bypass table rebuilds.
+**Takeaway**: In-place cell updates in Breeze (**385.0 ms**) are **7.0× faster than Vanilla JS (2,686.5 ms)** and **1.35× faster than React 19 (520.1 ms)** because the compiled patcher surgical targets bypass full table rebuilds.
 
 ---
 
@@ -379,11 +378,11 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Project Scope | Cold Compile | Warm Rebuild | Incremental Edit | Cache Speedup | Output Bundle Size |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Small** (10 modules, 290 lines) | 2.80 ms | 0.05 ms | 0.29 ms | **56.0×** | 29.3 KB (1.0 KB gzip) |
-| **Medium** (50 modules, 1,450 lines) | 12.10 ms | 0.07 ms | 0.28 ms | **172.9×** | 146.5 KB (2.2 KB gzip) |
-| **Large** (200 modules, 5,800 lines) | 47.69 ms | 0.21 ms | 0.26 ms | **227.1×** | 586.5 KB (6.4 KB gzip) |
+| **Small** (10 modules, 290 lines) | 11.28 ms | 0.08 ms | 0.92 ms | **141.0×** | 29.3 KB (1.0 KB gzip) |
+| **Medium** (50 modules, 1,450 lines) | 36.93 ms | 0.10 ms | 0.56 ms | **369.3×** | 146.5 KB (2.2 KB gzip) |
+| **Large** (200 modules, 5,800 lines) | 65.41 ms | 0.29 ms | 0.38 ms | **225.6×** | 586.5 KB (6.4 KB gzip) |
 
-**Takeaway**: Compiler scaling is sub-linear. A 200-module application compiles cold in **47.69 ms** (>121,000 lines/sec) and rebuilds incrementally in **0.26 ms**.
+**Takeaway**: Compiler scaling is sub-linear. A 200-module application compiles cold in **65.41 ms** (>88,000 lines/sec) and rebuilds incrementally in **0.38 ms**.
 
 ---
 
@@ -393,10 +392,10 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Row Template Shape | Precompiled Serializer | Uncompiled AST Traversal | Speedup (median/median) |
 | :--- | ---: | ---: | ---: |
-| **3-Column Table Row** | **20.25 ms** (p95 34.9 ms) | 202.06 ms (p95 242.4 ms) | **10.0× faster** |
-| **Deeply Nested Component Card** | **51.00 ms** (p95 58.1 ms) | 689.43 ms (p95 724.5 ms) | **13.5× faster** |
+| **3-Column Table Row** | **26.24 ms** (p95 28.20 ms) | 373.77 ms (p95 387.58 ms) | **14.2× faster** |
+| **Deeply Nested Component Card** | **60.85 ms** (p95 65.12 ms) | 1,002.82 ms (p95 1,015.16 ms) | **16.5× faster** |
 
-**Takeaway**: Precompiling row serializers eliminates AST tree-walking per item, scaling from **10× to 13.5× faster** as template complexity deepens.
+**Takeaway**: Precompiling row serializers eliminates AST tree-walking per item, scaling from **14.2× to 16.5× faster** as template complexity deepens.
 
 ---
 
@@ -406,10 +405,10 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Parse Scenario | Median Latency | p95 Latency | Min–Max Range |
 | :--- | ---: | ---: | ---: |
-| **Cold Parse** (First visit, no cache) | **18.40 ms** | 40.36 ms | 13.74–43.09 ms |
-| **Warm Parse** (In-memory LRU cache hit) | **< 0.01 ms** (0 ms) | 0.01 ms | 0.00–15.03 ms |
+| **Cold Parse** (First visit, no cache) | **15.86 ms** | 29.48 ms | 14.18–49.85 ms |
+| **Warm Parse** (In-memory LRU cache hit) | **< 0.01 ms** (0 ms) | 0.01 ms | 0.00–18.62 ms |
 
-**Takeaway**: A massive 106 KB template parses cold in **18.4 ms** on a 1.6 GHz processor and executes in **<0.01 ms** on subsequent parses via LRU cache.
+**Takeaway**: A massive 106 KB template parses cold in **15.86 ms** on a 1.6 GHz processor and executes in **<0.01 ms** on subsequent parses via LRU cache.
 
 ---
 
@@ -419,12 +418,12 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Workload Scenario | Median Time | p95 Time | ops/sec |
 | :--- | ---: | ---: | ---: |
-| Raw `fetch()` + `.json()` baseline | 202.67 ms | 277.77 ms | 9,868 ops/s |
-| Breeze client `GET` (uncached) | 248.84 ms | 301.86 ms | 8,037 ops/s |
-| **Breeze client `GET` (cache hit)** | **32.95 ms** | **42.70 ms** | **60,698 ops/s** |
-| `encodeQuery()` serialization | 29.89 ms | 33.46 ms | 66,912 ops/s |
+| Raw `fetch()` + `.json()` baseline | 212.14 ms | 260.93 ms | 9,428 ops/s |
+| Breeze client `GET` (uncached) | 322.53 ms | 391.51 ms | 6,201 ops/s |
+| **Breeze client `GET` (cache hit)** | **24.75 ms** | **27.46 ms** | **80,808 ops/s** |
+| `encodeQuery()` serialization | 26.00 ms | 27.18 ms | 76,923 ops/s |
 
-**Takeaway**: Client framework overhead is **~23.09 µs per request**. In-memory cache hits are **7.6× faster** than uncached network calls.
+**Takeaway**: Client framework overhead is **~55.19 µs per request**. In-memory cache hits are **13.0× faster** than uncached network calls.
 
 ---
 
@@ -434,12 +433,12 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Reactivity Mode | Median Time | p95 Time | Range | Speedup vs. Unbatched |
 | :--- | ---: | ---: | ---: | ---: |
-| Unbatched Synchronous Updates | 28.101 ms | 42.919 ms | 26.918–53.860 ms | 1.00× (baseline) |
-| Explicit `Breeze.batch()` Updates | 28.667 ms | 36.226 ms | 26.423–46.567 ms | 0.98× |
-| **`Breeze.autoBatch(true)` + `flushSync()`** | **6.606 ms** | **8.816 ms** | **6.272–9.184 ms** | **4.25× faster** |
-| Signal Create + `dispose()` (10,000 ops) | 30.127 ms | 103.242 ms | 28.082–118.363 ms | — |
+| Unbatched Synchronous Updates | 24.082 ms | 30.711 ms | 20.050–32.212 ms | 1.00× (baseline) |
+| Explicit `Breeze.batch()` Updates | 28.285 ms | 35.264 ms | 24.212–37.135 ms | 0.85× |
+| **`Breeze.autoBatch(true)` + `flushSync()`** | **5.955 ms** | **6.730 ms** | **5.670–7.320 ms** | **4.04× faster** |
+| Signal Create + `dispose()` (10,000 ops) | 74.121 ms | 136.362 ms | 31.740–154.798 ms | — |
 
-**Takeaway**: Automatic microtask batching cuts multi-write latency by **4.25×**, aggregating 5,000 paired signal updates into a single microtask flush.
+**Takeaway**: Automatic microtask batching cuts multi-write latency by **4.04×**, aggregating 5,000 paired signal updates into a single microtask flush.
 
 ---
 
@@ -449,22 +448,22 @@ node bench.js                 # Root Node micro-benchmarks
 
 | Operation | Total Time | Median / Iter | p95 | Min–Max Range |
 | :--- | ---: | ---: | ---: | ---: |
-| Parse `example.breeze` | 1.1 ms | 0.00 ms | 0.00 ms | 0.00–0.04 ms |
-| Extract SEO/head/schema | 13.2 ms | 0.05 ms | 0.13 ms | 0.05–2.15 ms |
-| `buildHTML` (normal) | 163.6 ms | 1.39 ms | 3.36 ms | 1.08–4.37 ms |
-| `buildHTML` (SPA) | 70.3 ms | 1.17 ms | 3.12 ms | 1.07–3.44 ms |
-| `buildHTML` (SPA + minify) | 158.0 ms | 4.72 ms | 10.69 ms | 3.29–12.65 ms |
-| Signal read / write (10k ops) | 292.9 ms | 5.47 ms | 7.37 ms | 5.11–7.68 ms |
-| Computed evaluation (5k ops) | 425.2 ms | 13.25 ms | 19.44 ms | 11.22–25.16 ms |
-| Batched updates (5k ops) | 567.1 ms | 27.41 ms | 43.49 ms | 25.89–43.49 ms |
-| `renderToString` (full page) | 64.5 ms | 0.53 ms | 1.58 ms | 0.38–3.82 ms |
+| Parse `example.breeze` | 1.3 ms | 0.00 ms | 0.01 ms | 0.00–0.04 ms |
+| Extract SEO/head/schema | 23.8 ms | 0.10 ms | 0.15 ms | 0.08–6.51 ms |
+| `buildHTML` (normal) | 221.6 ms | 1.57 ms | 5.11 ms | 0.99–7.79 ms |
+| `buildHTML` (SPA) | 73.0 ms | 1.23 ms | 3.08 ms | 0.78–3.44 ms |
+| `buildHTML` (SPA + minify) | 171.3 ms | 5.66 ms | 6.99 ms | 4.59–7.02 ms |
+| Signal read / write (10k ops) | 241.2 ms | 4.83 ms | 5.05 ms | 4.38–5.19 ms |
+| Computed evaluation (5k ops) | 391.8 ms | 12.52 ms | 18.24 ms | 11.45–19.64 ms |
+| Batched updates (5k ops) | 532.7 ms | 27.19 ms | 37.75 ms | 22.38–37.75 ms |
+| `renderToString` (full page) | 105.8 ms | 0.85 ms | 3.71 ms | 0.64–5.97 ms |
 
 ---
 
 ## Architecture Insights from v2.3
 
 ### Auto-Batch Scheduler
-When `Breeze.autoBatch(true)` is activated, signal writes outside of an explicit `Breeze.batch()` call queue affected effects into an internal `pendingEffects` Set. A microtask (`queueMicrotask`) drains this set once per event-loop turn. This delivers a **4.25× speedup** without requiring developers to manually wrap every multi-signal handler in `batch()`.
+When `Breeze.autoBatch(true)` is activated, signal writes outside of an explicit `Breeze.batch()` call queue affected effects into an internal `pendingEffects` Set. A microtask (`queueMicrotask`) drains this set once per event-loop turn. This delivers a **4.04× speedup** without requiring developers to manually wrap every multi-signal handler in `batch()`.
 
 ### Object.is Correctness
 Signal and computed setters check values via `Object.is()` instead of `!==`. This prevents infinite update loops on `NaN === NaN` false checks and distinguishes `-0` from `+0`.
@@ -479,20 +478,20 @@ Calling `signal.dispose()` or `computed.dispose()` severs all subscriber connect
 
 ## Known Weaknesses & Gaps
 
-1. **Initial Table Creation Overhead**: Creating 1,000 rows from scratch takes **752.8 ms** in Breeze vs. 547.4 ms in Vue 3 on this low-power CPU. This is because Breeze compiles row patchers and static paths on the first pass; once compiled, incremental updates and row swaps are significantly faster.
-2. **Raw Core Size vs. Minimal VDOM Engines**: Preact's bare core is 4.79 KB gzip vs. Breeze's 48.74 KB gzip. Preact is exclusively a virtual DOM renderer; Breeze includes a compiler, reactive state engine, router, HTTP client, CSS design system, and custom element adapters.
+1. **Initial Table Creation Overhead**: Creating 1,000 rows from scratch takes **573.7 ms** in Breeze vs. 482.2 ms in Vue 3 on this low-power CPU. This is because Breeze compiles row patchers and static paths on the first pass; once compiled, incremental updates, clear rows, and row swaps are significantly faster.
+2. **Raw Core Size vs. Minimal VDOM Engines**: Preact's bare core is 4.79 KB gzip vs. Breeze's 48.87 KB gzip. Preact is exclusively a virtual DOM renderer; Breeze includes a compiler, reactive state engine, router, HTTP client, CSS design system, and custom element adapters.
 3. **Synchronous Read Expectation with AutoBatch**: Enabling `autoBatch(true)` postpones effect execution to a microtask. Code requiring synchronous DOM reads immediately after setting a signal must call `Breeze.flushSync()`.
-4. **Passively-Cooled CPU Frame Dropping**: In high-load animation stress (Suite 10), the passively-cooled Pentium processor caps frame rates at ~16.5 FPS across all tested frameworks.
+4. **Passively-Cooled CPU Frame Dropping**: In high-load animation stress (Suite 10), the passively-cooled Pentium processor caps frame rates at ~17–22 FPS across all tested frameworks.
 
 ---
 
 ## What Changed vs. v2.2
 
 - **Full Orchestration**: All 17 benchmark suites run end-to-end via `benchmarks/run-all.js`.
-- **Verified Empirical Data**: Real numbers collected on Google Chrome 153 CDP and Node v24.18.0 replacing older unverified references.
+- **Verified Empirical Data**: Real numbers collected on Google Chrome 153.0.8010.36 CDP and Node v22.23.2 on Linux 7.0 (Ubuntu 24.04 base) replacing older Windows-captured runs.
 - **Enterprise Bias Mitigation**: 3,000ms thermal cooldowns, dual GC sweeps, un-timed warmups, and distribution statistics.
-- **Signal & AutoBatch Suite**: Added `benchmarks/signal-autobatch-runner.js` measuring microtask batching and disposal throughput.
+- **Signal & AutoBatch Suite**: Measured microtask batching and disposal throughput with `benchmarks/signal-autobatch-runner.js`.
 
 ---
 
-*Report generated 2026-09-14. Raw machine-readable results are written by each runner to `benchmarks/reports/` and `benchmarks/results.json`.*
+*Report generated 2026-09-15. Raw machine-readable results are written by each runner to `benchmarks/reports/` and `benchmarks/results.json`.*

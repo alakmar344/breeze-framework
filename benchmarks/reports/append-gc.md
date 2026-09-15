@@ -9,13 +9,14 @@ CDP trace breakdown of what happens during a 1,000-row bulk append (mounting 1,0
 
 ## Environment
 
-- **Date**: 2026-09-13T06:31:00.971Z
-- **OS**: Linux 6.8.0-101-generic (x64)
-- **CPU**: AMD EPYC 9254 24-Core Processor — 48 logical cores
-- **RAM**: 377.4 GiB
-- **Node.js**: v22.23.1 (V8 12.4.254.21-node.56)
-- **Git commit**: 4e9a54d (dirty working tree)
-- **Environment**: ⚠️  Likely virtualized/shared host (systemd-detect-virt: docker) — expect more run-to-run noise than a dedicated desktop/laptop.
+- **Date**: 2026-09-15T10:56:06.663Z
+- **OS**: Linux 7.0.0-31-generic (x64)
+- **CPU**: Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz — 4 logical cores
+- **RAM**: 3.7 GiB
+- **Power**: Battery (21%, Charging)
+- **Node.js**: v22.23.2 (V8 12.4.254.21-node.56)
+- **Git commit**: aa56fec (dirty working tree)
+- **Environment**: Virtualization status could not be determined on this OS.
 
 ---
 
@@ -31,18 +32,18 @@ node benchmarks/append-profile-runner.js --runs=5
 
 | Phase | Breeze |
 | :--- | :---: |
-| **Sync click-handler (median)** | 8.7 ms |
-| **GC total (per append)** | **4.29 ms** (6/run) |
-| Layout | 35.8 ms |
-| UpdateLayoutTree | 18.5 ms |
-| EventDispatch | 11.56 ms |
-| PrePaint | 9.6 ms |
-| ParseHTML | 8.16 ms |
-| Paint | 3.31 ms |
-| TimerFire | 0.23 ms |
-| HitTest | 0.16 ms |
-| FunctionCall | 0.11 ms |
-| Layerize | 0.09 ms |
+| **Sync click-handler (median)** | 53.8 ms |
+| **GC total (per append)** | **51.03 ms** (67/run) |
+| Layout | 291.16 ms |
+| UpdateLayoutTree | 72.43 ms |
+| EventDispatch | 59.95 ms |
+| ParseHTML | 43.31 ms |
+| PrePaint | 36.47 ms |
+| Paint | 17.61 ms |
+| HitTest | 6.75 ms |
+| TimerFire | 4.16 ms |
+| FunctionCall | 3.54 ms |
+| V8.StackGuard | 3.35 ms |
 
 ## Reading these numbers
 
@@ -52,4 +53,4 @@ node benchmarks/append-profile-runner.js --runs=5
 
 ---
 
-*Generated 2026-09-13T06:31:00.971Z at git commit `4e9a54d` (dirty working tree — re-run after committing for a citable result).*
+*Generated 2026-09-15T10:56:06.663Z at git commit `aa56fec` (dirty working tree — re-run after committing for a citable result).*

@@ -22,7 +22,6 @@
 (function (global) {
   'use strict';
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // PROFILER & DIAGNOSTICS
   // ═══════════════════════════════════════════════════════════════════════
@@ -209,7 +208,6 @@
     }
     return url;
   }
-
 
   // ═══════════════════════════════════════════════════════════════════════
   // SIGNALS — Fine-grained reactivity engine
@@ -1377,7 +1375,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // SHARED CLASS MAP — single source of truth for Renderer.applyModifiers,
   // SSR parity and the static-row HTML fast path.
@@ -1525,7 +1522,6 @@
     }
     return [classes, attrs];
   }
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1755,7 +1751,6 @@
       offsetY
     };
   }
-
 
   const BZ_SEMANTIC_CLASS_MAP = {
     form: 'bz-form', input: 'bz-input', textarea: 'bz-textarea',
@@ -4007,7 +4002,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // ROUTER — Supporting Hash & HTML5 History Mode with Route Params
   // ═══════════════════════════════════════════════════════════════════════
@@ -4301,7 +4295,6 @@
   };
 
 
-
   // ═══════════════════════════════════════════════════════════════════════
   // COMPONENTS & LIFECYCLE
   // ═══════════════════════════════════════════════════════════════════════
@@ -4380,7 +4373,6 @@
       return null;
     }
   };
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4567,7 +4559,6 @@
       return (typeof fallback === 'function') ? fallback(e) : fallback;
     }
   }
-
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -4928,7 +4919,6 @@
     return outParts.join('');
   }
 
-
   function hydrate(sourceOrAst, rootSelector) {
     rootSelector = rootSelector || '#app';
     const root = typeof rootSelector === 'string'
@@ -5051,7 +5041,6 @@
   }
 
 
-
   // ── Web Component Native Custom Element Interop ───────────────────
   function defineElement(tagName, template, options = {}) {
     if (typeof customElements === 'undefined') return;
@@ -5122,7 +5111,6 @@
     customElements.define(tagName, BreezeCustomElement);
     return BreezeCustomElement;
   }
-
 
   // ═══════════════════════════════════════════════════════════════════════
   // ADAPTERS — Plug-and-play React/Vue interoperability layer (v2.3)
@@ -5325,7 +5313,6 @@
       return Array.from(ADAPTER_REGISTRY.entries()).map(([tag, meta]) => ({ tag, framework: meta.framework }));
     }
   };
-
   // ═══════════════════════════════════════════════════════════════════════
   // PUBLIC API — The global `Breeze` object
   // ═══════════════════════════════════════════════════════════════════════
