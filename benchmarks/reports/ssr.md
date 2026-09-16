@@ -9,13 +9,13 @@ Breeze's zero-dependency server-side renderer (`Breeze.renderToString()`) measur
 
 ## Environment
 
-- **Date**: 2026-09-16T09:50:25.648Z
-- **OS**: Linux 6.8.0-100-generic (x64)
-- **CPU**: AMD EPYC 9354 32-Core Processor — 64 logical cores
-- **RAM**: 755.2 GiB
-- **Power**: AC / Desktop (or battery undetected)
-- **Node.js**: v22.23.1 (V8 12.4.254.21-node.56)
-- **Git commit**: 0343add (dirty working tree)
+- **Date**: 2026-09-16T15:15:31.733Z
+- **OS**: Linux 7.0.0-31-generic (x64)
+- **CPU**: Intel(R) Pentium(R) CPU  N3700  @ 1.60GHz — 4 logical cores
+- **RAM**: 3.7 GiB
+- **Power**: Battery (55%, Charging)
+- **Node.js**: v22.23.2 (V8 12.4.254.21-node.56)
+- **Git commit**: 98dbd1c (dirty working tree)
 - **Environment**: Virtualization status could not be determined on this OS.
 
 ---
@@ -32,10 +32,10 @@ node benchmarks/ssr-runner.js
 
 | SSR Engine | Median Throughput (pages/sec) | p95 | Range (min–max) | sd | Output Size |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Breeze SSR (pre-parsed AST)** | **119,479 ops/s** | 129,675 | 14,199–129,675 | 50322.02 | 2417 B |
-| **Breeze SSR (raw DSL string)** | **119,205 ops/s** | 124,008 | 20,443–124,008 | 37216.76 | 2417 B |
-| **Virtual DOM Serializer (Preact-style, hand-rolled reference impl)** | **125,686 ops/s** | 156,108 | 17,517–156,108 | 46127.32 | 2289 B |
-| **Native JS Template Literals** | **1,038,407 ops/s** | 1,140,493 | 777,982–1,140,493 | 133438.07 | 2278 B |
+| **Breeze SSR (pre-parsed AST)** | **10,521 ops/s** | 11,417 | 3,390–11,417 | 2818.46 | 2417 B |
+| **Breeze SSR (raw DSL string)** | **10,633 ops/s** | 10,804 | 8,101–10,804 | 960.87 | 2417 B |
+| **Virtual DOM Serializer (Preact-style, hand-rolled reference impl)** | **12,088 ops/s** | 15,296 | 6,927–15,296 | 2955.13 | 2289 B |
+| **Native JS Template Literals** | **75,640 ops/s** | 1,08,956 | 62,074–1,08,956 | 20065.96 | 2278 B |
 
 ## Reading these numbers
 
@@ -45,4 +45,4 @@ node benchmarks/ssr-runner.js
 
 ---
 
-*Generated 2026-09-16T09:50:25.648Z at git commit `0343add` (dirty working tree — re-run after committing for a citable result).*
+*Generated 2026-09-16T15:15:31.733Z at git commit `98dbd1c` (dirty working tree — re-run after committing for a citable result).*

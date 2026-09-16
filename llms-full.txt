@@ -2,7 +2,7 @@
 
 Breeze Framework (v2.4.0)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
-Size: ~48 KB gzipped (219.81 KB raw, ~39.9 KB Brotli; zero dependencies — see benchmark.md)
+Size: ~50 KB gzipped (222.34 KB raw, 49.80 KB gzip, 40.65 KB Brotli; zero dependencies — see benchmark.md)
 Website: https://github.com/alakmar344/breeze-framework
 License: MIT
 
