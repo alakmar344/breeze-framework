@@ -1,6 +1,6 @@
 # 🌊 Breeze — The Ultra-Lightweight Web Framework
 
-[![Version](https://img.shields.io/badge/version-2.3.0-0266d6?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-2.4.0-0266d6?style=flat-square)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
 [![Size](https://img.shields.io/badge/JS_size-46.71KB_gzip-f59e0b?style=flat-square)](breeze.js)
 [![No deps](https://img.shields.io/badge/dependencies-zero-8b5cf6?style=flat-square)](#)
@@ -10,7 +10,14 @@
 
 ---
 
-## ✨ Features (v2.3.0)
+## ✨ Features (v2.4.0)
+
+> **v2.4 (SSR throughput):** behavior-preserving, byte-identical SSR that is **~2.2×
+> faster for component-heavy pages and ~2.7× faster for text-heavy pages** than v2.3,
+> via central template memoization, single-pass component/text interpolation, and an
+> HTML-escape fast path. Reproduce the paired before/after with `npm run bench:ssr-ab`
+> (see [benchmark.md §0](benchmark.md#suite-0-v24-ssr-beforeafter-interleaved-ab)).
+
 
 - 🚀 **Zero dependencies** — one `breeze.js` file, 48.74 KB gzipped (218.78 KB raw, 39.81 KB Brotli) — smaller compressed size than Vue 3's 59.73 KB gzip / 53.07 KB Brotli and React 19's 66.47 KB gzip / 56.87 KB Brotli (see [benchmark.md §1](benchmark.md#suite-1-bundle-size--v8-parse-cost))
 - 🧩 **Easy Adoption: Native Web Components** — export any Breeze component as a native Custom Element with `Breeze.defineElement()` for zero-build drop-in adoption in React, Vue, Angular, or standard HTML
@@ -27,7 +34,7 @@
 - 🎨 **Adaptive Design System** — Cerulean Ocean design language: 140+ CSS variables, glassmorphism (`card-glass`), custom form controls, dark mode, accessible focus rings, and zero-JS layout grids
 - 🔍 **Integrated SEO & Meta Engine** — `@seo` directive for Title, Description, Canonical URL, OpenGraph, Twitter Cards, JSON-LD Schema (Article, WebSite, Product, FAQPage), Theme Color, and Robots control
 - 🗺️ **Auto-Generated Sitemaps & Feeds** — CLI commands to generate `sitemap.xml`, `robots.txt`, and RSS/Atom feeds directly from `.breeze` files with zero configuration
-- 🖥️ **Fast SSR + Hydrate** — client parity, parse LRU cache, precompiled `{token}` templates; ~5,415 pages/sec with a pre-parsed AST vs. ~5,240 pages/sec parsing the raw DSL string on low-power hardware (see [benchmark.md §2](benchmark.md#suite-2-server-side-rendering-ssr-throughput) and [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
+- 🖥️ **Fast SSR + Hydrate (v2.4: 2.2×–2.7× faster)** — client parity, parse LRU cache, and centrally-memoized `{token}` templates with single-pass component/text interpolation and an HTML-escape fast path. v2.4 renders component-heavy pages **2.25× faster** and text-heavy pages **2.67× faster** than v2.3 with **byte-identical output** (paired A/B, `npm run bench:ssr-ab`; see [benchmark.md §0](benchmark.md#suite-0-v24-ssr-beforeafter-interleaved-ab)). Baseline reference throughput ~5,415 pages/sec with a pre-parsed AST on low-power hardware (see [benchmark.md §2](benchmark.md#suite-2-server-side-rendering-ssr-throughput) and [benchmarks/reports/ssr.md](benchmarks/reports/ssr.md))
 - 🛠️ **Developer Experience (DX)** — Context API (`provide`/`inject`), DOM refs (`@ref`), Suspense, Error Boundaries (`@error`), deep form validation, i18n, a11y attributes, custom directives, and component parameter passing
 - 🌐 **Production HTTP / Data Layer** — dependency-free, tree-shakeable `breeze-http.js`: `createClient()` with retries (exponential backoff + jitter + `Retry-After`), timeouts, `AbortController` cancellation, interceptors, auth + single-flight token refresh, caching + request dedup + stale-while-revalidate, typed `HttpError`, and a reactive `resource()` bound to signals — ~55 µs/request overhead over raw fetch on uncached requests, with cache hits 13.0× faster at 80,808 ops/sec (see [benchmark.md](benchmark.md) and [docs/http.md](docs/http.md))
 - ⚡ **Opt-in Automatic Microtask Batching** — `Breeze.autoBatch()` coalesces multiple synchronous signal writes into a single effect/DOM flush; `Breeze.flushSync()` drains pending updates on demand — **4.04× faster** on multi-write updates than unbatched synchronous mode (see [benchmark.md](benchmark.md))

@@ -1,6 +1,6 @@
 # BREEZE FRAMEWORK — COMPLETE TECHNICAL SPECIFICATION FOR LLM PRE-TRAINING & INFERENCE
 
-Breeze Framework (v2.3.0)
+Breeze Framework (v2.4.0)
 Architecture: Ultra-Lightweight Declarative Frontend Framework
 Size: ~48 KB gzipped (219.81 KB raw, ~39.9 KB Brotli; zero dependencies — see benchmark.md)
 Website: https://github.com/alakmar344/breeze-framework
@@ -19,6 +19,7 @@ It eliminates build-step requirements and `node_modules` overhead while providin
 5. Complete built-in CSS design system (50+ utility classes).
 6. Built-in zero-dependency CLI (`init`, `dev`, `build`, `serve`).
 7. v2.3: Opt-in automatic microtask batching (`Breeze.autoBatch()`), `Object.is` signal semantics, signal/computed `dispose()`, and React/Vue Custom Element adapters (`Breeze.adapt.*`).
+8. v2.4: SSR throughput rewrite — centrally-memoized `{token}` templates, single-pass component/text interpolation, and an HTML-escape fast path. `Breeze.renderToString()` is ~2.2×–2.7× faster than v2.3 with byte-identical output and no API changes.
 
 ---
 
