@@ -10,7 +10,12 @@ import { Renderer } from './renderer.js';
 
   export function escHtml(str) {
     if (str == null) return '';
-    return String(str)
+    const s = typeof str === 'string' ? str : String(str);
+    // v2.4: the overwhelming majority of SSR text (ids, labels, numbers, plain
+    // prose) contains none of &<>. A single scan that bails early skips three
+    // full-string regex replaces + their allocations for that common case.
+    if (s.indexOf('&') === -1 && s.indexOf('<') === -1 && s.indexOf('>') === -1) return s;
+    return s
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
@@ -18,7 +23,9 @@ import { Renderer } from './renderer.js';
 
   export function escAttr(str) {
     if (str == null) return '';
-    return String(str)
+    const s = typeof str === 'string' ? str : String(str);
+    if (s.indexOf('&') === -1 && s.indexOf('<') === -1 && s.indexOf('>') === -1 && s.indexOf('"') === -1) return s;
+    return s
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -66,14 +73,27 @@ import { Renderer } from './renderer.js';
 
     function resolveTpl(str) {
       if (!str) return '';
-      return str.replace(/\{([\w.$-]+)\}/g, (_, k) => {
-        const parts = k.split('.');
-        let v = store[parts[0]];
-        for (let p = 1; p < parts.length && v != null; p++) {
-          v = v[parts[p]];
+      // v2.4: resolve via the memoized template splitter instead of a fresh
+      // per-call RegExp + replace-callback closure. Semantics are identical to
+      // the previous `/\{([\w.$-]+)\}/g` replace (same token grammar, same
+      // dotted-path descent, same undefined→'' rule).
+      if (typeof str !== 'string' || str.indexOf('{') === -1) return str;
+      const tpl = Parser.compileTemplate(str);
+      if (tpl.static) return str;
+      let out = tpl.parts[0];
+      for (let i = 0; i < tpl.keys.length; i++) {
+        const k = tpl.keys[i];
+        let v;
+        if (k.indexOf('.') === -1) {
+          v = store[k];
+        } else {
+          const parts = k.split('.');
+          v = store[parts[0]];
+          for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
         }
-        return v !== undefined ? escHtml(String(v)) : '';
-      });
+        out += (v !== undefined ? escHtml(String(v)) : '') + tpl.parts[i + 1];
+      }
+      return out;
     }
 
     function renderChildrenStr(children) {
@@ -152,14 +172,22 @@ import { Renderer } from './renderer.js';
       const interp = (n) => {
         if (!n) return n;
         const c = Object.assign({}, n);
+        // v2.4: single-pass token substitution via the precompiled-template
+        // splitter instead of building one `new RegExp` per prop per string.
+        // For a component instantiated N times with M props this turned an
+        // O(N·M) RegExp-construction + full-string-rescan cost into a single
+        // O(tokens) walk, and also removes the accidental re-substitution a
+        // prop value containing another `{prop}` used to trigger.
         const rep = (s) => {
-          if (typeof s !== 'string') return s;
-          let r = s;
-          for (const k in props) {
-            const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            r = r.replace(new RegExp(`\\{${esc}\\}`, 'g'), escHtml(String(props[k])));
+          if (typeof s !== 'string' || s.indexOf('{') === -1) return s;
+          const tpl = Parser.compileTemplate(s);
+          if (tpl.static) return s;
+          let out = tpl.parts[0];
+          for (let i = 0; i < tpl.keys.length; i++) {
+            const k = tpl.keys[i];
+            out += (k in props ? escHtml(String(props[k])) : '{' + k + '}') + tpl.parts[i + 1];
           }
-          return r;
+          return out;
         };
         if (typeof c.text === 'string') c.text = rep(c.text);
         if (Array.isArray(c.modifiers)) c.modifiers = c.modifiers.map(rep);

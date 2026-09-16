@@ -1,18 +1,19 @@
 /*!
- * Breeze Framework v2.3.0 (Scalability + Interop + Auto-Batching)
+ * Breeze Framework v2.4.0 (SSR Throughput + Template Memoization)
  * Ultra-lightweight declarative web framework
  * https://github.com/breeze-framework/breeze-framework
  * MIT License
  *
  * Architecture:
- *   Parser    — Cached LRU parse, precompiled {token} templates, codeframe diagnostics
+ *   Parser    — Cached LRU parse, centrally-memoized {token} templates, codeframe diagnostics
  *   Signals   — Object.is correctness, disposable signals, opt-in auto microtask batching
  *   State     — Store slices, watchers, cycle-guarded computeds, signal sync
  *   Renderer  — LIS minimal-move keyed reconciliation, append fast-path, data-key select,
  *               if/elif/else chains, component params, portal, @show/@model/@ref/@cloak/@transition
  *   Router    — Hash/history, :id/:id?/*, outlet rendering, async guards, regex cache
  *   DX        — Context, refs, suspense, errorBoundary, forms, i18n, a11y, directives, testing
- *   SSR       — Parity string rendering (chains/components/ids/attrs) & non-destructive hydration
+ *   SSR       — Compiled-template string rendering (single-pass token substitution, escape
+ *               fast-path) with parity chains/components/ids/attrs & non-destructive hydration
  *   Adapters  — Plug-and-play React/Vue Custom Element bridges (zero bundled deps)
  *   CLI       — generate/lint/format/check/min, portable median-run benchmarks (15 suites)
  *
@@ -686,6 +687,7 @@
 
     clearCache() {
       this._cache.clear();
+      this._tplMemo.clear();
       this._diagnostics = [];
     },
 
@@ -699,10 +701,22 @@
      * Returns { parts: string[], keys: string[] } so that
      *   render = parts[0] + val(keys[0]) + parts[1] + ...
      */
+    _tplMemo: new Map(),
+    _tplMemoLimit: 2000,
+
     compileTemplate(str) {
       if (!str || typeof str !== 'string' || str.indexOf('{') === -1) {
         return { parts: [str], keys: [], static: true };
       }
+      // v2.4: memoize compiled templates centrally. The same handful of token
+      // strings ({title}, {row.name}, …) recur across every row/component
+      // instance and across SSR passes; the returned object is always treated
+      // read-only by callers, so a shared cache turns repeated compiles into a
+      // single Map hit. (Renderer/row-compiler kept their own caches too — a
+      // hit here just makes those redundant, never wrong.)
+      const memo = this._tplMemo;
+      const cached = memo.get(str);
+      if (cached !== undefined) return cached;
       const parts = [], keys = [];
       let last = 0;
       const re = /\{([\w.$-]+)\}/g;
@@ -713,7 +727,10 @@
         last = m.index + m[0].length;
       }
       parts.push(str.slice(last));
-      return { parts, keys, static: keys.length === 0 };
+      const tpl = { parts, keys, static: keys.length === 0 };
+      if (memo.size >= this._tplMemoLimit) memo.clear();
+      memo.set(str, tpl);
+      return tpl;
     },
 
     renderCompiled(tpl, lookup) {
@@ -4567,7 +4584,12 @@
 
   function escHtml(str) {
     if (str == null) return '';
-    return String(str)
+    const s = typeof str === 'string' ? str : String(str);
+    // v2.4: the overwhelming majority of SSR text (ids, labels, numbers, plain
+    // prose) contains none of &<>. A single scan that bails early skips three
+    // full-string regex replaces + their allocations for that common case.
+    if (s.indexOf('&') === -1 && s.indexOf('<') === -1 && s.indexOf('>') === -1) return s;
+    return s
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
@@ -4575,7 +4597,9 @@
 
   function escAttr(str) {
     if (str == null) return '';
-    return String(str)
+    const s = typeof str === 'string' ? str : String(str);
+    if (s.indexOf('&') === -1 && s.indexOf('<') === -1 && s.indexOf('>') === -1 && s.indexOf('"') === -1) return s;
+    return s
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -4623,14 +4647,27 @@
 
     function resolveTpl(str) {
       if (!str) return '';
-      return str.replace(/\{([\w.$-]+)\}/g, (_, k) => {
-        const parts = k.split('.');
-        let v = store[parts[0]];
-        for (let p = 1; p < parts.length && v != null; p++) {
-          v = v[parts[p]];
+      // v2.4: resolve via the memoized template splitter instead of a fresh
+      // per-call RegExp + replace-callback closure. Semantics are identical to
+      // the previous `/\{([\w.$-]+)\}/g` replace (same token grammar, same
+      // dotted-path descent, same undefined→'' rule).
+      if (typeof str !== 'string' || str.indexOf('{') === -1) return str;
+      const tpl = Parser.compileTemplate(str);
+      if (tpl.static) return str;
+      let out = tpl.parts[0];
+      for (let i = 0; i < tpl.keys.length; i++) {
+        const k = tpl.keys[i];
+        let v;
+        if (k.indexOf('.') === -1) {
+          v = store[k];
+        } else {
+          const parts = k.split('.');
+          v = store[parts[0]];
+          for (let p = 1; p < parts.length && v != null; p++) v = v[parts[p]];
         }
-        return v !== undefined ? escHtml(String(v)) : '';
-      });
+        out += (v !== undefined ? escHtml(String(v)) : '') + tpl.parts[i + 1];
+      }
+      return out;
     }
 
     function renderChildrenStr(children) {
@@ -4709,14 +4746,22 @@
       const interp = (n) => {
         if (!n) return n;
         const c = Object.assign({}, n);
+        // v2.4: single-pass token substitution via the precompiled-template
+        // splitter instead of building one `new RegExp` per prop per string.
+        // For a component instantiated N times with M props this turned an
+        // O(N·M) RegExp-construction + full-string-rescan cost into a single
+        // O(tokens) walk, and also removes the accidental re-substitution a
+        // prop value containing another `{prop}` used to trigger.
         const rep = (s) => {
-          if (typeof s !== 'string') return s;
-          let r = s;
-          for (const k in props) {
-            const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            r = r.replace(new RegExp(`\\{${esc}\\}`, 'g'), escHtml(String(props[k])));
+          if (typeof s !== 'string' || s.indexOf('{') === -1) return s;
+          const tpl = Parser.compileTemplate(s);
+          if (tpl.static) return s;
+          let out = tpl.parts[0];
+          for (let i = 0; i < tpl.keys.length; i++) {
+            const k = tpl.keys[i];
+            out += (k in props ? escHtml(String(props[k])) : '{' + k + '}') + tpl.parts[i + 1];
           }
-          return r;
+          return out;
         };
         if (typeof c.text === 'string') c.text = rep(c.text);
         if (Array.isArray(c.modifiers)) c.modifiers = c.modifiers.map(rep);
@@ -5318,7 +5363,7 @@
   // ═══════════════════════════════════════════════════════════════════════
 
   const BreezeAPI = {
-    version: '2.3.0',
+    version: '2.4.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},

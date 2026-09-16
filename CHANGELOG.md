@@ -8,6 +8,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-16
+
+### ⚡ Performance — v2.4 SSR Throughput
+
+A focused, behavior-preserving performance release. **No public API changes and no
+behavior changes** — SSR output is byte-for-byte identical to v2.3 (asserted by the
+new correctness-gated A/B runner before any timing is trusted). All work is in
+`src/core/`.
+
+- **Central template memoization (`Parser.compileTemplate`)**:
+  - The `{token}` → `{parts, keys}` split is now computed once per unique template
+    string and cached in a shared, size-capped memo, so the same string is never
+    recompiled across rows, component instances, or repeated SSR passes.
+  - `Breeze.clearCache()` clears the template memo alongside the AST cache.
+
+- **Single-pass component interpolation (SSR)**:
+  - Component prop substitution no longer constructs one `new RegExp` per prop per
+    string (an `O(instances × props)` cost with per-call rescans). It walks the
+    precompiled template parts once and looks props up by key.
+  - Side benefit: a prop value that itself contains a `{token}`-looking substring is
+    no longer accidentally re-substituted.
+
+- **Compiled `resolveTpl` (SSR text interpolation)**:
+  - Replaced the per-call `/\{…\}/g` + replace-callback closure with the same
+    memoized single-pass walk. Identical token grammar, dotted-path descent, and
+    `undefined → ''` semantics.
+
+- **HTML-escape fast path (`escHtml` / `escAttr`)**:
+  - Both bail out of their 3–4 chained regex replaces when the string contains none
+    of `& < > "` (the common case for ids, numbers, and plain prose), matching the
+    fast path the static-row serializer already used.
+
+- **Measured, paired against the v2.3.0 build** (`npm run bench:ssr-ab`, interleaved
+  400 trials, AMD EPYC 9354, Node 22):
+  - Text-heavy SSR (1k interpolated sections): **2.67× faster** median (2.385 → 0.895 ms), p95 **−69.7%**.
+  - Component-heavy SSR (300 instances): **2.25× faster** median (1.609 → 0.714 ms), p95 **−62.5%**.
+  - Mixed real-world page: **1.17× faster**; precompiled static-row table: **1.00×** (unchanged control).
+
+### 🧪 Benchmarking
+
+- **New noise-robust A/B runner** (`benchmarks/ssr-ab-runner.js`, `npm run bench:ssr-ab`):
+  loads the baseline (extracted from git) and candidate builds into one process and
+  **interleaves** their trials so host-load spikes cancel out of the paired delta;
+  gates on byte-identical output; reports `min`/`median`/`p95`.
+
+### 🔎 Rejected (measured, then reverted)
+
+- Lazy string-id/label construction in `signal`/`computed`/`effect`: the getter-based
+  return object degraded V8's hidden class on the create+dispose hot path and net-lost
+  under interleaved measurement.
+- `indexOf('\r')` guard before parser CRLF normalization: V8's no-match
+  `String.replace` already beat the extra full-string scan.
+
 ## [2.3.0] - 2026-09-14
 
 ### 🚀 Added — v2.3 Scalability & Interoperability

@@ -19,6 +19,7 @@
 
     clearCache() {
       this._cache.clear();
+      this._tplMemo.clear();
       this._diagnostics = [];
     },
 
@@ -32,10 +33,22 @@
      * Returns { parts: string[], keys: string[] } so that
      *   render = parts[0] + val(keys[0]) + parts[1] + ...
      */
+    _tplMemo: new Map(),
+    _tplMemoLimit: 2000,
+
     compileTemplate(str) {
       if (!str || typeof str !== 'string' || str.indexOf('{') === -1) {
         return { parts: [str], keys: [], static: true };
       }
+      // v2.4: memoize compiled templates centrally. The same handful of token
+      // strings ({title}, {row.name}, …) recur across every row/component
+      // instance and across SSR passes; the returned object is always treated
+      // read-only by callers, so a shared cache turns repeated compiles into a
+      // single Map hit. (Renderer/row-compiler kept their own caches too — a
+      // hit here just makes those redundant, never wrong.)
+      const memo = this._tplMemo;
+      const cached = memo.get(str);
+      if (cached !== undefined) return cached;
       const parts = [], keys = [];
       let last = 0;
       const re = /\{([\w.$-]+)\}/g;
@@ -46,7 +59,10 @@
         last = m.index + m[0].length;
       }
       parts.push(str.slice(last));
-      return { parts, keys, static: keys.length === 0 };
+      const tpl = { parts, keys, static: keys.length === 0 };
+      if (memo.size >= this._tplMemoLimit) memo.clear();
+      memo.set(str, tpl);
+      return tpl;
     },
 
     renderCompiled(tpl, lookup) {

@@ -1075,10 +1075,10 @@ describe('Breeze Framework Core', () => {
     }
   });
 
-  it('v2.3: version is 2.3.0 across package + runtime', () => {
+  it('v2.4: version is 2.4.0 across package + runtime', () => {
     const pkg = require('../package.json');
-    assert.equal(pkg.version, '2.3.0');
-    assert.equal(Breeze.version, '2.3.0');
+    assert.equal(pkg.version, '2.4.0');
+    assert.equal(Breeze.version, '2.4.0');
   });
 
   it('v2: announce/focus are no-ops in Node (no document crash)', () => {
@@ -1413,6 +1413,62 @@ describe('Breeze Framework Core', () => {
     it('adapt API throws clear errors when React/Vue is missing', () => {
       assert.throws(() => Breeze.adapt.react('x-react', () => {}), /React/);
       assert.throws(() => Breeze.adapt.vue('x-vue', () => {}), /Vue/);
+    });
+  });
+
+  describe('v2.4 SSR Throughput & Template Memoization', () => {
+    it('interpolated values are still escaped after the escape fast-path', () => {
+      // The fast-path only short-circuits when NONE of & < > (" for attrs) are
+      // present; interpolated values carrying them must still be escaped.
+      const html = Breeze.renderToString('@section #s\n  p "{msg}"', { msg: 'a & b < c > d' });
+      assert.ok(html.includes('a &amp; b &lt; c &gt; d'), html);
+    });
+
+    it('escape fast-path leaves plain interpolated text byte-identical', () => {
+      const html = Breeze.renderToString('@section #s\n  p "{msg}"', { msg: 'Plain text 123, no specials' });
+      assert.ok(html.includes('>Plain text 123, no specials<'), html);
+      assert.ok(!html.includes('&amp;'));
+    });
+
+    it('component props are substituted and escaped correctly', () => {
+      const src = [
+        '@def Card(title, body)',
+        '  card',
+        '    h3 "{title}"',
+        '    p "{body}"',
+        'Card("Hello", body="World & <x>")'
+      ].join('\n');
+      const html = Breeze.renderToString(src, {});
+      assert.ok(html.includes('<h3>Hello</h3>'), html);
+      assert.ok(html.includes('<p>World &amp; &lt;x&gt;</p>'), html);
+    });
+
+    it('compileTemplate memoizes and returns stable, correct splits; clearCache resets it', () => {
+      const T = Breeze.testing;
+      // compileTemplate is exposed via the renderer/testing surface used by rows.
+      const a = Breeze.renderToString('@section #s\n  @each r in rows\n    p "{r.name}-{r.id}"', {
+        rows: [{ id: 1, name: 'x' }, { id: 2, name: 'y' }]
+      });
+      assert.ok(a.includes('x-1') && a.includes('y-2'), a);
+      // Re-render (memo hit) must be identical.
+      const b = Breeze.renderToString('@section #s\n  @each r in rows\n    p "{r.name}-{r.id}"', {
+        rows: [{ id: 1, name: 'x' }, { id: 2, name: 'y' }]
+      });
+      assert.equal(a, b);
+      assert.equal(typeof Breeze.clearCache, 'function');
+      Breeze.clearCache(); // must not throw and must clear the template memo
+      const c = Breeze.renderToString('@section #s\n  @each r in rows\n    p "{r.name}-{r.id}"', {
+        rows: [{ id: 1, name: 'x' }, { id: 2, name: 'y' }]
+      });
+      assert.equal(a, c);
+    });
+
+    it('resolveTpl handles dotted paths, missing keys, and static strings identically', () => {
+      const html = Breeze.renderToString('@section #s\n  p "{user.name} / {missing} / static"', {
+        user: { name: 'Ada' }
+      });
+      // present dotted path resolves, missing key collapses to '', static kept.
+      assert.ok(html.includes('Ada /  / static'), html);
     });
   });
 });

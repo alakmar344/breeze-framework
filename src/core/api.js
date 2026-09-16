@@ -18,7 +18,7 @@ import { Adapters } from './adapters.js';
   // ═══════════════════════════════════════════════════════════════════════
 
   export const BreezeAPI = {
-    version: '2.3.0',
+    version: '2.4.0',
 
     // ── Custom Methods Registry ───────────────────────────────────────
     methods: {},

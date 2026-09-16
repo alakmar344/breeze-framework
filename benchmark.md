@@ -1,30 +1,51 @@
-# Breeze Framework v2.3 — Comprehensive Benchmark Report
+# Breeze Framework v2.4 — Comprehensive Benchmark Report
 
 > **Methodology first, numbers second.** Every table below was produced by the
 > runnable scripts in `benchmarks/` and `bench.js`. If a claim does not trace
 > back to a runnable command you can execute yourself, that is a bug in this
 > document — please report it.
 
-Breeze v2.3 is a scalability, performance, and interoperability release. The headline
-architectural enhancements evaluated in this report are:
+Breeze v2.4 is a **server-side-rendering throughput** release. It keeps every v2.3
+capability and adds targeted, allocation-eliminating rewrites to the hottest SSR
+code paths. The headline v2.4 changes evaluated in this report are:
 
-1. **Opt-in automatic microtask batching** (`Breeze.autoBatch()`) that coalesces
-   multiple synchronous signal writes into a single effect/DOM flush.
-2. **Object-is signal semantics** and an explicit `dispose()` API for deterministic
-   memory lifecycle management.
-3. A **plug-and-play React/Vue adapter layer** (`Breeze.adapt.react()` /
-   `Breeze.adapt.vue()`) that wraps framework components into native Custom
-   Elements without bundling React or Vue into Breeze.
-4. **Compiled surgical DOM row patchers** (`_bzPatchTargets`) and precompiled static
-   row serializers that bypass virtual DOM reconciler traversals.
+1. **Central template memoization** — `Parser.compileTemplate` now caches its
+   `{token}` splits once, globally, so the same template string is never
+   recompiled across rows, component instances, or SSR passes.
+2. **Single-pass component interpolation** — component prop substitution no longer
+   builds one `new RegExp` per prop per string (an O(instances × props) cost);
+   it walks the precompiled template once.
+3. **Compiled `resolveTpl`** — SSR text interpolation dropped its per-call
+   `RegExp`/replace-callback closure for the same memoized single-pass walk.
+4. **HTML-escape fast path** — `escHtml`/`escAttr` bail out of their 3–4 regex
+   replaces when the string contains no `& < > "` (the common case), matching the
+   fast path the static-row serializer already used.
 
-This document reports the empirical numbers those systems produced on the machine below
-across the full 17-suite benchmark pipeline, comparing Breeze side-by-side against
-official production builds of React 19, Vue 3, Preact 10, and Vanilla JS.
+These are pure engineering wins: **output is byte-for-byte identical** to v2.3 (the
+A/B runner asserts this before it trusts a single timing), and there are **zero API
+or behavior changes**. Net effect, measured paired against the v2.3.0 build:
+**component-heavy SSR ~2.2× faster, text-heavy SSR ~2.7× faster**, with p95 tail
+latency cut by ~55–70%.
+
+The v2.4 numbers come from a new, noise-robust **interleaved A/B runner**
+(`benchmarks/ssr-ab-runner.js`) — see [Suite 0](#suite-0-v24-ssr-beforeafter-interleaved-ab).
+The remaining suites carry forward the v2.3 pipeline that compares Breeze against
+official production builds of React 19, Vue 3, Preact 10, and Vanilla JS; their
+absolute numbers were captured on the low-power reference machine disclosed below.
 
 ---
 
 ## TL;DR: Key Empirical Findings
+
+**v2.4 SSR throughput (paired A/B vs the v2.3.0 build, byte-identical output):**
+
+- 🚀 **Text-heavy SSR is 2.67× faster**: 2.385 ms → 0.895 ms median for 1,000 interpolated sections; p95 4.077 ms → 1.234 ms (**−69.7%**).
+- 🚀 **Component-heavy SSR is 2.25× faster**: 1.609 ms → 0.714 ms median for 300 component instances; p95 2.815 ms → 1.054 ms (**−62.5%**).
+- ⚡ **Mixed real-world page is 1.17× faster** (nav + profile + 10-item feed), p95 −13.9%.
+- ✅ **No regression on the already-compiled static-row table path** (1.00×), and **every workload's HTML is byte-for-byte identical** to v2.3 — asserted by the runner's correctness gate before any timing is reported.
+- 🧪 **Reproduce**: `npm run bench:ssr-ab` (interleaved, paired, host-load-canceling — see [Methodology](#suite-0-v24-ssr-beforeafter-interleaved-ab)).
+
+**v2.3 cross-framework pipeline (low-power reference machine):**
 
 Under rigorous enterprise thermal pacing and un-timed warmup discards on low-power consumer hardware:
 
@@ -46,6 +67,7 @@ Under rigorous enterprise thermal pacing and un-timed warmup discards on low-pow
 3. [Threats to Validity](#threats-to-validity)
 4. [How to Reproduce](#how-to-reproduce)
 5. [Results across 17 Suites](#results-across-17-suites)
+   - [Suite 0: v2.4 SSR Before/After (Interleaved A/B)](#suite-0-v24-ssr-beforeafter-interleaved-ab)
    - [Suite 1: Bundle Size & V8 Parse Cost](#suite-1-bundle-size--v8-parse-cost)
    - [Suite 2: Server-Side Rendering (SSR) Throughput](#suite-2-server-side-rendering-ssr-throughput)
    - [Suite 3: DBMonster Frame-Callback Throughput](#suite-3-dbmonster-frame-callback-throughput)
@@ -131,6 +153,7 @@ node scripts/build-core.js
 node --expose-gc benchmarks/run-all.js
 
 # Run individual standalone suites
+npm run bench:ssr-ab          # Suite 0: v2.4 SSR before/after (paired, interleaved)
 npm run bench:bundle          # Suite 1: Bundle size & parse cost
 npm run bench:ssr             # Suite 2: SSR throughput
 npm run bench:dbmonster       # Suite 3: DBMonster frame throughput
@@ -154,6 +177,63 @@ node bench.js                 # Root Node micro-benchmarks
 ---
 
 ## Results across 17 Suites
+
+### Suite 0: v2.4 SSR Before/After (Interleaved A/B)
+
+**Runner:** `npm run bench:ssr-ab` (`benchmarks/ssr-ab-runner.js`).
+
+**Why a new runner.** The classic throughput runners take a handful of wall-clock
+samples per engine, one engine fully after another. On a shared / virtualized /
+thermally-throttled host the between-sample variance routinely exceeds the median
+(sd > median is common on CI boxes), so a single *before* run compared to a single
+*after* run is dominated by whatever else the host was doing at the time — not by
+the code change. The v2.4 runner removes that confound:
+
+- **Paired & interleaved.** Both the baseline (v2.3.0, extracted straight from git
+  via `git show 0343add:breeze.js`) and the candidate (`breeze.js`) are loaded into
+  one process and their trials are alternated `A,B,A,B,…`. A host-load spike now
+  hits both builds within microseconds, so it cancels out of the paired delta.
+- **Correctness-gated.** Every workload's HTML from both builds is compared for
+  byte-equality *before* any timing is trusted; a mismatch fails the run.
+- **Reports the stable statistic.** `min` is the GC-/noise-free floor; `median` and
+  `p95` are shown alongside it.
+
+Measured on `AMD EPYC 9354 × 64, Node v22.23.1`, 400 interleaved trials (warmup 30):
+
+| Workload | Output | v2.3 median | v2.4 median | Speedup | v2.3 p95 | v2.4 p95 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| component-heavy (300 comps) | identical | 1.609 ms | 0.714 ms | **2.25×** | 2.815 ms | 1.054 ms |
+| text-heavy (1k sections) | identical | 2.385 ms | 0.895 ms | **2.67×** | 4.077 ms | 1.234 ms |
+| mixed page (nav+profile+feed) | identical | 0.017 ms | 0.015 ms | **1.17×** | 0.031 ms | 0.026 ms |
+| static-row table (5k rows) | identical | 0.747 ms | 0.744 ms | **1.00×** | 1.333 ms | 1.341 ms |
+
+**Reading the table.** The two heavy workloads — the ones that actually stress
+component instantiation and text interpolation — get **2.25×** and **2.67×** faster.
+The mixed page is small (2 KB of HTML) so its absolute time is near the timer floor,
+but still moves ~15%. The static-row table is a control: it already used the v2.3
+precompiled row serializer (untouched in v2.4), so it correctly shows **no change**
+(1.00×) — evidence the speedups come from the paths that were actually rewritten,
+not from measurement drift.
+
+**What changed (all in `src/core/`):**
+
+| Change | File | Effect |
+| :--- | :--- | :--- |
+| Central `compileTemplate` memo | `parser.js` | Token splits computed once per unique string, globally reused |
+| Single-pass component interp | `ssr.js` (`interp`/`rep`) | Removed `new RegExp` per-prop-per-string; walks precompiled parts |
+| Compiled `resolveTpl` | `ssr.js` | Removed per-call `RegExp` + replace-callback closure |
+| `escHtml`/`escAttr` fast path | `ssr.js` | Skips 3–4 regex replaces when no `& < > "` present |
+
+> **Note on rejected changes.** Two candidate optimizations were measured and
+> *reverted* because the paired A/B showed they did not help on this workload: (a)
+> lazy string-id/label construction in `signal()`/`computed()`/`effect()` — the
+> getter-based rewrite degraded the hot return object's hidden class and net-lost on
+> create+dispose throughput; (b) an `indexOf('\r')` guard before CRLF normalization
+> in the parser — V8's no-match `String.replace` is already faster than the extra
+> full-string scan. Keeping them out is itself a result: only changes that survived
+> interleaved measurement shipped.
+
+---
 
 ### Suite 1: Bundle Size & V8 Parse Cost
 

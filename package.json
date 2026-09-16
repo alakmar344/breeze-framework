@@ -1,6 +1,6 @@
 {
   "name": "breeze-framework",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Ultra-lightweight declarative web framework",
   "main": "breeze.js",
   "bin": {
@@ -25,6 +25,7 @@
     "bench:public": "node benchmarks/krausest-runner.js",
     "bench:bundle": "node benchmarks/bundle-runner.js",
     "bench:ssr": "node benchmarks/ssr-runner.js",
+    "bench:ssr-ab": "node --expose-gc benchmarks/ssr-ab-runner.js",
     "bench:dbmonster": "node benchmarks/dbmonster-runner.js",
     "bench:mount10k": "node benchmarks/mount-10k-runner.js",
     "bench:update1row": "node benchmarks/update-1-row-runner.js",
