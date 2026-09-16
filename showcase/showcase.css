@@ -1245,3 +1245,96 @@ code, kbd, samp, pre {
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
 }
+
+/* ── Interactive Studio REPL & Live Widgets ────────────────────────────── */
+.studio-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  background: var(--c-card);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-press-lg);
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .studio-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.studio-pane {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+}
+
+.studio-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--c-canvas-muted);
+  border-bottom: 1px solid var(--c-border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.studio-editor-textarea {
+  flex: 1;
+  width: 100%;
+  padding: 1rem;
+  background: #0F172A;
+  color: #F8FAFC;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  border: none;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.studio-preview-pane {
+  flex: 1;
+  padding: 1.25rem;
+  background: var(--c-canvas);
+  overflow-y: auto;
+}
+
+.widget-demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.widget-card {
+  background: var(--c-card);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-press);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#bz-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: #1e293b;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 9999;
+  display: none;
+}
+
