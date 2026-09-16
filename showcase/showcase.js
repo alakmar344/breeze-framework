@@ -106,10 +106,10 @@ div.stat-metric-card [pad-md]
     span.badge-blueberry "W3C Custom Element"
     span "Instance Scoped" [small, muted]
   h2.stat-metric-value "{count}" [primary, mt-xs]
-  div [flex, gap-sm, mt-sm]
-    button.btn-blueberry.btn-sm "+1 Increment" [@click -> increment(count)]
-    button.btn-secondary.btn-sm "-1 Decrement" [@click -> decrement(count)]
-    button.btn.ghost.btn-sm "Reset" [@click -> setState(count, 0)]
+  div [flex, wrap, gap-xs, mt-sm]
+    button.btn-blueberry.btn-sm "+1" [@click -> increment(count)]
+    button.btn-secondary.btn-sm "-1" [@click -> decrement(count)]
+    button.btn.ghost.btn-sm "Reset" [@click -> setState(count, 42)]
 `, { observedAttributes: ['count'], initialState: { count: 42 } });
 
       // 2. Live Diagnostics HUD Custom Element
@@ -146,17 +146,27 @@ div.card-glass [pad-md]
         const ast = window.Breeze.parse(code);
         const parseMs = (performance.now() - t0).toFixed(2);
 
+        // Extract declared @state keys and values from the AST
+        const state = {};
+        if (Array.isArray(ast)) {
+          ast.forEach(node => {
+            if (node && node.type === 'state' && node.key) {
+              state[node.key] = node.value;
+            }
+          });
+        }
+
         const t1 = performance.now();
-        const ssrHtml = window.Breeze.renderToString ? window.Breeze.renderToString(ast) : '';
+        const ssrHtml = window.Breeze.renderToString ? window.Breeze.renderToString(ast, state) : '';
         const ssrMs = (performance.now() - t1).toFixed(2);
 
         if (compileTimeEl) compileTimeEl.textContent = `${parseMs} ms`;
         if (ssrTimeEl) ssrTimeEl.textContent = `${ssrMs} ms`;
 
-        // Render in-browser preview safely
-        if (window.Breeze.renderTo) {
-          preview.innerHTML = '';
-          window.Breeze.renderTo(preview, ast);
+        // Render in-browser preview with live interactive DOM bindings
+        preview.innerHTML = '';
+        if (window.Breeze.render) {
+          window.Breeze.render(code, preview);
         } else if (ssrHtml) {
           preview.innerHTML = ssrHtml;
         }
