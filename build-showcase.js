@@ -27,6 +27,7 @@ const files = [
   { src: path.join(showcaseDir, 'showcase.js'), dest: path.join(distDir, 'showcase.js') },
   { src: path.join(showcaseDir, 'app.breeze'), dest: path.join(distDir, 'app.breeze') },
   { src: path.join(rootDir, 'breeze.js'), dest: path.join(distDir, 'breeze.js') },
+  { src: path.join(rootDir, 'breeze-http.js'), dest: path.join(distDir, 'breeze-http.js') },
   { src: path.join(rootDir, 'breeze.css'), dest: path.join(distDir, 'breeze.css') },
   { src: path.join(rootDir, 'llms.txt'), dest: path.join(distDir, 'llms.txt') },
   { src: path.join(rootDir, 'llms-full.txt'), dest: path.join(distDir, 'llms-full.txt') }
