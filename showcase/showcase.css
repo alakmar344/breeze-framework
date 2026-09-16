@@ -114,6 +114,14 @@ a {
   transition: color 0.15s ease;
 }
 
+a:hover {
+  text-decoration: none;
+}
+
+section[id] {
+  scroll-margin-top: 80px;
+}
+
 code, kbd, samp, pre {
   font-family: var(--font-mono);
 }
@@ -178,12 +186,12 @@ code, kbd, samp, pre {
 .site-nav {
   position: sticky;
   top: 0;
-  background-color: rgba(250, 248, 245, 0.94);
+  background-color: rgba(250, 248, 245, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 2px solid var(--c-ink);
   z-index: 100;
-  padding: 0.9rem 0;
+  padding: 0.75rem 0;
   margin-bottom: 2.5rem;
 }
 
@@ -191,17 +199,19 @@ code, kbd, samp, pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   font-family: var(--font-serif);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--c-ink);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-brand:hover {
@@ -211,21 +221,32 @@ code, kbd, samp, pre {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  font-size: 0.9rem;
+  gap: 1rem;
+  font-size: 0.88rem;
   font-weight: 600;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-links::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-links a {
   color: var(--c-ink-light);
-  padding: 0.25rem 0.1rem;
+  padding: 0.2rem 0;
   border-bottom: 2px solid transparent;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-links a:hover {
   color: var(--c-ink);
   border-bottom-color: var(--c-tomato);
+  text-decoration: none;
 }
 
 /* ── Buttons (Tactile Vintage Press) ────────────────────────────────────── */
@@ -465,19 +486,25 @@ code, kbd, samp, pre {
 }
 
 .dilemma-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
+  position: relative;
+  padding-left: 1.5rem;
+  line-height: 1.6;
+}
+
+.dilemma-list li span.icon-neg,
+.dilemma-list li span.icon-pos {
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  font-weight: 800;
 }
 
 .dilemma-list li span.icon-neg {
   color: var(--c-tomato);
-  font-weight: 800;
 }
 
 .dilemma-list li span.icon-pos {
   color: var(--c-slime-dark);
-  font-weight: 800;
 }
 
 /* ── Section 3: The Breeze Approach (Progression) ───────────────────────── */
@@ -1307,9 +1334,15 @@ code, kbd, samp, pre {
 
 .widget-demo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .widget-demo-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .widget-card {
